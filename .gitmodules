@@ -1,0 +1,3 @@
+[submodule "Hexgrid"]
+	path = Hexgrid
+	url = https://github.com/CRN91/Hexgrid
