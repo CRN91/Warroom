@@ -14,7 +14,8 @@ func make_grid_axial():
 	for i in grid_list:
 		offset_i = HEX.axial_to_oddr(i)
 		Grid[offset_i] = {
-			"Cube" : i
+			"Cube" : i,
+			"Occupied": false 
 		}
 		set_cell(0, offset_i, 0, Vector2i(0,0), 0)
 

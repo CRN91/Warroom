@@ -10,15 +10,19 @@ var pos_v = Vector2i(0,0)
 var supplies = 100
 
 # Checks the coords given relate to a valid hex
-func valid_coords(coords):
-	if coords in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
-		return true
+func valid_coords(cell):
+	# Checks cell exists and is not occupied
+	if cell in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
+		if not grid.Grid[cell]['Occupied']:
+			return true
 	else:
 		false
 	
 func move_to(new_cell):
-	pos_v = new_cell
-	position = grid.map_to_local(HEX.axial_to_oddr(Vector2i(new_cell.x,new_cell.y)))
+	var oddr_cell = HEX.axial_to_oddr(Vector2i(new_cell.x,new_cell.y))
+	if valid_coords(oddr_cell):
+		pos_v = new_cell
+		position = grid.map_to_local(oddr_cell)
 
 func adjacent_move(direction):
 	move_to(HEX.cube_neighbor(HEX.axial_to_cube(pos_v), direction))
