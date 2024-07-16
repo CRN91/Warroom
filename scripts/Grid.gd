@@ -32,6 +32,6 @@ func _process(delta):
 	highlights = erase_highlight(highlights)
 	
 	if Grid.has(hex):
-		print(hex)
+		print(HEX.oddr_to_axial(hex))
 		set_cell(1, hex, 1, Vector2i(0,0), 0)
 		highlights.append(hex)
