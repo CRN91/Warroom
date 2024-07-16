@@ -8,29 +8,21 @@ var highlights = []
 
 func make_grid_axial():
 	# Makes a hexagon of hexagons
+	var shortest_width = 4 # width at shortest section of grid
 	var grid_list = HEX.cube_spiral(Vector3i(0,0,0), 4)
+	# Adding capital cities
+	grid_list += [Vector2i(shortest_width/2,-shortest_width), 
+	Vector2i(-shortest_width/2,shortest_width)]
+	
 	var offset_i
 	for i in grid_list:
 		offset_i = HEX.axial_to_oddr(i)
 		Grid[offset_i] = {
-			"Cube" : i,
-			"Piece": false 
+			"Cube" : i, # Cube coordinates
+			"Piece": false, # e.g. Troops
+			"Structure": false # e.g. City
 		}
 		set_cell(0, offset_i, 0, Vector2i(0,0), 0)
-
-	# Adds the two cells for the capital cities
-	var enemy_capital = HEX.axial_to_oddr(Vector2i(2,-4))
-	var own_capital = HEX.axial_to_oddr(Vector2i(-2,4))
-	set_cell(0, enemy_capital, 0, Vector2i(0,0), 0)
-	set_cell(0, own_capital, 0, Vector2i(0,0), 0)
-	Grid[enemy_capital] = {
-		"Cube" : Vector2i(2,-4),
-		"Piece" : false
-	}
-	Grid[own_capital] = {
-		"Cube" : Vector2i(2,-4),
-		"Piece" : false
-	}
 
 func erase_highlight(highlights):
 	for i in highlights:
