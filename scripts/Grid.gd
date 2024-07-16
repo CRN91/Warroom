@@ -14,7 +14,7 @@ func make_grid_axial():
 		offset_i = HEX.axial_to_oddr(i)
 		Grid[offset_i] = {
 			"Cube" : i,
-			"Occupied": false 
+			"Piece": false 
 		}
 		set_cell(0, offset_i, 0, Vector2i(0,0), 0)
 
@@ -25,11 +25,11 @@ func make_grid_axial():
 	set_cell(0, own_capital, 0, Vector2i(0,0), 0)
 	Grid[enemy_capital] = {
 		"Cube" : Vector2i(2,-4),
-		"Occupied" : false
+		"Piece" : false
 	}
 	Grid[own_capital] = {
 		"Cube" : Vector2i(2,-4),
-		"Occupied" : false
+		"Piece" : false
 	}
 
 func erase_highlight(highlights):

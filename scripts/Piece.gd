@@ -2,6 +2,7 @@ extends Node2D
 
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
+var mutex = Mutex.new() # Used to lock dictionary to make thread safe
 
 @onready var grid = $"../Grid"
 
@@ -13,7 +14,7 @@ var supplies = 100
 func valid_coords(cell):
 	# Checks cell exists and is not occupied
 	if cell in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
-		if not grid.Grid[cell]['Occupied']:
+		if not grid.Grid[cell]['Piece']:
 			return true
 	else:
 		false
@@ -25,9 +26,11 @@ func move_to(new_cell):
 	var oddr_cell = HEX.axial_to_oddr(new_cell)
 	if valid_coords(oddr_cell):
 		position = grid.map_to_local(oddr_cell)
-		# BUG: Race condition when accessing grid between multiple pieces
-		grid.Grid[oddr_cell]['Occupied'] = true
-		grid.Grid[HEX.axial_to_oddr(pos_a)]['Occupied'] = false 
+		# Locked to prevent race condition
+		mutex.lock()
+		grid.Grid[oddr_cell]['Piece'] = self
+		grid.Grid[HEX.axial_to_oddr(pos_a)]['Piece'] = false
+		mutex.unlock()
 		pos_a = new_cell
 		
 func adjacent_move(direction):
