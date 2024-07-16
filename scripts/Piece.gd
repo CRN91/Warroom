@@ -20,13 +20,10 @@ func valid_coords(cell):
 	
 # Takes a cube or axial coordinate
 func move_to(new_cell):
-	print(new_cell)
 	if typeof(new_cell) == 7:
 		new_cell = Vector2i(new_cell.x,new_cell.y) # Converts cube to axial
 	var oddr_cell = HEX.axial_to_oddr(new_cell)
-	print("help")
 	if valid_coords(oddr_cell):
-		print("check")
 		position = grid.map_to_local(oddr_cell)
 		# BUG: Race condition when accessing grid between multiple pieces
 		grid.Grid[oddr_cell]['Occupied'] = true
@@ -38,9 +35,8 @@ func adjacent_move(direction):
 	
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	#move_to(Vector2i(1,3))
 	pass
-	
+
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
 	if Input.is_action_just_pressed("e"):

@@ -34,6 +34,7 @@ sources/0 = SubResource("TileSetAtlasSource_bbf4d")
 script = ExtResource("1_amcgc")
 
 [node name="Grid" type="TileMap" parent="."]
+unique_name_in_owner = true
 tile_set = SubResource("TileSet_r8nud")
 format = 2
 layer_0/name = "base"
