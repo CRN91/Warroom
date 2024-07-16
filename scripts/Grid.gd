@@ -5,7 +5,6 @@ var HEX = HEXGRID.new()
 
 var Grid = {}
 var highlights = []
-@onready var piece = $"../Piece"
 
 func make_grid_axial():
 	# 7 wide 

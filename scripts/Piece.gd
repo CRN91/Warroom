@@ -6,7 +6,7 @@ var HEX = HEXGRID.new()
 @onready var grid = $"../Grid"
 
 # Global coordinates of piece
-var pos_v = Vector2i(0,0)
+var pos_a = Vector2i(0,0)
 var supplies = 100
 
 # Checks the coords given relate to a valid hex
@@ -21,15 +21,18 @@ func valid_coords(cell):
 func move_to(new_cell):
 	var oddr_cell = HEX.axial_to_oddr(Vector2i(new_cell.x,new_cell.y))
 	if valid_coords(oddr_cell):
-		pos_v = new_cell
 		position = grid.map_to_local(oddr_cell)
-
+		# BUG: Race condition when accessing grid between multiple pieces
+		grid.Grid[oddr_cell]['Occupied'] = true
+		grid.Grid[HEX.axial_to_oddr(pos_a)]['Occupied'] = false 
+		pos_a = new_cell
+		
 func adjacent_move(direction):
-	move_to(HEX.cube_neighbor(HEX.axial_to_cube(pos_v), direction))
+	move_to(HEX.cube_neighbor(HEX.axial_to_cube(pos_a), direction))
 	
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	move_to(pos_v)
+	move_to(pos_a)
 	
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
