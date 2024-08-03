@@ -14,15 +14,18 @@ func make_grid_axial():
 	grid_list += [Vector2i(shortest_width/2,-shortest_width), 
 	Vector2i(-shortest_width/2,shortest_width)]
 	
-	var offset_i
 	for i in grid_list:
-		offset_i = HEX.axial_to_oddr(i)
-		Grid[offset_i] = {
+		var oddr = HEX.axial_to_oddr(i)
+		
+		Grid[Vector2(i.x,i.y)] = { # Dictionary keys are axial
 			"Cube" : i, # Cube coordinates
+			"Oddr" : oddr,
 			"Piece": false, # e.g. Troops
 			"Structure": false # e.g. City
 		}
-		set_cell(0, offset_i, 0, Vector2i(0,0), 0)
+		
+		# Godot built in function uses oddr coordinates rather than axial
+		set_cell(0, oddr, 0, Vector2i(0,0), 0)
 
 func erase_highlight(highlights):
 	for i in highlights:

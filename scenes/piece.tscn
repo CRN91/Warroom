@@ -1,10 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://bwapqv1uvwfxi"]
+[gd_scene load_steps=2 format=3 uid="uid://bwapqv1uvwfxi"]
 
-[ext_resource type="Texture2D" uid="uid://scedocmpsrn4" path="res://assets/troopsg.png" id="1_4w3et"]
 [ext_resource type="Script" path="res://scripts/Piece.gd" id="1_m1oao"]
 
 [node name="Piece" type="Node2D"]
 script = ExtResource("1_m1oao")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("1_4w3et")

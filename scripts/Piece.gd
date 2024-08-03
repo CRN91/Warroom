@@ -1,5 +1,7 @@
 extends Node2D
 
+class_name Piece
+
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 var mutex = Mutex.new() # Used to lock dictionary to make thread safe
@@ -33,12 +35,16 @@ func move_to(new_cell):
 		mutex.unlock()
 		pos_a = new_cell
 		
+		# Check if in a city
+		if grid.Grid[oddr_cell]['Structure']:
+			pass
+		
 func adjacent_move(direction):
 	move_to(HEX.cube_neighbor(HEX.axial_to_cube(pos_a), direction))
 	
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	pass
+	move_to(Vector2i(0,0))
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):

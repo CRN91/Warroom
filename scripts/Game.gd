@@ -8,26 +8,27 @@ const CITY = preload("res://scenes/city.tscn")
 
 @onready var grid = %Grid
 
-func _ready():
+func generate_map():
 	var city = CITY.instantiate()
-	city.set_pos(Vector2i(0,-2), grid)
-	grid.Grid[HEX.axial_to_oddr(Vector2i(0,-2))]['Structure'] = self
+	grid.Grid = city.setup(Vector2i(0,2), grid)
 	add_child(city)
 	
 	var ene_cap = CITY.instantiate()
-	ene_cap.set_pos(Vector2i(2,-4), grid)
-	grid.Grid[HEX.axial_to_oddr(Vector2i(2,-4))]['Structure'] = self
+	grid.Grid = ene_cap.setup(Vector2i(2,-4), grid)
 	add_child(ene_cap)
 	
 	var own_cap = CITY.instantiate()
-	own_cap.set_pos(Vector2i(-2,4), grid)
-	grid.Grid[HEX.axial_to_oddr(Vector2i(0,-2))]['Structure'] = self
+	grid.Grid = own_cap.setup(Vector2i(-2,4), grid)
 	add_child(own_cap)
+
+func _ready():
+	generate_map()
+	var piece = PIECE.instantiate()
+	add_child(piece)
 	
 func _process(delta):
 	if Input.is_action_just_pressed("next"):
 		var troop = PIECE.instantiate()
 		add_child(troop)
 		troop.move_to(Vector2i(0,3))
-		
 	
