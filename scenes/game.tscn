@@ -1,0 +1,51 @@
+[gd_scene load_steps=11 format=3 uid="uid://bs3xtmxllnkkb"]
+
+[ext_resource type="Script" path="res://scripts/Game.gd" id="1_4d42g"]
+[ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
+[ext_resource type="Texture2D" uid="uid://cmo6w1vxtqu6r" path="res://assets/hexoutline.png" id="3_5t06b"]
+[ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
+[ext_resource type="Script" path="res://scripts/Grid.gd" id="5_lhfuq"]
+[ext_resource type="Script" path="res://scripts/infantry.gd" id="6_fwkga"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
+texture = ExtResource("2_t3w5q")
+texture_region_size = Vector2i(500, 580)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jxbpp"]
+texture = ExtResource("3_5t06b")
+margins = Vector2i(10, 0)
+texture_region_size = Vector2i(500, 580)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6tq8n"]
+texture = ExtResource("4_roa3a")
+texture_region_size = Vector2i(500, 580)
+use_texture_padding = false
+0:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_r8nud"]
+tile_shape = 3
+tile_size = Vector2i(500, 580)
+sources/1 = SubResource("TileSetAtlasSource_jxbpp")
+sources/3 = SubResource("TileSetAtlasSource_6tq8n")
+sources/0 = SubResource("TileSetAtlasSource_bbf4d")
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_4d42g")
+
+[node name="Grid" type="TileMap" parent="."]
+unique_name_in_owner = true
+tile_set = SubResource("TileSet_r8nud")
+format = 2
+layer_0/name = "base"
+layer_1/name = "select"
+layer_1/tile_data = PackedInt32Array()
+script = ExtResource("5_lhfuq")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(1850, 980)
+zoom = Vector2(0.1, 0.1)
+
+[node name="Infantry" type="Node2D" parent="."]
+script = ExtResource("6_fwkga")

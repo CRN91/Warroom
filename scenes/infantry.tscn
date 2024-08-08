@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3 uid="uid://bf4vjq43i3wbr"]
+
+[ext_resource type="Script" path="res://scripts/movement_comp.gd" id="1_1bh05"]
+[ext_resource type="Script" path="res://scripts/infantry.gd" id="1_1qsph"]
+[ext_resource type="Script" path="res://scripts/resources_comp.gd" id="2_3dir1"]
+[ext_resource type="Texture2D" uid="uid://scedocmpsrn4" path="res://assets/troopsg.png" id="3_68dwf"]
+
+[node name="Infantry" type="Node2D"]
+script = ExtResource("1_1qsph")
+
+[node name="movement_comp" type="Node2D" parent="."]
+script = ExtResource("1_1bh05")
+
+[node name="resource_comp" type="Node2D" parent="."]
+script = ExtResource("2_3dir1")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("3_68dwf")
