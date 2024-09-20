@@ -17,7 +17,7 @@ func make_grid_axial():
 	for i in grid_list:
 		var oddr = HEX.axial_to_oddr(i)
 		
-		Grid[Vector2(i.x,i.y)] = { # Dictionary keys are axial
+		Grid[Vector2i(i.x,i.y)] = { # Dictionary keys are axial
 			"Cube" : i, # Cube coordinates
 			"Oddr" : oddr,
 			"Piece": false, # e.g. Troops
@@ -30,6 +30,7 @@ func make_grid_axial():
 func erase_highlight(highlights):
 	for i in highlights:
 		erase_cell(1, i)
+		print("erasing "+ str(i))
 	return []
 
 # Called when the node enters the scene tree for the first time.
@@ -37,10 +38,11 @@ func _ready():
 	make_grid_axial()
 
 func _process(delta):
-	var hex = local_to_map(get_global_mouse_position())
-	highlights = erase_highlight(highlights)
+	# Inbuilt functions use oddr coords
+	var hex = HEX.oddr_to_axial(local_to_map(get_global_mouse_position()))
 	
+	highlights = erase_highlight(highlights)
 	if Grid.has(hex):
-		print(HEX.oddr_to_axial(hex))
-		set_cell(1, hex, 1, Vector2i(0,0), 0)
-		highlights.append(hex)
+		var oddr_hex = HEX.axial_to_oddr(hex)
+		set_cell(1, oddr_hex, 1, Vector2i(0,0), 0)
+		highlights.append(oddr_hex)

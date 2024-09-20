@@ -8,8 +8,9 @@
 [node name="Infantry" type="Node2D"]
 script = ExtResource("1_1qsph")
 
-[node name="movement_comp" type="Node2D" parent="."]
+[node name="movement_comp" type="Node2D" parent="." node_paths=PackedStringArray("piece")]
 script = ExtResource("1_1bh05")
+piece = NodePath("..")
 
 [node name="resource_comp" type="Node2D" parent="."]
 script = ExtResource("2_3dir1")
