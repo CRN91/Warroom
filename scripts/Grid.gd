@@ -18,10 +18,7 @@ func make_grid_axial():
 		var oddr = HEX.axial_to_oddr(i)
 		
 		Grid[Vector2i(i.x,i.y)] = { # Dictionary keys are axial
-			"Cube" : i, # Cube coordinates
-			"Oddr" : oddr,
-			"Piece": false, # e.g. Troops
-			"Structure": false # e.g. City
+			"Piece": false
 		}
 		
 		# Godot built in function uses oddr coordinates rather than axial

@@ -10,7 +10,8 @@ const INFANTRY = preload("res://scenes/infantry.tscn")
 func _ready():
 	var piece = INFANTRY.instantiate()
 	add_child(piece)
-	piece.move_to(Vector2i(2,1), grid)
+	grid = piece.move_to(Vector2i(2,1), grid)
+	print(grid.Grid)
 	
 func _process(delta):
 	if Input.is_action_just_pressed("next"):

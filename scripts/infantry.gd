@@ -10,7 +10,7 @@ func _ready():
 	pass
 
 func move_to(new_cell, grid):
-	movement_comp.set_cell(new_cell, grid)
+	return movement_comp.set_cell(new_cell, grid)
 	
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):

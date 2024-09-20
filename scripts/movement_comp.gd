@@ -7,13 +7,12 @@ var HEX = HEXGRID.new()
 
 @export var piece: Node2D
 var START_CELL := Vector2i(0,0)
+var cell: Vector2i
 
 func valid_cell(check_cell, grid):
 	""" Checks the cell exists and is not occupied """
-	return true
 	if check_cell in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
-		print(grid.Grid[check_cell]['Piece'])
-		return true
+		return not grid.Grid[check_cell]['Piece']
 	else:
 		false
 		
@@ -35,14 +34,14 @@ func set_cell(new_cell, grid):
 		pos = grid.map_to_local(new_cell)
 		
 		# Locks thread when altering the grid
-		#mutex.lock()
-		#grid.Grid[new_cell]['Piece'] = self
-		#if self.cell:
-		#	grid.Grid[self.cell]['Piece'] = false
-		#mutex.unlock()
+		mutex.lock()
+		grid.Grid[new_cell]['Piece'] = true
+		if self.cell:
+			grid.Grid[self.cell]['Piece'] = false
+		mutex.unlock()
+		
 		piece.position = pos
-	else:
-		return null
+	return grid
 	
 func move_adjacent(direction):
 	""" Sets the cell to the adjacent cell. """
