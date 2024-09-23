@@ -15,7 +15,8 @@ func move_to(new_cell, grid):
 	return movement_comp.set_cell(new_cell, grid)
 	
 func deplete(x):
-	resource_comp.deplete(x)
+	if resource_comp.deplete(x):
+		queue_free()
 	
 func get_resources():
 	return resource_comp.get_resources()

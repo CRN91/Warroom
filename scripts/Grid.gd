@@ -44,3 +44,4 @@ func _process(delta):
 		var oddr_hex = HEX.axial_to_oddr(hex)
 		set_cell(1, oddr_hex, 1, Vector2i(0,0), 0)
 		highlights.append(oddr_hex)
+		

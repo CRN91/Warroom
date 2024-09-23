@@ -13,8 +13,11 @@ func get_resources():
 	
 func deplete(x):
 	resources -= x
-	if resources < 0:
-		resources = 0
+	if resources <= 0:
+		return true
+	else:
+		return false
+		
 
 func resupply(x):
 	resources += x
