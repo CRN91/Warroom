@@ -27,7 +27,7 @@ func make_grid_axial():
 func erase_highlight(highlights):
 	for i in highlights:
 		erase_cell(1, i)
-		print("erasing "+ str(i))
+		#print("erasing "+ str(i))
 	return []
 
 # Called when the node enters the scene tree for the first time.
@@ -39,6 +39,7 @@ func _process(delta):
 	var hex = HEX.oddr_to_axial(local_to_map(get_global_mouse_position()))
 	
 	highlights = erase_highlight(highlights)
+	#print("Cell: "+str(hex))
 	if Grid.has(hex):
 		var oddr_hex = HEX.axial_to_oddr(hex)
 		set_cell(1, oddr_hex, 1, Vector2i(0,0), 0)

@@ -3,7 +3,9 @@ extends Node2D
 class_name Infantry
 
 var cell
-@onready var movement_comp = $movement_comp
+@onready var movement_comp = $Movement
+@onready var resource_comp = $Resources
+@onready var attack_comp = $Attack
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
@@ -11,6 +13,15 @@ func _ready():
 
 func move_to(new_cell, grid):
 	return movement_comp.set_cell(new_cell, grid)
+	
+func deplete(x):
+	resource_comp.deplete(x)
+	
+func get_resources():
+	return resource_comp.get_resources()
+	
+func attack(enemy):
+	attack_comp.attack(enemy)
 	
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):

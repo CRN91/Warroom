@@ -1,6 +1,6 @@
 extends Node2D
 
-class_name movement_comp
+class_name Movement
 
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
