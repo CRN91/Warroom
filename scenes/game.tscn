@@ -1,11 +1,10 @@
-[gd_scene load_steps=11 format=3 uid="uid://bs3xtmxllnkkb"]
+[gd_scene load_steps=10 format=3 uid="uid://bs3xtmxllnkkb"]
 
 [ext_resource type="Script" path="res://scripts/Game.gd" id="1_4d42g"]
 [ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
 [ext_resource type="Texture2D" uid="uid://cmo6w1vxtqu6r" path="res://assets/hexoutline.png" id="3_5t06b"]
 [ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" path="res://scripts/Grid.gd" id="5_lhfuq"]
-[ext_resource type="Script" path="res://scripts/infantry.gd" id="6_fwkga"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -46,6 +45,3 @@ script = ExtResource("5_lhfuq")
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(1850, 980)
 zoom = Vector2(0.1, 0.1)
-
-[node name="Infantry" type="Node2D" parent="."]
-script = ExtResource("6_fwkga")

@@ -18,7 +18,7 @@ func make_grid_axial():
 		var oddr = HEX.axial_to_oddr(i)
 		
 		Grid[Vector2i(i.x,i.y)] = { # Dictionary keys are axial
-			"Piece": false
+			"Piece": null
 		}
 		
 		# Godot built in function uses oddr coordinates rather than axial
@@ -44,4 +44,3 @@ func _process(delta):
 		var oddr_hex = HEX.axial_to_oddr(hex)
 		set_cell(1, oddr_hex, 1, Vector2i(0,0), 0)
 		highlights.append(oddr_hex)
-		

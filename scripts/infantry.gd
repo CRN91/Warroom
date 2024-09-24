@@ -12,7 +12,7 @@ func _ready():
 	pass
 
 func move_to(new_cell, grid):
-	return movement_comp.set_cell(new_cell, grid)
+	return movement_comp.set_cell(new_cell, grid, self)
 	
 func deplete(x):
 	if resource_comp.deplete(x):
