@@ -6,7 +6,6 @@ var resources : int # Current resources
 
 func _ready():
 	resources = MAX_RESC
-	print("check ready, "+str(resources))
 	
 func get_resources():
 	return resources
