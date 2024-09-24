@@ -6,8 +6,10 @@ var HEX = HEXGRID.new()
 const INFANTRY = preload("res://scenes/infantry.tscn")
 
 @onready var grid = %Grid
+var to_move
 
 func _ready():
+	var check = Vector2i(-2,4)
 	var piece = INFANTRY.instantiate()
 	add_child(piece,true)
 	grid = piece.move_to(Vector2i(2,1), grid)
@@ -23,17 +25,20 @@ func _ready():
 	
 	piece3.attack(piece2)
 
-	
-func _process(delta):
-	pass
-
 func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			var hex = HEX.oddr_to_axial(grid.local_to_map(get_global_mouse_position()))
-			var selected = grid.Grid[hex]["Piece"]
-			if selected:
-				print(selected.status())
-
-			print()
-			
+			# Checks hex exists
+			if hex in grid.Grid.keys():
+				var selected = grid.Grid[hex]["Piece"]
+				# If a piece exists in the selected hex
+				if selected:
+					# Debugging tool to see the status of selected piece
+					print(selected.status())
+					# Caches the piece to be moved on the next click
+					to_move = hex
+				# If a piece was clicked on last, move it and clear to_move
+				elif to_move or to_move == Vector2i(0,0):
+					grid = grid.Grid[to_move]["Piece"].move_to(hex, grid)
+					to_move = null	

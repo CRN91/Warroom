@@ -6,12 +6,11 @@ const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
 @export var piece: Node2D
-var START_CELL := Vector2i(0,0)
 var cell: Vector2i
 
 func valid_cell(check_cell, grid):
 	""" Checks the cell exists and is not occupied """
-	if check_cell in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
+	if HEX.axial_to_oddr(check_cell) in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
 		return not grid.Grid[check_cell]['Piece']
 	else:
 		false
@@ -21,7 +20,6 @@ func set_cell(new_cell, grid, parent):
 	Assumes the tile coords are given in axial or cube.
 	'old_loc' is used when the piece is already set and being moved. """
 	
-	var mutex = Mutex.new()
 	var pos
 	
 	# Checks if Vector3 (cube)
@@ -33,12 +31,14 @@ func set_cell(new_cell, grid, parent):
 		# Gets the centered position of the cell
 		pos = grid.map_to_local(HEX.axial_to_oddr(new_cell))
 
+		# Sets a reference to the parent node in the grid
 		grid.Grid[new_cell]['Piece'] = parent
 		if cell:
 			grid.Grid[cell]['Piece'] = null
 		
 		cell = new_cell
 		piece.position = pos
+	# Returns the grid so we have one central location where all pieces are referenced
 	return grid
 
 func get_cell():
