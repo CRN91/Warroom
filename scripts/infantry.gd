@@ -24,6 +24,9 @@ func get_resources():
 func attack(enemy):
 	attack_comp.attack(enemy)
 	
+func status():
+	return "Hex: %s\nUnit: %s\nResources: %d\nDamage %d" % [movement_comp.get_cell(), self.name, resource_comp.get_resources(), attack_comp.get_damage()]
+
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
 	pass

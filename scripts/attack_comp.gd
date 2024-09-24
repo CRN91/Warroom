@@ -11,6 +11,9 @@ func _ready():
 func attack(enemy):
 	enemy.deplete(damage)
 	
+func get_damage():
+	return damage
+	
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
 	pass

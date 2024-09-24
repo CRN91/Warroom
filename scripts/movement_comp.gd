@@ -32,12 +32,14 @@ func set_cell(new_cell, grid, parent):
 	if valid_cell(new_cell, grid):
 		# Gets the centered position of the cell
 		pos = grid.map_to_local(HEX.axial_to_oddr(new_cell))
-		
-		# Locks thread when altering the grid
+
 		grid.Grid[new_cell]['Piece'] = parent
-		if self.cell:
-			grid.Grid[self.cell]['Piece'] = null
+		if cell:
+			grid.Grid[cell]['Piece'] = null
 		
+		cell = new_cell
 		piece.position = pos
 	return grid
-	
+
+func get_cell():
+	return cell

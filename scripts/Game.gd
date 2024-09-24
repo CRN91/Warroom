@@ -20,6 +20,8 @@ func _ready():
 	var piece3 = INFANTRY.instantiate()
 	add_child(piece3,true)
 	grid = piece3.move_to(Vector2i(1,2), grid)
+	
+	piece3.attack(piece2)
 
 	
 func _process(delta):
@@ -29,7 +31,9 @@ func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			var hex = HEX.oddr_to_axial(grid.local_to_map(get_global_mouse_position()))
-			print(grid.Grid[hex])
-			print(hex)
+			var selected = grid.Grid[hex]["Piece"]
+			if selected:
+				print(selected.status())
+
 			print()
 			
