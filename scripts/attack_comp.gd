@@ -8,9 +8,11 @@ class_name Attack
 func _ready():
 	pass # Replace with function body.
 
-func attack(enemy):
-	enemy.deplete(damage)
-	
+func attack(ally,enemy):
+	if ally.is_allied() != enemy.is_allied():
+		# Returns true if the enemy dies
+		return enemy.deplete(damage)
+			
 func get_damage():
 	return damage
 	

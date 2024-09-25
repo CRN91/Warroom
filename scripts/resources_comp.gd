@@ -13,6 +13,7 @@ func get_resources():
 func deplete(x):
 	resources -= x
 	if resources <= 0:
+		print("true deplete")
 		return true
 	else:
 		return false

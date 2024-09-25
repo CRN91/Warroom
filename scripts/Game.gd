@@ -16,6 +16,7 @@ func _ready():
 
 	var piece2 = INFANTRY.instantiate()
 	add_child(piece2,true)
+	piece2.set_enemy()
 	
 	grid = piece2.move_to(Vector2i(1,1), grid)
 	
@@ -32,13 +33,25 @@ func _input(event):
 			# Checks hex exists
 			if hex in grid.Grid.keys():
 				var selected = grid.Grid[hex]["Piece"]
+				print(selected)
 				# If a piece exists in the selected hex
 				if selected:
-					# Debugging tool to see the status of selected piece
-					print(selected.status())
-					# Caches the piece to be moved on the next click
-					to_move = hex
+					if to_move:
+						var previous_selected = grid.Grid[to_move]["Piece"]
+						if previous_selected.attack(selected):
+							print("check")
+							# Deletes from grid dictionary, better implementation with signals
+							grid.Grid[hex]["Piece"] = null
+						to_move = null
+					else:
+						# Debugging tool to see the status of selected piece
+						#print(selected.status())
+						# Caches the piece to be moved on the next click
+						to_move = hex
 				# If a piece was clicked on last, move it and clear to_move
 				elif to_move or to_move == Vector2i(0,0):
 					grid = grid.Grid[to_move]["Piece"].move_to(hex, grid)
-					to_move = null	
+					to_move = null
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			# Deselects piece
+			to_move = null
