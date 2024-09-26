@@ -6,12 +6,19 @@ const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
 @export var piece: Node2D
-var cell: Vector2i
+var hex
 
 func valid_cell(check_cell, grid):
-	""" Checks the cell exists and is not occupied """
+	""" Checks the cell exists, is adjacent and is not occupied """
+	# Hex exists in grid
 	if HEX.axial_to_oddr(check_cell) in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
-		return not grid.Grid[check_cell]['Piece']
+		# Hex is a neighbour of the current hex
+		if hex:
+			if check_cell in HEX.axial_neighbours(hex):
+				# Hex occupied status
+				return not grid.Grid[check_cell]['Piece']
+		else:
+			return not grid.Grid[check_cell]['Piece']
 	else:
 		false
 		
@@ -33,13 +40,13 @@ func set_hex(new_cell, grid):
 
 		# Sets a reference to the parent node in the grid
 		grid.Grid[new_cell]['Piece'] = piece
-		if cell:
-			grid.Grid[cell]['Piece'] = null
+		if hex:
+			grid.Grid[hex]['Piece'] = null
 		
-		cell = new_cell
+		hex = new_cell
 		piece.position = pos
 	# Returns the grid so we have one central location where all pieces are referenced
 	return grid
 
 func get_cell():
-	return cell
+	return hex
