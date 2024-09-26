@@ -29,10 +29,11 @@ func set_resupply_rate(x):
 	resupply_rate = x
 
 func resupply(x):
+	print(resources)
 	resources += x
 	if resources > MAX_RESC:
 		resources = MAX_RESC
-		
+	print(resources)
 # Called once per game day
 func clock_cycle():
 	resupply(resupply_rate)

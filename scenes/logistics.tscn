@@ -1,0 +1,24 @@
+[gd_scene load_steps=6 format=3 uid="uid://d10yh5e8r0a5x"]
+
+[ext_resource type="Script" path="res://scripts/Logistics.gd" id="1_bkvxd"]
+[ext_resource type="Texture2D" uid="uid://bb753slf5xonw" path="res://assets/logig.png" id="2_q4uiy"]
+[ext_resource type="Script" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
+[ext_resource type="Script" path="res://scripts/movement_comp.gd" id="4_omayn"]
+[ext_resource type="Script" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
+
+[node name="Logistics" type="Node2D"]
+script = ExtResource("1_bkvxd")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_q4uiy")
+
+[node name="Resources" type="Node2D" parent="."]
+script = ExtResource("3_o0ibc")
+
+[node name="Movement" type="Node2D" parent="." node_paths=PackedStringArray("piece")]
+script = ExtResource("4_omayn")
+piece = NodePath("..")
+
+[node name="Resupply" type="Node2D" parent="." node_paths=PackedStringArray("piece")]
+script = ExtResource("5_4cr84")
+piece = NodePath("..")

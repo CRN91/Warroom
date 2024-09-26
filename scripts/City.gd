@@ -12,9 +12,15 @@ func _ready():
 
 func combatant():
 	return false
+	
+func set_hex(hex, grid):
+	return movement_comp.set_hex(hex, grid)	
+	
+func status():
+	return "Hex: %s\nUnit: %s\nResources: %d" % [movement_comp.get_cell(), self.name, resource_comp.get_resources()]
 
-func move_to(hex, grid):	
-	return movement_comp.set_hex(hex, grid)
+func move_to(hex, grid):
+	return grid
 
 func get_resources():
 	return resource_comp.get_resources()
