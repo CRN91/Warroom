@@ -1,8 +1,9 @@
-[gd_scene load_steps=10 format=3 uid="uid://bs3xtmxllnkkb"]
+[gd_scene load_steps=12 format=3 uid="uid://bs3xtmxllnkkb"]
 
 [ext_resource type="Script" path="res://scripts/Game.gd" id="1_4d42g"]
 [ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
 [ext_resource type="Texture2D" uid="uid://cmo6w1vxtqu6r" path="res://assets/hexoutline.png" id="3_5t06b"]
+[ext_resource type="Texture2D" uid="uid://d12iblu7ve0uf" path="res://assets/hexoutlinered.png" id="4_eodyj"]
 [ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" path="res://scripts/Grid.gd" id="5_lhfuq"]
 
@@ -17,6 +18,11 @@ margins = Vector2i(10, 0)
 texture_region_size = Vector2i(500, 580)
 0:0/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_e1bcy"]
+texture = ExtResource("4_eodyj")
+texture_region_size = Vector2i(500, 580)
+0:0/0 = 0
+
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6tq8n"]
 texture = ExtResource("4_roa3a")
 texture_region_size = Vector2i(500, 580)
@@ -26,9 +32,10 @@ use_texture_padding = false
 [sub_resource type="TileSet" id="TileSet_r8nud"]
 tile_shape = 3
 tile_size = Vector2i(500, 580)
-sources/1 = SubResource("TileSetAtlasSource_jxbpp")
 sources/3 = SubResource("TileSetAtlasSource_6tq8n")
 sources/0 = SubResource("TileSetAtlasSource_bbf4d")
+sources/2 = SubResource("TileSetAtlasSource_e1bcy")
+sources/1 = SubResource("TileSetAtlasSource_jxbpp")
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_4d42g")

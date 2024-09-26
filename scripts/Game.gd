@@ -4,6 +4,7 @@ const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
 const INFANTRY = preload("res://scenes/infantry.tscn")
+const CITY = preload("res://scenes/city.tscn")
 
 @onready var grid = %Grid
 var to_move
@@ -24,6 +25,10 @@ func _ready():
 	add_child(piece3,true)
 	grid = piece3.move_to(Vector2i(1,2), grid)
 	
+	var city = CITY.instantiate()
+	add_child(city, true)
+	grid = city.move_to(Vector2i(0,0), grid)
+	
 	piece3.attack(piece2)
 
 func _input(event):
@@ -33,19 +38,23 @@ func _input(event):
 			# Checks hex exists
 			if hex in grid.Grid.keys():
 				var selected = grid.Grid[hex]["Piece"]
-				print(selected)
+				grid.set_cell(2, HEX.axial_to_oddr(hex), 1, Vector2i(0,0), 0)
 				# If a piece exists in the selected hex
 				if selected:
+					# If a piece was previously selected
 					if to_move:
 						var previous_selected = grid.Grid[to_move]["Piece"]
-						if previous_selected.attack(selected):
-							print("check")
-							# Deletes from grid dictionary, better implementation with signals
-							grid.Grid[hex]["Piece"] = null
-						to_move = null
+						if selected.combatant():
+							if previous_selected.attack(selected):
+								# Deletes from grid dictionary, better implementation with signals
+								grid.Grid[hex]["Piece"] = null
+							to_move = null
+						else:
+							previous_selected.resupply(selected)
 					else:
 						# Debugging tool to see the status of selected piece
-						#print(selected.status())
+						print(selected.status())
+						
 						# Caches the piece to be moved on the next click
 						to_move = hex
 				# If a piece was clicked on last, move it and clear to_move

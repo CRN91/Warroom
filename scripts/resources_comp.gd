@@ -2,6 +2,7 @@ extends Node2D
 class_name Resources
 
 @export var MAX_RESC := 100
+var resupply_rate := 0
 var resources : int # Current resources
 
 func _ready():
@@ -17,11 +18,23 @@ func deplete(x):
 		return true
 	else:
 		return false
-		
+
+func set_max_resources(x):
+	MAX_RESC = x
+	
+func get_max_resources():
+	return MAX_RESC
+
+func set_resupply_rate(x):
+	resupply_rate = x
 
 func resupply(x):
 	resources += x
 	if resources > MAX_RESC:
 		resources = MAX_RESC
+		
+# Called once per game day
+func clock_cycle():
+	resupply(resupply_rate)
 
 

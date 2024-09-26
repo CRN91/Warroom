@@ -15,7 +15,7 @@ func valid_cell(check_cell, grid):
 	else:
 		false
 		
-func set_cell(new_cell, grid, parent):
+func set_hex(new_cell, grid):
 	""" Sets the position of the object on the grid.
 	Assumes the tile coords are given in axial or cube.
 	'old_loc' is used when the piece is already set and being moved. """
@@ -32,7 +32,7 @@ func set_cell(new_cell, grid, parent):
 		pos = grid.map_to_local(HEX.axial_to_oddr(new_cell))
 
 		# Sets a reference to the parent node in the grid
-		grid.Grid[new_cell]['Piece'] = parent
+		grid.Grid[new_cell]['Piece'] = piece
 		if cell:
 			grid.Grid[cell]['Piece'] = null
 		

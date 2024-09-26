@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3 uid="uid://c66iqnvcjc5w1"]
+
+[ext_resource type="Script" path="res://scripts/City.gd" id="1_0r7ut"]
+[ext_resource type="PackedScene" uid="uid://dagna7awd0a82" path="res://scenes/movement_comp.tscn" id="2_ykowy"]
+[ext_resource type="PackedScene" uid="uid://byma8yx68e66i" path="res://scenes/resources_comp.tscn" id="3_5aspk"]
+[ext_resource type="Texture2D" uid="uid://bnnlxfltaojlc" path="res://assets/cityg.png" id="4_v51tb"]
+
+[node name="City" type="Node2D"]
+script = ExtResource("1_0r7ut")
+hex_tile = Vector2i(-2, 4)
+
+[node name="Movement" parent="." node_paths=PackedStringArray("piece") instance=ExtResource("2_ykowy")]
+piece = NodePath("..")
+
+[node name="Resource" parent="." instance=ExtResource("3_5aspk")]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("4_v51tb")
