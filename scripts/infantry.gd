@@ -25,11 +25,8 @@ func move_to(new_cell, grid):
 	
 func deplete(x):
 	# Deletes the object
-	if resource_comp.deplete(x):
-		queue_free()
-		return true
-	else:
-		return false
+	return resource_comp.deplete(x)
+		#queue_free()
 	
 func restore(x):
 	resource_comp.resupply(x)
