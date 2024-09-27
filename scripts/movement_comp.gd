@@ -7,6 +7,13 @@ var HEX = HEXGRID.new()
 
 @export var piece: Node2D
 var hex
+var frozen = false
+
+func freeze():
+	frozen = true
+
+func unfreeze():
+	frozen = false
 
 func valid_cell(check_cell, grid):
 	""" Checks the cell exists, is adjacent and is not occupied """
@@ -29,22 +36,29 @@ func set_hex(new_cell, grid):
 	
 	var pos
 	
-	# Checks if Vector3 (cube)
-	if typeof(new_cell) == 7:
-		new_cell = Vector2i(new_cell.x, new_cell.y) # Converts to axial
-		
-	# Moves to new position if a valid cell
-	if valid_cell(new_cell, grid):
-		# Gets the centered position of the cell
-		pos = grid.map_to_local(HEX.axial_to_oddr(new_cell))
+	# Checks piece is allowed to move
+	if not frozen:
+	
+		# Checks if Vector3 (cube)
+		if typeof(new_cell) == 7:
+			new_cell = Vector2i(new_cell.x, new_cell.y) # Converts to axial
+			
+		# Moves to new position if a valid cell
+		if valid_cell(new_cell, grid):
+			# Gets the centered position of the cell
+			pos = grid.map_to_local(HEX.axial_to_oddr(new_cell))
 
-		# Sets a reference to the parent node in the grid
-		grid.Grid[new_cell]['Piece'] = piece
-		if hex:
-			grid.Grid[hex]['Piece'] = null
-		
-		hex = new_cell
-		piece.position = pos
+			# Sets a reference to the parent node in the grid
+			grid.Grid[new_cell]['Piece'] = piece
+			if hex:
+				grid.Grid[hex]['Piece'] = null
+			
+			hex = new_cell
+			piece.position = pos
+			
+			# Freezes the piece again
+			frozen = true
+			
 	# Returns the grid so we have one central location where all pieces are referenced
 	return grid
 

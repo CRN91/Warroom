@@ -12,6 +12,12 @@ func _ready():
 
 func combatant():
 	return false
+
+func is_frozen():
+	return movement_comp.frozen
+
+func unfreeze():
+	pass
 	
 func set_hex(hex, grid):
 	return movement_comp.set_hex(hex, grid)	

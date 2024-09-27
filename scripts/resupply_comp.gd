@@ -11,7 +11,6 @@ func resupply(ally):
 	# Scenario where piece is fully resupplied
 	if ally_resources > resource_gap:
 		take = resource_gap
-		print(take)
 	# Scenario where piece is not fully resupplied
 	else:
 		take = ally_resources

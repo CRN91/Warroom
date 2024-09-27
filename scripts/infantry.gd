@@ -20,6 +20,12 @@ func set_enemy():
 	$Sprite2D.texture = load("res://assets/troopsr.png")
 	allied = false
 
+func unfreeze():
+	movement_comp.unfreeze()
+	
+func is_frozen():
+	return movement_comp.frozen
+
 func move_to(new_cell, grid):
 	return movement_comp.set_hex(new_cell, grid)
 	

@@ -48,7 +48,7 @@ func _input(event):
 			# Checks hex exists
 			if hex in grid.Grid.keys():
 				var selected = grid.Grid[hex]["Piece"]
-				grid.set_cell(2, HEX.axial_to_oddr(hex), 1, Vector2i(0,0), 0)
+				#grid.set_cell(2, HEX.axial_to_oddr(hex), 1, Vector2i(0,0), 0)
 				# If a piece exists in the selected hex
 				if selected:
 					# If a piece was previously selected
@@ -74,8 +74,10 @@ func _input(event):
 						
 						# Caches the piece to be moved on the next click
 						to_move = hex
+
 				# If a piece was clicked on last, move it and clear to_move
 				elif to_move or to_move == Vector2i(0,0):
+					print(grid.Grid[to_move]["Piece"].is_frozen())
 					grid = grid.Grid[to_move]["Piece"].move_to(hex, grid)
 					to_move = null
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
@@ -91,6 +93,8 @@ func clock_increment():
 	for hex in grid.Grid:
 		var piece = grid.Grid[hex]["Piece"]
 		if piece:
+			# Allows the piece to move once
+			piece.unfreeze()
 			if piece.combatant():
 				var team = piece.is_allied()
 				for adjacent in HEX.axial_neighbours(hex):
@@ -103,7 +107,9 @@ func clock_increment():
 										# Piece is killed, using dictionary as a set
 										if not killed.has(adjacent):
 											killed[adjacent] = null
-										#killed.append(adjacent)
+	
+	
+	# TODO: Get a card
 	
 	# Dealing with killed pieces
 	for dead_hex in killed.keys():
