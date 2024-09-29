@@ -11,9 +11,14 @@ config_version=5
 [application]
 
 config/name="Warroom"
-run/main_scene="res://scenes/tile_map.tscn"
+run/main_scene="res://scenes/game.tscn"
+config/use_hidden_project_data_directory=false
 config/features=PackedStringArray("4.2", "Forward Plus")
 config/icon="res://icon.svg"
+
+[editor]
+
+script/templates_search_path="res://scripts"
 
 [input]
 

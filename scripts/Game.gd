@@ -8,10 +8,13 @@ const CITY = preload("res://scenes/city.tscn")
 const LOGI = preload("res://scenes/logistics.tscn")
 
 @onready var grid = %Grid
+@onready var daycounter = $DayCount
 var day := 0
 var to_move
 
 func _ready():
+	daycounter.text = "DAY 0"
+	daycounter.set_position(Vector2(1850,980))
 	var check = Vector2i(-2,4)
 	var piece = INFANTRY.instantiate()
 	add_child(piece,true)
@@ -39,7 +42,7 @@ func _ready():
 	#print(grid.Grid)
 
 func _input(event):
-	if event is InputEventKey:
+	if event is InputEventKey and event.is_pressed():
 		clock_increment()
 	
 	if event is InputEventMouseButton:
@@ -87,6 +90,8 @@ func _input(event):
 "Functionality for a single game turn"
 func clock_increment():
 	day += 1
+	daycounter.text = "DAY "+str(day)
+	print(daycounter.position)
 	var killed = {}
 	
 	# Combat, checks adjacent cells of all pieces and attacks
@@ -114,5 +119,4 @@ func clock_increment():
 	# Dealing with killed pieces
 	for dead_hex in killed.keys():
 		grid.Grid[dead_hex]["Piece"].queue_free()
-		grid.Grid[dead_hex]["Piece"] = null
-	
+		grid.Grid[dead_hex]["Piece"] = null	

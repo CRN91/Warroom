@@ -52,3 +52,11 @@ script = ExtResource("5_lhfuq")
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(1850, 980)
 zoom = Vector2(0.1, 0.1)
+
+[node name="DayCount" type="Label" parent="."]
+offset_left = -25.0
+offset_top = -26.0
+offset_right = 143.0
+offset_bottom = 53.0
+scale = Vector2(50, 50)
+text = "DAY"
