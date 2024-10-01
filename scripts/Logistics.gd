@@ -8,15 +8,17 @@ var allied
 @onready var resource_comp = $Resources
 @onready var resupply_comp = $Resupply
 
+@onready var frozen = false
+
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	allied = true # Sets team
 
 func unfreeze():
-	movement_comp.unfreeze() 
-
+	frozen = false
+	
 func is_frozen():
-	return movement_comp.frozen
+	return frozen
 
 func combatant():
 	return false
@@ -26,16 +28,21 @@ func set_enemy():
 	allied = false
 
 func move_to(new_cell, grid):
-	return movement_comp.set_hex(new_cell, grid)
+	if not frozen:
+		frozen = true
+		return movement_comp.set_hex(new_cell, grid)
+	else:
+		return grid
 
 func deplete(x):
 	resource_comp.deplete(x)
-	
+
 func restore(x):
 	resource_comp.resupply(x)
 
 func resupply(ally):
-	resupply_comp.resupply(ally)
+	if not frozen:
+		resupply_comp.resupply(ally)
 
 func get_resources():
 	return resource_comp.get_resources()

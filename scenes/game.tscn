@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://bs3xtmxllnkkb"]
+[gd_scene load_steps=14 format=3 uid="uid://bs3xtmxllnkkb"]
 
 [ext_resource type="Script" path="res://scripts/Game.gd" id="1_4d42g"]
 [ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://d12iblu7ve0uf" path="res://assets/hexoutlinered.png" id="4_eodyj"]
 [ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" path="res://scripts/Grid.gd" id="5_lhfuq"]
+[ext_resource type="Script" path="res://DayCount.gd" id="7_hdkwx"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -20,6 +21,7 @@ texture_region_size = Vector2i(500, 580)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_e1bcy"]
 texture = ExtResource("4_eodyj")
+margins = Vector2i(10, 0)
 texture_region_size = Vector2i(500, 580)
 0:0/0 = 0
 
@@ -36,6 +38,8 @@ sources/3 = SubResource("TileSetAtlasSource_6tq8n")
 sources/0 = SubResource("TileSetAtlasSource_bbf4d")
 sources/2 = SubResource("TileSetAtlasSource_e1bcy")
 sources/1 = SubResource("TileSetAtlasSource_jxbpp")
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_snlk1"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_4d42g")
@@ -60,3 +64,12 @@ offset_right = 143.0
 offset_bottom = 53.0
 scale = Vector2(50, 50)
 text = "DAY"
+script = ExtResource("7_hdkwx")
+
+[node name="NextDay" type="Button" parent="."]
+material = SubResource("CanvasItemMaterial_snlk1")
+offset_left = 2394.0
+offset_top = 2133.0
+offset_right = 3052.0
+offset_bottom = 2446.0
+text = "End Turn"
