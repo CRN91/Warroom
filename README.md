@@ -1,5 +1,6 @@
-
 # War Room Game
+
+<img src="rmimg/Personal.svg" height="28"> <img src="rmimg/Solo.svg" height="28">
 
 ### A strategic turn based story driven rogue-lite
 
