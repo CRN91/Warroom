@@ -1,8 +1,7 @@
 res://scenes/game.tscn
-res://scripts/Game.gd
-res://scripts/Grid.gd
 res://scenes/infantry.tscn
 res://scenes/movement_comp.tscn
-res://scripts/infantry.gd
-res://scripts/movement_comp.gd
-res://scripts/Logistics.gd
+res://scenes/card.tscn
+res://scenes/deck.tscn
+res://scripts/card.gd
+res://scripts/deck.gd

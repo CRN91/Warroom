@@ -12,8 +12,8 @@ func make_grid_axial():
 	var shortest_width = 4 # width at shortest section of grid
 	var grid_list = HEX.cube_spiral(Vector3i(0,0,0), 4)
 	# Adding capital cities
-	grid_list += [Vector2i(shortest_width/2,-shortest_width), 
-	Vector2i(-shortest_width/2,shortest_width)]
+	#grid_list += [Vector2i(shortest_width/2,-shortest_width), 
+	#Vector2i(-shortest_width/2,shortest_width)]
 	
 	# Iterates through cells and adds them to dictionary and Godot grid
 	for i in grid_list:
@@ -22,7 +22,7 @@ func make_grid_axial():
 		Grid[Vector2i(i.x,i.y)] = { # Dictionary keys are axial
 			"Piece": null
 		}
-
+		#await get_tree().create_timer(0.1).timeout 
 		# Godot built in function uses oddr coordinates rather than axial
 		set_cell(0, oddr, 0, Vector2i(0,0), 0)
 

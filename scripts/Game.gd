@@ -93,7 +93,6 @@ func _input(event):
 				grid.deselect()
 
 	elif event.is_action_pressed("deselect"):
-		print("check")
 		grid.deselect()
 		# Deselects piece
 		to_move = null
