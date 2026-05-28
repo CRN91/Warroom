@@ -1,18 +1,17 @@
-[gd_scene load_steps=5 format=3 uid="uid://c66iqnvcjc5w1"]
+[gd_scene format=3 uid="uid://c66iqnvcjc5w1"]
 
-[ext_resource type="Script" path="res://scripts/City.gd" id="1_0r7ut"]
+[ext_resource type="Script" uid="uid://fkunv0fex18c" path="res://scripts/City.gd" id="1_0r7ut"]
 [ext_resource type="PackedScene" uid="uid://dagna7awd0a82" path="res://scenes/movement_comp.tscn" id="2_ykowy"]
 [ext_resource type="PackedScene" uid="uid://byma8yx68e66i" path="res://scenes/resources_comp.tscn" id="3_5aspk"]
-[ext_resource type="Texture2D" uid="uid://bnnlxfltaojlc" path="res://assets/cityg.png" id="4_v51tb"]
+[ext_resource type="Texture2D" uid="uid://x3g5djhymwp1" path="res://assets/cityg.png" id="4_v51tb"]
 
-[node name="City" type="Node2D"]
+[node name="City" type="Node2D" unique_id=765985161]
 script = ExtResource("1_0r7ut")
 hex_tile = Vector2i(-2, 4)
 
-[node name="Movement" parent="." node_paths=PackedStringArray("piece") instance=ExtResource("2_ykowy")]
-piece = NodePath("..")
+[node name="Movement" parent="." unique_id=2145996257 instance=ExtResource("2_ykowy")]
 
-[node name="Resource" parent="." instance=ExtResource("3_5aspk")]
+[node name="Resources" parent="." unique_id=1054909760 instance=ExtResource("3_5aspk")]
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=446907683]
 texture = ExtResource("4_v51tb")

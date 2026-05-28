@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://bs3xtmxllnkkb"]
 
-[ext_resource type="Script" uid="uid://cj0axds3qvy13" path="res://scripts/Game.gd" id="1_4d42g"]
-[ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
-[ext_resource type="Texture2D" uid="uid://cmo6w1vxtqu6r" path="res://assets/hexoutline.png" id="3_5t06b"]
-[ext_resource type="Texture2D" uid="uid://d12iblu7ve0uf" path="res://assets/hexoutlinered.png" id="4_eodyj"]
-[ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
+[ext_resource type="Script" uid="uid://5eq5juy3naqt" path="res://scripts/Game.gd" id="1_4d42g"]
+[ext_resource type="Texture2D" uid="uid://cn1mpuamhvihx" path="res://assets/bluehex.png" id="2_t3w5q"]
+[ext_resource type="Texture2D" uid="uid://bwabm45psyxof" path="res://assets/hexoutline.png" id="3_5t06b"]
+[ext_resource type="Texture2D" uid="uid://glbg0i37q4de" path="res://assets/hexoutlinered.png" id="4_eodyj"]
+[ext_resource type="Texture2D" uid="uid://k3mm5t5pganm" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" uid="uid://cqyccxjwmnymf" path="res://scripts/Grid.gd" id="5_lhfuq"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]

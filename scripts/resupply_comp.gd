@@ -1,8 +1,11 @@
 extends Node2D
 
-@export var piece: Node2D
+var piece: Node2D
 
-func resupply(ally):
+func _ready():
+	piece = get_parent()
+
+func resupply_from(ally):
 	var piece_max_resources = piece.get_max_resources()
 	var resource_gap = piece_max_resources - piece.get_resources()
 	var ally_resources = ally.get_resources()

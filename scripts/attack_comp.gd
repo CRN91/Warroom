@@ -3,11 +3,11 @@ extends Node2D
 class_name Attack
 
 @export var damage:= 99
-@export var ally: Node2D
+var ally: Node2D
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	pass # Replace with function body.
+	ally = get_parent()
 
 func attack(enemy, specific_damage):
 	if specific_damage == -1:

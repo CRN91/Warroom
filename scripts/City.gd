@@ -1,49 +1,24 @@
-extends Node2D
+extends Unit
+ 
 class_name City
-
-var allied: bool = true
-@onready var movement_comp = $Movement
-@onready var resource_comp = $Resource
-@export var hex_tile: Vector2i # Use this later with signals
-
-func is_allied():
-	return allied
-
-func combatant():
-	return false
-
-func is_frozen(): # Cities never freeze
-	return false
-
-func unfreeze():
-	pass
-	
-func set_hex(hex, grid):
-	return movement_comp.set_hex(hex, grid)	
-	
-func status():
-	return "Hex: %s\nUnit: %s\nResources: %d" % [movement_comp.get_cell(), self.name, resource_comp.get_resources()]
-
-func move_to(hex, grid):
-	return grid
-
-func get_resources():
-	return resource_comp.get_resources()
-
-func deplete(x):
-	resource_comp.deplete(x)
-
-func restore(x):
-	resource_comp.resupply(x)
-
-func get_max_resources():
-	return resource_comp.get_max_resources()
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
-	pass
-
-# Called when the node enters the scene tree for the first time.
+ 
+@export var hex_tile: Vector2i
+ 
 func _ready():
 	resource_comp.set_max_resources(1000)
 	resource_comp.set_resupply_rate(1000)
+	supplier = 2
+ 
+func set_hex(hex, grid):
+	return movement_comp.set_hex(hex, grid)
+ 
+# Cities never freeze - override base
+func unfreeze():
+	pass
+ 
+func is_frozen():
+	return false
+ 
+# Cities don't move
+func move_to(_hex, grid):
+	return grid
