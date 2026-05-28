@@ -1,20 +1,19 @@
 extends Node2D
 class_name City
 
+var allied: bool = true
 @onready var movement_comp = $Movement
 @onready var resource_comp = $Resource
 @export var hex_tile: Vector2i # Use this later with signals
 
-# Called when the node enters the scene tree for the first time.
-func _ready():
-	resource_comp.set_max_resources(1000)
-	resource_comp.set_resupply_rate(1000)
+func is_allied():
+	return allied
 
 func combatant():
 	return false
 
-func is_frozen():
-	return movement_comp.frozen
+func is_frozen(): # Cities never freeze
+	return false
 
 func unfreeze():
 	pass
@@ -34,6 +33,17 @@ func get_resources():
 func deplete(x):
 	resource_comp.deplete(x)
 
+func restore(x):
+	resource_comp.resupply(x)
+
+func get_max_resources():
+	return resource_comp.get_max_resources()
+
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
 	pass
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	resource_comp.set_max_resources(1000)
+	resource_comp.set_resupply_rate(1000)

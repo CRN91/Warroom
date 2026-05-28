@@ -1,11 +1,11 @@
-[gd_scene load_steps=12 format=3 uid="uid://bs3xtmxllnkkb"]
+[gd_scene format=3 uid="uid://bs3xtmxllnkkb"]
 
-[ext_resource type="Script" path="res://scripts/Game.gd" id="1_4d42g"]
+[ext_resource type="Script" uid="uid://cj0axds3qvy13" path="res://scripts/Game.gd" id="1_4d42g"]
 [ext_resource type="Texture2D" uid="uid://cjb17kkywnefr" path="res://assets/bluehex.png" id="2_t3w5q"]
 [ext_resource type="Texture2D" uid="uid://cmo6w1vxtqu6r" path="res://assets/hexoutline.png" id="3_5t06b"]
 [ext_resource type="Texture2D" uid="uid://d12iblu7ve0uf" path="res://assets/hexoutlinered.png" id="4_eodyj"]
 [ext_resource type="Texture2D" uid="uid://cdsq1kymgm6em" path="res://assets/redhex.png" id="4_roa3a"]
-[ext_resource type="Script" path="res://scripts/Grid.gd" id="5_lhfuq"]
+[ext_resource type="Script" uid="uid://cqyccxjwmnymf" path="res://scripts/Grid.gd" id="5_lhfuq"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -20,6 +20,7 @@ texture_region_size = Vector2i(500, 580)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_e1bcy"]
 texture = ExtResource("4_eodyj")
+margins = Vector2i(10, 0)
 texture_region_size = Vector2i(500, 580)
 0:0/0 = 0
 
@@ -37,26 +38,55 @@ sources/0 = SubResource("TileSetAtlasSource_bbf4d")
 sources/2 = SubResource("TileSetAtlasSource_e1bcy")
 sources/1 = SubResource("TileSetAtlasSource_jxbpp")
 
-[node name="Game" type="Node2D"]
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_snlk1"]
+
+[node name="Game" type="Node2D" unique_id=745179235]
 script = ExtResource("1_4d42g")
 
-[node name="Grid" type="TileMap" parent="."]
+[node name="Grid" type="TileMap" parent="." unique_id=768895094]
 unique_name_in_owner = true
 tile_set = SubResource("TileSet_r8nud")
 format = 2
 layer_0/name = "base"
 layer_1/name = "select"
-layer_1/tile_data = PackedInt32Array()
 script = ExtResource("5_lhfuq")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1228484869]
 position = Vector2(1850, 980)
 zoom = Vector2(0.1, 0.1)
 
-[node name="DayCount" type="Label" parent="."]
+[node name="DayCount" type="Label" parent="." unique_id=492588463]
 offset_left = -25.0
 offset_top = -26.0
 offset_right = 143.0
 offset_bottom = 53.0
 scale = Vector2(50, 50)
 text = "DAY"
+
+[node name="NextDay" type="Button" parent="." unique_id=1311623877]
+material = SubResource("CanvasItemMaterial_snlk1")
+offset_left = 2394.0
+offset_top = 2133.0
+offset_right = 3052.0
+offset_bottom = 2446.0
+text = "End Turn"
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1486554040]
+
+[node name="Panel" type="Panel" parent="CanvasLayer" unique_id=855132704]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel" unique_id=685703877]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Name" type="Label" parent="CanvasLayer/Panel/VBoxContainer" unique_id=2083392739]
+layout_mode = 2
+
+[node name="Resources" type="Label" parent="CanvasLayer/Panel/VBoxContainer" unique_id=1164951652]
+layout_mode = 2
+
+[node name="Action" type="Label" parent="CanvasLayer/Panel/VBoxContainer" unique_id=1345010209]
+layout_mode = 2
