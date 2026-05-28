@@ -1,6 +1,20 @@
-[gd_scene load_steps=2 format=3 uid="uid://c1ftkj5wviygk"]
+[gd_scene format=3 uid="uid://c1ftkj5wviygk"]
 
-[ext_resource type="Script" path="res://scripts/card.gd" id="1_tnk7f"]
+[ext_resource type="Script" uid="uid://cbfflpxcajwum" path="res://scripts/card.gd" id="1_tnk7f"]
 
-[node name="Card" type="Node2D"]
+[node name="Panel" type="Panel" unique_id=1997218907]
+offset_right = 40.0
+offset_bottom = 40.0
 script = ExtResource("1_tnk7f")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=537514319]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="type" type="Label" parent="VBoxContainer" unique_id=171293562]
+layout_mode = 2
+
+[node name="text" type="Label" parent="VBoxContainer" unique_id=1443597486]
+unique_name_in_owner = true
+layout_mode = 2

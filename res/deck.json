@@ -1,0 +1,19 @@
+[
+	{
+		"id": "intel_01",
+		"type": "intel",
+		"text": "Scouts report heavy enemy movement to the East."
+	},
+	{
+		"id": "event_01",
+		"type": "event",
+		"text": "Heavy rains wash out the roads. Movement is slowed.",
+		"effect": "freeze_all"
+	},
+	{
+		"id": "decision_01",
+		"type": "decision",
+		"text": "A local village offers us their stockpile. Do we take it?",
+		"choices": ["Take it (+Resources)", "Leave it (+Morale)"]
+	}
+]

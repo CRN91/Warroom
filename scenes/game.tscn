@@ -6,6 +6,8 @@
 [ext_resource type="Texture2D" uid="uid://glbg0i37q4de" path="res://assets/hexoutlinered.png" id="4_eodyj"]
 [ext_resource type="Texture2D" uid="uid://k3mm5t5pganm" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" uid="uid://cqyccxjwmnymf" path="res://scripts/Grid.gd" id="5_lhfuq"]
+[ext_resource type="PackedScene" uid="uid://c1ftkj5wviygk" path="res://scenes/card.tscn" id="7_gee14"]
+[ext_resource type="Script" uid="uid://mf10onwhd6yp" path="res://scripts/deck.gd" id="7_u5sy4"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -90,3 +92,11 @@ layout_mode = 2
 
 [node name="Action" type="Label" parent="CanvasLayer/Panel/VBoxContainer" unique_id=1345010209]
 layout_mode = 2
+
+[node name="CardUI" parent="CanvasLayer" unique_id=1997218907 instance=ExtResource("7_gee14")]
+offset_left = 600.0
+offset_right = 1100.0
+offset_bottom = 100.0
+
+[node name="Deck" type="Node" parent="." unique_id=162346070]
+script = ExtResource("7_u5sy4")

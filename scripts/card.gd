@@ -1,14 +1,17 @@
-extends Node2D
+extends Panel
+class_name CardUI
 
-class_name Card
+@onready var lbl_type = $VBoxContainer/type
+@onready var lbl_text = $VBoxContainer/text
 
-var type
+var current_card_data: Dictionary
 
-func set_type(card_type):
-	match card_type:
-		"intel":
-			type = 0
-		"event":
-			type = 1
-		"decision":
-			type = 2
+# Updates the UI based on the dictionary passed from the Deck
+func display_card(card_data: Dictionary):
+	current_card_data = card_data
+	
+	lbl_type.text = str(card_data["type"]).capitalize()
+	lbl_text.text = str(card_data["text"])
+	
+	# Show the panel
+	show()

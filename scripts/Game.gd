@@ -16,6 +16,9 @@ const LOGI = preload("res://scenes/logistics.tscn")
 @onready var lbl_res     = $CanvasLayer/Panel/VBoxContainer/Resources
 @onready var lbl_act = $CanvasLayer/Panel/VBoxContainer/Action
 
+@onready var deck = $Deck
+@onready var card_ui = $CanvasLayer/CardUI
+
 var day: int = 0
 var hex_to_move
 
@@ -45,6 +48,8 @@ func test_setup():
 
 func _ready():
 	panel.hide()
+	card_ui.hide() 
+	deck.load()   
 	test_setup()
 	nextdaybutton.pressed.connect(self._next_day_button)
 
@@ -177,7 +182,31 @@ func clock_increment():
 							elif same_team:
 								_supply(piece, adj_piece)
 
-	# TODO: Get a card
+	var cycle = day % 3
+	var required_type = ""
+	
+	if cycle == 1:
+		required_type = "intel"
+	elif cycle == 2:
+		required_type = "event"
+	elif cycle == 0:
+		required_type = "decision"
+	
+	# Search the deck for the first card that matches the required type
+	var card_to_play = null
+	for i in range(deck.size()):
+		var checked_card = deck.queue[i]
+		if checked_card["type"] == required_type:
+			card_to_play = checked_card
+			deck.queue.remove_at(i) # Remove it from the deck
+			break
+			
+	# Send the card to the UI
+	if card_to_play != null:
+		print("Drawing card: ", card_to_play["text"])
+		card_ui.display_card(card_to_play)
+	else:
+		card_ui.hide()
 	
 	for hex in grid.Grid:
 		var piece = grid.Grid[hex]["Piece"]
