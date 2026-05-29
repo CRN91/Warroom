@@ -17,6 +17,7 @@ func get_resources(): return resource_comp.get_resources()
 func get_max_resources(): return resource_comp.get_max_resources()
 func deplete(x): return resource_comp.deplete(x)
 func restore(x): resource_comp.resupply(x)
+func set_enemy(): allied = false
 
 func move_to(new_cell, grid):
 	if not frozen:

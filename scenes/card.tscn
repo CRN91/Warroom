@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c1ftkj5wviygk"]
 
-[ext_resource type="Script" uid="uid://cbfflpxcajwum" path="res://scripts/card.gd" id="1_tnk7f"]
+[ext_resource type="Script" uid="uid://ccrkbkve5puhb" path="res://scripts/card.gd" id="1_tnk7f"]
 
 [node name="Panel" type="Panel" unique_id=1997218907]
 offset_right = 40.0
@@ -17,4 +17,13 @@ layout_mode = 2
 
 [node name="text" type="Label" parent="VBoxContainer" unique_id=1443597486]
 unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ButtonContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=1019150003]
+layout_mode = 2
+
+[node name="BtnYes" type="Button" parent="VBoxContainer/ButtonContainer" unique_id=1906372061]
+layout_mode = 2
+
+[node name="BtnNo" type="Button" parent="VBoxContainer/ButtonContainer" unique_id=1701870645]
 layout_mode = 2

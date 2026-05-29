@@ -1,27 +1,28 @@
 extends Node2D
 
+# Hexagonal tiled board
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
+@onready var grid = %Grid
 
+# Board pieces
 const INFANTRY = preload("res://scenes/infantry.tscn")
 const CITY = preload("res://scenes/city.tscn")
 const LOGI = preload("res://scenes/logistics.tscn")
 
-@onready var grid = %Grid
-@onready var daycounter = $DayCount
-@onready var nextdaybutton = $NextDay
-
+# UI
+@onready var daycounter = $CanvasLayer/DayCount
+@onready var nextdaybutton = $CanvasLayer/NextDay
 @onready var panel      = $CanvasLayer/Panel
 @onready var lbl_name   = $CanvasLayer/Panel/VBoxContainer/Name
 @onready var lbl_res     = $CanvasLayer/Panel/VBoxContainer/Resources
 @onready var lbl_act = $CanvasLayer/Panel/VBoxContainer/Action
-
-@onready var deck = $Deck
 @onready var card_ui = $CanvasLayer/CardUI
 
-var day: int = 0
-var hex_to_move
-
+# Card logic
+@onready var deck = $Deck
+@onready var card_library = $CardLibrary
+@onready var resolver = $CardResolver
 var game_state: Dictionary = {
 	"move_cost": 1,
 	"attack_modifier": 1.0
@@ -29,8 +30,12 @@ var game_state: Dictionary = {
 var pending_cards: Array = []     # [{id, on_day}]
 var pending_restores: Array = []  # [{key, value, on_day}]
 
-@onready var card_library = $CardLibrary
-@onready var resolver = $CardResolver
+# Game logic
+var day: int = 0
+var hex_to_move
+
+var cities = []
+var units = []
 
 func _on_card_choice(card_data: Dictionary, choice: String):
 	var effects = card_data[choice]["effects"]
@@ -55,24 +60,40 @@ func test_setup():
 	var piece = INFANTRY.instantiate()
 	add_child(piece,true)
 	grid = piece.move_to(Vector2i(2,1), grid)
+	units.append(piece)
 
 	var piece2 = INFANTRY.instantiate()
 	add_child(piece2,true)
 	piece2.set_enemy()
-	
-	grid = piece2.move_to(Vector2i(1,1), grid)
+	grid = piece2.move_to(Vector2i(1,-3), grid)
+	units.append(piece2)
 	
 	var piece3 = INFANTRY.instantiate()
 	add_child(piece3,true)
 	grid = piece3.move_to(Vector2i(-1,2), grid)
+	units.append(piece3)
 	
 	var city = CITY.instantiate()
 	add_child(city, true)
 	grid = city.set_hex(Vector2i(0,0), grid)
+	cities.append(city)
+	
+	var city2 = CITY.instantiate()
+	add_child(city2, true)
+	city2.set_enemy()
+	grid = city2.set_hex(Vector2i(0,-3), grid)
+	cities.append(city2)
+	
+	var city3 = CITY.instantiate()
+	add_child(city3, true)
+	grid = city3.set_hex(Vector2i(0,3), grid)
+	cities.append(city3)
 	
 	var logi = LOGI.instantiate()
 	add_child(logi, true)
 	grid = logi.move_to(Vector2i(-1,-1), grid)
+
+	_unfreeze_all()
 
 func _ready():
 	card_library.load_library()
@@ -127,7 +148,7 @@ func _supply(piece1, piece2):
 	elif piece2.supplier > piece1.supplier:
 		piece1.resupply_from(piece2)
 
-func play_selected(hex, hex_to_move):
+func _play_selected(hex, hex_to_move):
 	# Checks the previously selected hex is adjacent
 	if hex_to_move in HEX.axial_neighbours(hex):
 		
@@ -173,7 +194,7 @@ func _input(event):
 			# If a piece exists in the selected hex
 			if selected:
 				if hex_to_move:
-					play_selected(hex, hex_to_move)
+					_play_selected(hex, hex_to_move)
 					_deselect_piece()
 				else:
 					_select_piece(selected, hex)
@@ -212,7 +233,7 @@ func clock_increment():
 							var same_team = piece.is_allied() == adj_piece.is_allied()
 							
 							# Combat
-							if not same_team and piece.combatant() and adj_piece.combatant():
+							if not same_team:
 								_fight(piece, adj_piece)
 							# Resupply
 							elif same_team:
@@ -232,10 +253,11 @@ func clock_increment():
 	var card_to_play = null
 	for i in range(deck.size()):
 		var checked_card = deck.queue[i]
-		if checked_card["type"] == required_type:
-			card_to_play = checked_card
-			deck.queue.remove_at(i) # Remove it from the deck
-			break
+		if deck.len() > 1:
+			if checked_card["type"] == required_type:
+				card_to_play = checked_card
+				deck.queue.remove_at(i) # Remove it from the deck
+				break
 			
 	# Send the card to the UI
 	if card_to_play != null:
@@ -248,6 +270,8 @@ func clock_increment():
 		var piece = grid.Grid[hex]["Piece"]
 		if piece and piece is City:
 			piece.restore(100)
+	
+	_unfreeze_all()
 
 func show_stats(piece):
 	lbl_name.text = str(piece.name)

@@ -4,6 +4,9 @@ class_name Deck
 
 @onready var queue: Array = []
 
+func len():
+	return len(queue)
+
 func pop():
 	return queue.pop_front()
 

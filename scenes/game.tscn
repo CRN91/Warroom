@@ -61,22 +61,6 @@ script = ExtResource("5_lhfuq")
 position = Vector2(1850, 980)
 zoom = Vector2(0.1, 0.1)
 
-[node name="DayCount" type="Label" parent="." unique_id=492588463]
-offset_left = -25.0
-offset_top = -26.0
-offset_right = 143.0
-offset_bottom = 53.0
-scale = Vector2(50, 50)
-text = "DAY"
-
-[node name="NextDay" type="Button" parent="." unique_id=1311623877]
-material = SubResource("CanvasItemMaterial_snlk1")
-offset_left = 2394.0
-offset_top = 2133.0
-offset_right = 3052.0
-offset_bottom = 2446.0
-text = "End Turn"
-
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1486554040]
 
 [node name="Panel" type="Panel" parent="CanvasLayer" unique_id=855132704]
@@ -101,6 +85,25 @@ layout_mode = 2
 offset_left = 600.0
 offset_right = 1100.0
 offset_bottom = 100.0
+
+[node name="NextDay" type="Button" parent="CanvasLayer" unique_id=1311623877]
+material = SubResource("CanvasItemMaterial_snlk1")
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -50.0
+offset_right = 100.0
+grow_vertical = 0
+text = "End Turn"
+
+[node name="DayCount" type="Label" parent="CanvasLayer" unique_id=492588463]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -79.0
+offset_right = 168.0
+grow_vertical = 0
+text = "DAY 0"
 
 [node name="Deck" type="Node" parent="." unique_id=162346070]
 script = ExtResource("7_u5sy4")
