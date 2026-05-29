@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://bs3xtmxllnkkb"]
 
-[ext_resource type="Script" uid="uid://5eq5juy3naqt" path="res://scripts/Game.gd" id="1_4d42g"]
+[ext_resource type="Script" uid="uid://dokbik6m64721" path="res://scripts/Game.gd" id="1_4d42g"]
 [ext_resource type="Texture2D" uid="uid://cn1mpuamhvihx" path="res://assets/bluehex.png" id="2_t3w5q"]
+[ext_resource type="PackedScene" uid="uid://dfgjo4mp6cpud" path="res://scenes/CardResolver.tscn" id="2_vtaks"]
 [ext_resource type="Texture2D" uid="uid://bwabm45psyxof" path="res://assets/hexoutline.png" id="3_5t06b"]
 [ext_resource type="Texture2D" uid="uid://glbg0i37q4de" path="res://assets/hexoutlinered.png" id="4_eodyj"]
 [ext_resource type="Texture2D" uid="uid://k3mm5t5pganm" path="res://assets/redhex.png" id="4_roa3a"]
 [ext_resource type="Script" uid="uid://cqyccxjwmnymf" path="res://scripts/Grid.gd" id="5_lhfuq"]
 [ext_resource type="PackedScene" uid="uid://c1ftkj5wviygk" path="res://scenes/card.tscn" id="7_gee14"]
-[ext_resource type="Script" uid="uid://mf10onwhd6yp" path="res://scripts/deck.gd" id="7_u5sy4"]
+[ext_resource type="Script" uid="uid://bjxd6ucecovds" path="res://scripts/deck.gd" id="7_u5sy4"]
+[ext_resource type="PackedScene" uid="uid://s6wstpymebwh" path="res://scenes/CardLibrary.tscn" id="10_kvpfn"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -44,6 +46,8 @@ sources/1 = SubResource("TileSetAtlasSource_jxbpp")
 
 [node name="Game" type="Node2D" unique_id=745179235]
 script = ExtResource("1_4d42g")
+
+[node name="CardResolver" parent="." unique_id=657464377 instance=ExtResource("2_vtaks")]
 
 [node name="Grid" type="TileMap" parent="." unique_id=768895094]
 unique_name_in_owner = true
@@ -100,3 +104,5 @@ offset_bottom = 100.0
 
 [node name="Deck" type="Node" parent="." unique_id=162346070]
 script = ExtResource("7_u5sy4")
+
+[node name="CardLibrary" parent="." unique_id=1175650699 instance=ExtResource("10_kvpfn")]

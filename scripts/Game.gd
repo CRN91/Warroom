@@ -22,6 +22,34 @@ const LOGI = preload("res://scenes/logistics.tscn")
 var day: int = 0
 var hex_to_move
 
+var game_state: Dictionary = {
+	"move_cost": 1,
+	"attack_modifier": 1.0
+}
+var pending_cards: Array = []     # [{id, on_day}]
+var pending_restores: Array = []  # [{key, value, on_day}]
+
+@onready var card_library = $CardLibrary
+@onready var resolver = $CardResolver
+
+func _on_card_choice(card_data: Dictionary, choice: String):
+	var effects = card_data[choice]["effects"]
+	resolver.resolve(effects, self)
+
+func _check_pending():
+	# Inject delayed cards
+	for i in range(pending_cards.size() - 1, -1, -1):
+		if pending_cards[i]["on_day"] <= day:
+			var card = card_library.get_card(pending_cards[i]["id"])
+			deck.inject(card, "soon")
+			pending_cards.remove_at(i)
+	
+	# Restore game state
+	for i in range(pending_restores.size() - 1, -1, -1):
+		if pending_restores[i]["on_day"] <= day:
+			game_state[pending_restores[i]["key"]] = pending_restores[i]["value"]
+			pending_restores.remove_at(i)
+
 # Dummy test environment
 func test_setup():
 	var piece = INFANTRY.instantiate()
@@ -47,6 +75,14 @@ func test_setup():
 	grid = logi.move_to(Vector2i(-1,-1), grid)
 
 func _ready():
+	card_library.load_library()
+	
+	var this_run_sets = ["western_front_intel", "weather_events", "command_decisions"]
+	var starting_cards = card_library.build_starting_deck(this_run_sets)
+	
+	for card in starting_cards:
+		deck.push(card)
+		
 	panel.hide()
 	card_ui.hide() 
 	deck.load()   

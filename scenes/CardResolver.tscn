@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dfgjo4mp6cpud"]
+
+[ext_resource type="Script" uid="uid://cgup2m35ubwdi" path="res://scripts/card_resolver.gd" id="1_vaj7t"]
+
+[node name="CardResolver" type="Node2D" unique_id=657464377]
+script = ExtResource("1_vaj7t")

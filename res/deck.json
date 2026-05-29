@@ -1,19 +1,98 @@
-[
-	{
-		"id": "intel_01",
-		"type": "intel",
-		"text": "Scouts report heavy enemy movement to the East."
+{
+  "sets": {
+	"western_front_intel": {
+	  "label": "Western Front Intelligence",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "intel_wf_001",
+		  "type": "intel",
+		  "text": "ASSET NIGHTINGALE: 'The eagle extends its wings in 5 sunrises.'",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "intel_wf_002", 
+		  "type": "intel",
+		  "text": "Intercepted radio traffic suggests a redeployment east. Source unverified.",
+		  "protected": false,
+		  "effects": []
+		}
+	  ]
 	},
-	{
-		"id": "event_01",
-		"type": "event",
-		"text": "Heavy rains wash out the roads. Movement is slowed.",
-		"effect": "freeze_all"
+	"weather_events": {
+	  "label": "Weather & Terrain",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "event_snowstorm",
+		  "type": "event",
+		  "text": "A heavy snowstorm rolls across the front.",
+		  "protected": false,
+		  "effects": [
+			{ "type": "game_state", "key": "move_cost", "value": 2 },
+			{ "type": "restore_state", "key": "move_cost", "value": 1, "after_days": 3 }
+		  ]
+		}
+	  ]
 	},
-	{
-		"id": "decision_01",
-		"type": "decision",
-		"text": "A local village offers us their stockpile. Do we take it?",
-		"choices": ["Take it (+Resources)", "Leave it (+Morale)"]
+	"command_decisions": {
+	  "label": "Command Decisions",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "decision_general_family",
+		  "type": "decision",
+		  "text": "General Harwick requests leave to visit his family.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Grant Leave",
+			"effects": [
+			  { "type": "game_state", "key": "attack_modifier", "value": 0.8 },
+			  { "type": "inject_cards", "ids": ["intel_harwick_grateful"] }
+			]
+		  },
+		  "choice_b": {
+			"label": "Deny Leave",
+			"effects": [
+			  { "type": "delayed_card", "id": "event_mutiny", "after_days": 20 }
+			]
+		  }
+		}
+	  ]
+	},
+	"relic_chain": {
+	  "label": "The Buried Thing",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "event_trench_dig",
+		  "type": "event",
+		  "text": "While deepening a trench, your men uncover something buried. Something old.",
+		  "protected": false,
+		  "effects": [
+			{ "type": "inject_cards", "ids": ["decision_relic_what_to_do"], "position": "soon" }
+		  ]
+		},
+		{
+		  "id": "decision_relic_what_to_do",
+		  "type": "decision",
+		  "text": "The object is unlike anything your engineers recognise.",
+		  "protected": true,
+		  "choice_a": {
+			"label": "Send it to command",
+			"effects": [
+			  { "type": "inject_cards", "ids": ["intel_relic_provenance"] }
+			]
+		  },
+		  "choice_b": {
+			"label": "Keep it quiet",
+			"effects": [
+			  { "type": "delayed_card", "id": "event_archaeologist_arrives", "after_days": 8 }
+			]
+		  }
+		}
+	  ]
 	}
-]
+  }
+}
