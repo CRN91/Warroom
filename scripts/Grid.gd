@@ -57,6 +57,21 @@ func get_hex_path(start_hex: Vector2i, end_hex: Vector2i) -> PackedVector2Array:
 
 	return astar.get_point_path(start_id, end_id)
 
+func get_map_path(start_hex: Vector2i, end_hex: Vector2i) -> Array[Vector2i]:
+	if not hex_to_id.has(start_hex) or not hex_to_id.has(end_hex):
+		return []
+
+	var start_id = hex_to_id[start_hex]
+	var end_id = hex_to_id[end_hex]
+	
+	var id_path = astar.get_id_path(start_id, end_id)
+	
+	var hex_path: Array[Vector2i] = []
+	for id in id_path:
+		hex_path.append(id_to_hex[id])
+		
+	return hex_path
+
 # Removes the previous highlighted hexes the mouse went over
 func erase_highlight(highlights):
 	for i in highlights:

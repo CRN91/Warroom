@@ -47,6 +47,7 @@ func set_hex(new_cell, grid):
 			
 		hex = new_cell
 		piece.position = pos
+		
 
 
 	# Returns the grid so we have one central location where all pieces are referenced

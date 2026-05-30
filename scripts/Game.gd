@@ -93,6 +93,7 @@ func test_setup():
 	var logi = LOGI.instantiate()
 	add_child(logi, true)
 	grid = logi.move_to(Vector2i(-1,-1), null, grid)
+	units.append(logi)
 
 	_unfreeze_all()
 
@@ -124,9 +125,20 @@ func _deselect_piece():
 func _die(dead_piece):
 	print("dead boy")
 	var dead_hex = dead_piece.get_hex()
-	# Deletes from grid dictionary, better implementation with signals
-	grid.Grid[dead_hex]["Piece"].queue_free()
-	grid.Grid[dead_hex]["Piece"] = null
+	# Remove from grid
+	if dead_hex and grid.Grid.has(dead_hex):
+		grid.Grid[dead_hex]["Piece"] = null
+	
+	# Remove from units
+	if dead_piece in units:
+		units.erase(dead_piece)
+		
+	# Remove piece
+	dead_piece.queue_free()
+	
+	# Free space
+	grid.enable_hex(dead_hex)
+		
 	print(grid.Grid[dead_hex]["Piece"])
 	
 func _fight(piece1, piece2):
@@ -153,7 +165,6 @@ func _supply(piece1, piece2):
 func _play_selected(hex, hex_to_move):
 	# Checks the previously selected hex is adjacent
 	if hex_to_move in HEX.axial_neighbours(hex):
-		
 		var selected = grid.Grid[hex]["Piece"]
 		
 		# If there was a previously selected hex
@@ -171,7 +182,7 @@ func _play_selected(hex, hex_to_move):
 				elif same_team:
 					_supply(previous_selected, selected)
 			else:
-				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, grid)
+				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
 				hex_to_move = null
 				grid.deselect()
 				# Old code about to_move being 0,0 not sure what thats about
@@ -201,6 +212,7 @@ func _input(event):
 				else:
 					_select_piece(selected, hex)
 			elif hex_to_move:
+				print("moving")
 				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
 				_deselect_piece()
 				
@@ -285,8 +297,14 @@ func clock_increment():
 	for city in cities:
 		city.restore(100)
 	
-	# Deplete units
+	# Deplete units and automove
 	for unit in units:
+		if unit.path and unit.path.size() > 0:
+			var next_hex = unit.path[0]
+			if grid.Grid[next_hex]["Piece"] == null:
+				unit.move_to(next_hex, unit.get_hex(), grid)
+				unit.path.remove_at(0)
+			
 		unit.auto_deplete()
 	
 	_unfreeze_all()
