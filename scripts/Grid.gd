@@ -38,6 +38,16 @@ func make_grid_axial():
 				if adj in Grid.keys():
 					astar.connect_points(id, hex_to_id[adj], false)
 
+func _update_grid(hex, disable=true):
+	var id = hex_to_id[hex]
+	astar.set_point_disabled(id, disable)
+	
+func enable_hex(hex):
+	_update_grid(hex, false)
+
+func disable_hex(hex):
+	_update_grid(hex)
+
 func get_hex_path(start_hex: Vector2i, end_hex: Vector2i) -> PackedVector2Array:
 	if not hex_to_id.has(start_hex) or not hex_to_id.has(end_hex):
 		return PackedVector2Array()

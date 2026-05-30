@@ -11,6 +11,7 @@ func _ready():
 	supplier = 2
  
 func set_hex(hex, grid):
+	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
  
 func set_enemy():
@@ -25,5 +26,5 @@ func is_frozen():
 	return false
  
 # Cities don't move
-func move_to(_hex, grid):
+func move_to(_hex, _old_hex, grid):
 	return grid

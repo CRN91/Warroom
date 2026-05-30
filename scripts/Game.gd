@@ -60,18 +60,18 @@ func _check_pending():
 func test_setup():
 	var piece = INFANTRY.instantiate()
 	add_child(piece,true)
-	grid = piece.move_to(Vector2i(2,1), grid)
+	grid = piece.move_to(Vector2i(2,1), null, grid)
 	units.append(piece)
 
 	var piece2 = INFANTRY.instantiate()
 	add_child(piece2,true)
 	piece2.set_enemy()
-	grid = piece2.move_to(Vector2i(1,-3), grid)
+	grid = piece2.move_to(Vector2i(1,-3), null, grid)
 	units.append(piece2)
 	
 	var piece3 = INFANTRY.instantiate()
 	add_child(piece3,true)
-	grid = piece3.move_to(Vector2i(-1,2), grid)
+	grid = piece3.move_to(Vector2i(-1,2), null, grid)
 	units.append(piece3)
 	
 	var city = CITY.instantiate()
@@ -92,7 +92,7 @@ func test_setup():
 	
 	var logi = LOGI.instantiate()
 	add_child(logi, true)
-	grid = logi.move_to(Vector2i(-1,-1), grid)
+	grid = logi.move_to(Vector2i(-1,-1), null, grid)
 
 	_unfreeze_all()
 
@@ -201,7 +201,7 @@ func _input(event):
 				else:
 					_select_piece(selected, hex)
 			elif hex_to_move:
-				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, grid)
+				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
 				_deselect_piece()
 				
 	elif event.is_action_pressed("deselect"):
@@ -213,8 +213,10 @@ func _input(event):
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
 			
 			if target_hex in grid.Grid.keys():
+				grid.enable_hex(hex_to_move)
 				var pixel_path = grid.get_hex_path(hex_to_move, target_hex)
 				path_line.points = pixel_path
+				grid.disable_hex(hex_to_move)
 			else:
 				path_line.clear_points()
 

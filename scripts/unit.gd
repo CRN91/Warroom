@@ -21,10 +21,13 @@ func auto_deplete(): return resource_comp.deplete(DAILY_DEPLETE)
 func restore(x): resource_comp.resupply(x)
 func set_enemy(): allied = false
 
-func move_to(new_cell, grid):
+func move_to(new_hex, old_hex, grid):
 	if not frozen:
 		frozen = true
-		return movement_comp.set_hex(new_cell, grid)
+		if old_hex:
+			grid.enable_hex(old_hex)
+		grid.disable_hex(new_hex)
+		return movement_comp.set_hex(new_hex, grid)
 	return grid
 
 func status():
