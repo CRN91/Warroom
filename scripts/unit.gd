@@ -7,6 +7,7 @@ var supplier: int = 0
 
 @onready var movement_comp = $Movement
 @onready var resource_comp = $Resources
+var DAILY_DEPLETE = 1
 
 func is_allied(): return allied
 func combatant(): return false
@@ -16,6 +17,7 @@ func get_hex(): return movement_comp.get_cell()
 func get_resources(): return resource_comp.get_resources()
 func get_max_resources(): return resource_comp.get_max_resources()
 func deplete(x): return resource_comp.deplete(x)
+func auto_deplete(): return resource_comp.deplete(DAILY_DEPLETE)
 func restore(x): resource_comp.resupply(x)
 func set_enemy(): allied = false
 

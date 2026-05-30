@@ -3,8 +3,9 @@ extends Unit
 class_name City
  
 @export var hex_tile: Vector2i
- 
+
 func _ready():
+	DAILY_DEPLETE = 0
 	resource_comp.set_max_resources(1000)
 	resource_comp.set_resupply_rate(1000)
 	supplier = 2

@@ -279,10 +279,13 @@ func clock_increment():
 	else:
 		card_ui.hide()
 	
-	for hex in grid.Grid:
-		var piece = grid.Grid[hex]["Piece"]
-		if piece and piece is City:
-			piece.restore(100)
+	# Replenish cities
+	for city in cities:
+		city.restore(100)
+	
+	# Deplete units
+	for unit in units:
+		unit.auto_deplete()
 	
 	_unfreeze_all()
 
