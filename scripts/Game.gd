@@ -18,6 +18,7 @@ const LOGI = preload("res://scenes/logistics.tscn")
 @onready var lbl_res     = $CanvasLayer/Panel/VBoxContainer/Resources
 @onready var lbl_act = $CanvasLayer/Panel/VBoxContainer/Action
 @onready var card_ui = $CanvasLayer/CardUI
+@onready var path_line = $PathLine
 
 # Card logic
 @onready var deck = $Deck
@@ -115,6 +116,7 @@ func _select_piece(piece: Node2D, hex: Vector2i):
 	hex_to_move = hex
  
 func _deselect_piece():
+	path_line.clear_points()
 	hex_to_move = null
 	grid.deselect()
 	panel.hide()
@@ -204,6 +206,17 @@ func _input(event):
 				
 	elif event.is_action_pressed("deselect"):
 		_deselect_piece()
+		
+	elif event is InputEventMouseMotion:
+		if hex_to_move:
+			var oddr_hex = grid.local_to_map(get_global_mouse_position())
+			var target_hex = HEX.oddr_to_axial(oddr_hex)
+			
+			if target_hex in grid.Grid.keys():
+				var pixel_path = grid.get_hex_path(hex_to_move, target_hex)
+				path_line.points = pixel_path
+			else:
+				path_line.clear_points()
 
 func _unfreeze_all():
 	for hex in grid.Grid:

@@ -109,3 +109,10 @@ text = "DAY 0"
 script = ExtResource("7_u5sy4")
 
 [node name="CardLibrary" parent="." unique_id=1175650699 instance=ExtResource("10_kvpfn")]
+
+[node name="PathLine" type="Line2D" parent="." unique_id=2011039495]
+width = 20.0
+default_color = Color(0.26666668, 0.93333334, 0, 1)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2

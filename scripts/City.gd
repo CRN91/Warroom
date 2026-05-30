@@ -12,6 +12,10 @@ func _ready():
 func set_hex(hex, grid):
 	return movement_comp.set_hex(hex, grid)
  
+func set_enemy():
+	$Sprite2D.texture = load("res://assets/cityr.png")
+	allied = false
+
 # Cities never freeze - override base
 func unfreeze():
 	pass
