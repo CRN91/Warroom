@@ -14,7 +14,6 @@ texture = ExtResource("2_o1hdh")
 
 [node name="Resources" type="Node2D" parent="." unique_id=2005096263]
 script = ExtResource("3_o0ibc")
-daily_deplete = 1
 
 [node name="Movement" type="Node2D" parent="." unique_id=199568021]
 script = ExtResource("4_omayn")

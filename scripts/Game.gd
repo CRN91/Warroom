@@ -366,13 +366,20 @@ func clock_increment():
 		city.next_day()
 
 	# Unit auto-path and daily depletion
+	# Collect dead separately so we don't modify `units` while iterating it
+	var starved: Array = []
 	for unit in units:
 		if unit.path and unit.path.size() > 0:
 			var next_hex = unit.path[0]
 			if grid.Grid[next_hex]["Piece"] == null:
 				unit.move_to(next_hex, unit.get_hex(), grid)
 				unit.path.remove_at(0)
-		unit.next_day()
+		if unit.next_day():   # returns true if resources hit 0
+			starved.append(unit)
+
+	for dead in starved:
+		print("%s starved to death." % dead.name)
+		_die(dead)
 
 	# Train movement and supply delivery
 	_tick_trains()

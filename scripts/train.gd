@@ -11,6 +11,7 @@ var speed: int = 2             # Hexes moved per day
 func _ready():
 	allied   = true
 	supplier = 1    # Trains supply adjacent units at endpoints like a logistics truck
+	supplier_reserve = 10
 
 func combatant(): return false
 

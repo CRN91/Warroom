@@ -3,39 +3,27 @@ class_name Resources
 
 @export var MAX_RESC := 100
 @export var resupply_rate := 0
-@export var daily_deplete := 0
-var resources : int # Current resources
+var resources: int
 
 func _ready():
 	resources = MAX_RESC
-	
-func get_resources():
-	return resources
-	
-func deplete(x):
+
+func get_resources(): return resources
+func get_max_resources(): return MAX_RESC
+func set_max_resources(x): MAX_RESC = x
+func set_resupply_rate(x): resupply_rate = x
+
+func deplete(x) -> bool:
 	resources -= x
-	if resources <= 0:
-		return true
-	else:
-		return false
-
-func set_max_resources(x):
-	MAX_RESC = x
-	
-func get_max_resources():
-	return MAX_RESC
-
-func set_resupply_rate(x):
-	resupply_rate = x
+	return resources <= 0
 
 func resupply(x):
-	resources += x
-	if resources > MAX_RESC:
-		resources = MAX_RESC
-		
-# Called once per game day
-func clock_cycle():
-	if resupply_rate:
+	resources = min(resources + x, MAX_RESC)
+
+## Called once per game day. Returns true if the unit starved (resources <= 0).
+func clock_cycle(daily_deplete: int) -> bool:
+	if resupply_rate > 0:
 		resupply(resupply_rate)
-	elif daily_deplete:
-		deplete(daily_deplete)
+		return false
+	else:
+		return deplete(daily_deplete)

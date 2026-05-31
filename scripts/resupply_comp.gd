@@ -6,18 +6,11 @@ func _ready():
 	piece = get_parent()
 
 func resupply_from(ally):
-	var piece_max_resources = piece.get_max_resources()
-	var resource_gap = piece_max_resources - piece.get_resources()
-	var ally_resources = ally.get_resources()
-	var take: int
-	
-	# Scenario where piece is fully resupplied
-	if ally_resources > resource_gap:
-		take = resource_gap
-	# Scenario where piece is not fully resupplied
-	else:
-		take = ally_resources
-	
+	var gap       = piece.get_max_resources() - piece.get_resources()
+	# Ally keeps back their reserve — they won't give away their last N resources
+	var available = ally.get_resources() - ally.supplier_reserve
+	if gap <= 0 or available <= 0:
+		return
+	var take = min(gap, available)
 	ally.deplete(take)
 	piece.restore(take)
-		
