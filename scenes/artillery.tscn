@@ -15,6 +15,7 @@ script = ExtResource("1_1bh05")
 
 [node name="Resources" type="Node2D" parent="." unique_id=1302726788]
 script = ExtResource("2_3dir1")
+daily_deplete = 3
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=194678195]
 texture = ExtResource("4_for5n")

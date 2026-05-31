@@ -1,24 +1,23 @@
-[gd_scene load_steps=6 format=3 uid="uid://d10yh5e8r0a5x"]
+[gd_scene format=3 uid="uid://d10yh5e8r0a5x"]
 
-[ext_resource type="Script" path="res://scripts/Logistics.gd" id="1_bkvxd"]
-[ext_resource type="Texture2D" uid="uid://bb753slf5xonw" path="res://assets/logig.png" id="2_q4uiy"]
-[ext_resource type="Script" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
-[ext_resource type="Script" path="res://scripts/movement_comp.gd" id="4_omayn"]
-[ext_resource type="Script" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
+[ext_resource type="Script" uid="uid://uolcs2n0s0gc" path="res://scripts/Logistics.gd" id="1_bkvxd"]
+[ext_resource type="Texture2D" uid="uid://d2m1su2ir26rq" path="res://assets/logig.png" id="2_q4uiy"]
+[ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
+[ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
+[ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
 
-[node name="Logistics" type="Node2D"]
+[node name="Logistics" type="Node2D" unique_id=398531126]
 script = ExtResource("1_bkvxd")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=564354777]
 texture = ExtResource("2_q4uiy")
 
-[node name="Resources" type="Node2D" parent="."]
+[node name="Resources" type="Node2D" parent="." unique_id=1245480962]
 script = ExtResource("3_o0ibc")
+MAX_RESC = 120
 
-[node name="Movement" type="Node2D" parent="." node_paths=PackedStringArray("piece")]
+[node name="Movement" type="Node2D" parent="." unique_id=388705355]
 script = ExtResource("4_omayn")
-piece = NodePath("..")
 
-[node name="Resupply" type="Node2D" parent="." node_paths=PackedStringArray("piece")]
+[node name="Resupply" type="Node2D" parent="." unique_id=634396179]
 script = ExtResource("5_4cr84")
-piece = NodePath("..")

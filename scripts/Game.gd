@@ -173,7 +173,7 @@ func _supply(piece1, piece2):
 		piece1.resupply_from(piece2)
 
 func _play_selected(hex, p_hex_to_move):
-	var selected          = grid.Grid[hex]["Piece"]
+	var selected = grid.Grid[hex]["Piece"]
 	var previous_selected = grid.Grid[p_hex_to_move]["Piece"]
 
 	if not previous_selected:
@@ -185,7 +185,7 @@ func _play_selected(hex, p_hex_to_move):
 		return
 
 	var same_team = previous_selected.is_allied() == selected.is_allied()
-	var dist      = HEX.axial_distance(p_hex_to_move, hex)
+	var dist = HEX.axial_distance(p_hex_to_move, hex)
 
 	if not same_team:
 		# Attack — check attacker's range
@@ -199,7 +199,7 @@ func _play_selected(hex, p_hex_to_move):
 
 # ── Rail building ─────────────────────────────────────────────────────────────
 
-func _toggle_rail(hex: Vector2i):
+func _toggle_rail(hex):
 	if hex in building_route:
 		building_route.erase(hex)
 		if rail_nodes_building.has(hex):
@@ -210,6 +210,14 @@ func _toggle_rail(hex: Vector2i):
 	if rail_hexes.has(hex):
 		print("Hex %s already has committed rail" % str(hex))
 		return
+
+	var piece = grid.Grid[hex]["Piece"]
+	if piece is City:
+		return
+		
+	if building_route.size() > 1:
+		if hex not in HEX.axial_neighbours(building_route[-1]):
+			return
 
 	var rail_node = RAIL.instantiate()
 	add_child(rail_node)
@@ -355,7 +363,7 @@ func clock_increment():
 
 	# City replenish
 	for city in cities:
-		city.restore(100)
+		city.next_day()
 
 	# Unit auto-path and daily depletion
 	for unit in units:
@@ -364,7 +372,7 @@ func clock_increment():
 			if grid.Grid[next_hex]["Piece"] == null:
 				unit.move_to(next_hex, unit.get_hex(), grid)
 				unit.path.remove_at(0)
-		unit.auto_deplete()
+		unit.next_day()
 
 	# Train movement and supply delivery
 	_tick_trains()

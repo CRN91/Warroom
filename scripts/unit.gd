@@ -24,10 +24,10 @@ func get_hex(): return movement_comp.get_cell()
 func get_resources(): return resource_comp.get_resources()
 func get_max_resources(): return resource_comp.get_max_resources()
 func deplete(x): return resource_comp.deplete(x)
-func auto_deplete(): return resource_comp.deplete(DAILY_DEPLETE)
-func restore(x): resource_comp.resupply(x)
+func next_day(): return resource_comp.clock_cycle()
 func set_enemy(): allied = false
 func set_path(x): path = x
+func restore(x): resource_comp.resupply(x)
 func resupply_from(ally): resupply_comp.resupply_from(ally)
 func get_attack_range() -> int: return attack_range
 

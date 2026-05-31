@@ -86,28 +86,25 @@ func _exchange_supplies(game: Node):
 	for hex in check_hexes:
 		if not game.grid.Grid.has(hex):
 			continue
-		var piece = game.grid.Grid[hex]["Piece"]
-		if piece == null or not (piece is City):
+		var city = game.grid.Grid[hex]["Piece"]
+		# Check its a city
+		if city == null or not (city is City):
 			continue
-		if piece.is_allied() != allied:
+		if city.is_allied() != allied:
 			continue
 
 		# Terminus A — train fills up from city
 		if position_index == 0:
-			var space    = get_max_resources() - get_resources()
-			var transfer = min(space, piece.get_resources())
-			if transfer > 0:
-				piece.deplete(transfer)
-				restore(transfer)
-				print("%s loaded %d supplies from %s" % [name, transfer, piece.name])
+			var cargo_space = get_max_resources() - get_resources()
+			resupply_from(city)
 
 		# Terminus B — train delivers to city
-		else:
-			var carry = get_resources()
-			if carry > 0:
-				piece.restore(carry)
-				deplete(carry)
-				print("%s delivered %d supplies to %s" % [name, carry, piece.name])
+		#else:
+		#	var carry = get_resources()
+		#	if carry > 0:
+		#		piece.restore(carry)
+		#		deplete(carry)
+		#		print("%s delivered %d supplies to %s" % [name, carry, piece.name])
 
 # ── Route integrity ───────────────────────────────────────────────────────────
 
