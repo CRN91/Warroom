@@ -12,7 +12,9 @@ var path = []
 @onready var movement_comp = $Movement
 @onready var resource_comp = $Resources
 @onready var resupply_comp = $Resupply
-var DAILY_DEPLETE = 1
+
+var DAILY_DEPLETE: int = 1
+var attack_range: int = 1 
 
 func is_allied(): return allied
 func combatant(): return false
@@ -27,6 +29,7 @@ func restore(x): resource_comp.resupply(x)
 func set_enemy(): allied = false
 func set_path(x): path = x
 func resupply_from(ally): resupply_comp.resupply_from(ally)
+func get_attack_range() -> int: return attack_range
 
 func move_to(new_hex, old_hex, grid):
 	if not frozen:

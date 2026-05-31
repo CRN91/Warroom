@@ -7,6 +7,7 @@ var HEX = HEXGRID.new()
 
 # Board pieces
 const INFANTRY = preload("res://scenes/infantry.tscn")
+const ARTILLERY = preload("res://scenes/artillery.tscn")
 const CITY     = preload("res://scenes/city.tscn")
 const LOGI     = preload("res://scenes/logistics.tscn")
 const TRAIN    = preload("res://scenes/train.tscn")
@@ -80,6 +81,12 @@ func test_setup():
 	piece2.set_enemy()
 	grid = piece2.move_to(Vector2i(1, -3), null, grid)
 	units.append(piece2)
+	
+	var arty = ARTILLERY.instantiate()
+	add_child(arty, true)
+	arty.set_enemy()
+	grid = arty.move_to(Vector2i(2, -3), null, grid)
+	units.append(arty)
 
 	var piece3 = INFANTRY.instantiate()
 	add_child(piece3, true)
@@ -144,9 +151,20 @@ func _die(dead_piece):
 
 func _fight(piece1, piece2):
 	var to_die = []
-	if piece1.combatant() and piece1.attack(piece2): to_die.append(piece2)
-	if piece2.combatant() and piece2.attack(piece1): to_die.append(piece1)
-	for i in to_die: _die(i)
+	var dist = HEX.axial_distance(piece1.get_hex(), piece2.get_hex())
+
+	# piece1 attacks piece2 if in range
+	if piece1.combatant() and dist <= piece1.get_attack_range():
+		if piece1.attack(piece2):
+			to_die.append(piece2)
+
+	# piece2 counter-attacks only if piece1 is within its own range
+	if piece2.combatant() and dist <= piece2.get_attack_range():
+		if piece2.attack(piece1):
+			to_die.append(piece1)
+
+	for i in to_die:
+		_die(i)
 
 func _supply(piece1, piece2):
 	if piece1.supplier > piece2.supplier:
@@ -155,19 +173,29 @@ func _supply(piece1, piece2):
 		piece1.resupply_from(piece2)
 
 func _play_selected(hex, p_hex_to_move):
-	if p_hex_to_move in HEX.axial_neighbours(hex):
-		var selected          = grid.Grid[hex]["Piece"]
-		var previous_selected = grid.Grid[p_hex_to_move]["Piece"]
-		if previous_selected:
-			var same_team = previous_selected.is_allied() == selected.is_allied()
-			if not same_team:
-				if previous_selected.combatant() or selected.combatant():
-					_fight(previous_selected, selected)
-			else:
-				_supply(previous_selected, selected)
-		else:
-			grid = grid.Grid[p_hex_to_move]["Piece"].move_to(hex, p_hex_to_move, grid)
-			grid.deselect()
+	var selected          = grid.Grid[hex]["Piece"]
+	var previous_selected = grid.Grid[p_hex_to_move]["Piece"]
+
+	if not previous_selected:
+		return
+
+	if not selected:
+		# Clicked an empty hex — move there
+		grid = previous_selected.move_to(hex, p_hex_to_move, grid)
+		return
+
+	var same_team = previous_selected.is_allied() == selected.is_allied()
+	var dist      = HEX.axial_distance(p_hex_to_move, hex)
+
+	if not same_team:
+		# Attack — check attacker's range
+		if dist <= previous_selected.get_attack_range():
+			if previous_selected.combatant() or selected.combatant():
+				_fight(previous_selected, selected)
+	else:
+		# Supply — must be adjacent
+		if dist == 1:
+			_supply(previous_selected, selected)
 
 # ── Rail building ─────────────────────────────────────────────────────────────
 
@@ -295,15 +323,21 @@ func clock_increment():
 		var piece = grid.Grid[hex]["Piece"]
 		if piece:
 			piece.unfreeze()
-			for adjacent in HEX.axial_neighbours(hex):
-				if adjacent in grid.Grid.keys():
-					var adj_piece = grid.Grid[adjacent]["Piece"]
-					if adj_piece and hex < adjacent:
-						var same_team = piece.is_allied() == adj_piece.is_allied()
-						if not same_team:
-							_fight(piece, adj_piece)
-						else:
-							_supply(piece, adj_piece)
+			for target_hex in grid.Grid:
+				if target_hex <= hex:
+					continue  # Each pair processed once
+				var target_piece = grid.Grid[target_hex]["Piece"]
+				if not target_piece:
+					continue
+					
+				var dist = HEX.axial_distance(hex, target_hex)
+				var same_team = piece.is_allied() == target_piece.is_allied()
+				if not same_team and piece.combatant() and target_piece.combatant():
+					# Fight if either can reach the other
+					if dist <= piece.get_attack_range() or dist <= target_piece.get_attack_range():
+						_fight(piece, target_piece)
+				elif same_team and dist == 1:
+					_supply(piece, target_piece)
 
 	# Card draw
 	var required_type = ["decision", "intel", "event"][day % 3]
