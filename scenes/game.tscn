@@ -51,6 +51,7 @@ script = ExtResource("1_4d42g")
 
 [node name="Grid" type="TileMap" parent="." unique_id=768895094]
 unique_name_in_owner = true
+z_index = -2
 tile_set = SubResource("TileSet_r8nud")
 format = 2
 layer_0/name = "base"

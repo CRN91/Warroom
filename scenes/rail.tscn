@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://ct2dx1enacgo5"]
+
+[ext_resource type="Script" uid="uid://067gckdnkaqg" path="res://scripts/rail.gd" id="1_qb0h2"]
+[ext_resource type="Texture2D" uid="uid://b7xwfibch1u3" path="res://assets/rail.png" id="2_42cls"]
+[ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
+[ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
+[ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
+
+[node name="Rail" type="Node2D" unique_id=669345778]
+z_index = -1
+script = ExtResource("1_qb0h2")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=508788427]
+texture = ExtResource("2_42cls")
+
+[node name="Resources" type="Node2D" parent="." unique_id=1480023247]
+script = ExtResource("3_o0ibc")
+
+[node name="Movement" type="Node2D" parent="." unique_id=697894334]
+script = ExtResource("4_omayn")
+
+[node name="Resupply" type="Node2D" parent="." unique_id=1148621962]
+script = ExtResource("5_4cr84")

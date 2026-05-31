@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://cj4wxwm3todpa"]
+
+[ext_resource type="Script" uid="uid://qlbn35tjfoo8" path="res://scripts/train.gd" id="1_68jl8"]
+[ext_resource type="Texture2D" uid="uid://ou2ps5ykks4q" path="res://assets/traing.png" id="2_o1hdh"]
+[ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
+[ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
+[ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
+
+[node name="Train" type="Node2D" unique_id=577757589]
+script = ExtResource("1_68jl8")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1588922519]
+texture = ExtResource("2_o1hdh")
+
+[node name="Resources" type="Node2D" parent="." unique_id=2005096263]
+script = ExtResource("3_o0ibc")
+
+[node name="Movement" type="Node2D" parent="." unique_id=199568021]
+script = ExtResource("4_omayn")
+
+[node name="Resupply" type="Node2D" parent="." unique_id=482926351]
+script = ExtResource("5_4cr84")

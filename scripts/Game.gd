@@ -7,204 +7,237 @@ var HEX = HEXGRID.new()
 
 # Board pieces
 const INFANTRY = preload("res://scenes/infantry.tscn")
-const CITY = preload("res://scenes/city.tscn")
-const LOGI = preload("res://scenes/logistics.tscn")
+const CITY     = preload("res://scenes/city.tscn")
+const LOGI     = preload("res://scenes/logistics.tscn")
+const TRAIN    = preload("res://scenes/train.tscn")
+const RAIL     = preload("res://scenes/rail.tscn")
 
 # UI
-@onready var daycounter = $CanvasLayer/DayCount
+@onready var daycounter    = $CanvasLayer/DayCount
 @onready var nextdaybutton = $CanvasLayer/NextDay
-@onready var panel      = $CanvasLayer/Panel
-@onready var lbl_name   = $CanvasLayer/Panel/VBoxContainer/Name
-@onready var lbl_res     = $CanvasLayer/Panel/VBoxContainer/Resources
-@onready var lbl_act = $CanvasLayer/Panel/VBoxContainer/Action
-@onready var card_ui = $CanvasLayer/CardUI
-@onready var path_line = $PathLine
+@onready var panel         = $CanvasLayer/Panel
+@onready var lbl_name      = $CanvasLayer/Panel/VBoxContainer/Name
+@onready var lbl_res       = $CanvasLayer/Panel/VBoxContainer/Resources
+@onready var lbl_act       = $CanvasLayer/Panel/VBoxContainer/Action
+@onready var card_ui       = $CanvasLayer/CardUI
+@onready var path_line     = $PathLine
 
 # Card logic
-@onready var deck = $Deck
+@onready var deck         = $Deck
 @onready var card_library = $CardLibrary
-@onready var resolver = $CardResolver
+@onready var resolver     = $CardResolver
 var game_state: Dictionary = {
 	"move_cost": 1,
 	"attack_modifier": 1.0
 }
-var pending_cards: Array = []     # [{id, on_day}]
-var pending_restores: Array = []  # [{key, value, on_day}]
+var pending_cards: Array   = []
+var pending_restores: Array = []
 
 # Game logic
 var day: int = 0
 var hex_to_move
 
-var cities = []
-var units = []
+var cities: Array = []
+var units: Array  = []
+var trains: Array = []
+
+# Rail state
+# hex → { "route_id": int, "broken": bool, "node": Rail }
+var rail_hexes: Dictionary  = {}
+# route_id → Array[Vector2i]
+var rail_routes: Dictionary = {}
+var next_route_id: int = 0
+
+# Rail currently being drawn (not yet committed)
+var building_route: Array       = []
+var rail_nodes_building: Dictionary = {}
+
+# ── Cards ─────────────────────────────────────────────────────────────────────
 
 func _on_card_choice(card_data: Dictionary, choice: String):
-	var effects = card_data[choice]["effects"]
-	resolver.resolve(effects, self)
+	resolver.resolve(card_data[choice]["effects"], self)
 
 func _check_pending():
-	# Inject delayed cards
 	for i in range(pending_cards.size() - 1, -1, -1):
 		if pending_cards[i]["on_day"] <= day:
-			var card = card_library.get_card(pending_cards[i]["id"])
-			deck.inject(card, "soon")
+			deck.inject(card_library.get_card(pending_cards[i]["id"]), "soon")
 			pending_cards.remove_at(i)
-	
-	# Restore game state
 	for i in range(pending_restores.size() - 1, -1, -1):
 		if pending_restores[i]["on_day"] <= day:
 			game_state[pending_restores[i]["key"]] = pending_restores[i]["value"]
 			pending_restores.remove_at(i)
 
-# Dummy test environment
+# ── Test setup ────────────────────────────────────────────────────────────────
+
 func test_setup():
 	var piece = INFANTRY.instantiate()
-	add_child(piece,true)
-	grid = piece.move_to(Vector2i(2,1), null, grid)
+	add_child(piece, true)
+	grid = piece.move_to(Vector2i(2, 1), null, grid)
 	units.append(piece)
 
 	var piece2 = INFANTRY.instantiate()
-	add_child(piece2,true)
+	add_child(piece2, true)
 	piece2.set_enemy()
-	grid = piece2.move_to(Vector2i(1,-3), null, grid)
+	grid = piece2.move_to(Vector2i(1, -3), null, grid)
 	units.append(piece2)
-	
+
 	var piece3 = INFANTRY.instantiate()
-	add_child(piece3,true)
-	grid = piece3.move_to(Vector2i(-1,2), null, grid)
+	add_child(piece3, true)
+	grid = piece3.move_to(Vector2i(-1, 2), null, grid)
 	units.append(piece3)
-	
+
 	var city = CITY.instantiate()
 	add_child(city, true)
-	grid = city.set_hex(Vector2i(0,0), grid)
+	grid = city.set_hex(Vector2i(0, 0), grid)
 	cities.append(city)
-	
+
 	var city2 = CITY.instantiate()
 	add_child(city2, true)
 	city2.set_enemy()
-	grid = city2.set_hex(Vector2i(0,-3), grid)
+	grid = city2.set_hex(Vector2i(0, -3), grid)
 	cities.append(city2)
-	
+
 	var city3 = CITY.instantiate()
 	add_child(city3, true)
-	grid = city3.set_hex(Vector2i(0,3), grid)
+	grid = city3.set_hex(Vector2i(0, 3), grid)
 	cities.append(city3)
-	
+
 	var logi = LOGI.instantiate()
 	add_child(logi, true)
-	grid = logi.move_to(Vector2i(-1,-1), null, grid)
+	grid = logi.move_to(Vector2i(-1, -1), null, grid)
 	units.append(logi)
 
 	_unfreeze_all()
 
 func _ready():
 	card_library.load_library()
-	
-	var this_run_sets = ["western_front_intel", "weather_events", "command_decisions"]
-	var starting_cards = card_library.build_starting_deck(this_run_sets)
-	
-	for card in starting_cards:
+	for card in card_library.build_starting_deck(["western_front_intel", "weather_events", "command_decisions"]):
 		deck.push(card)
-		
 	panel.hide()
-	card_ui.hide() 
-	deck.load()   
+	card_ui.hide()
+	deck.load()
 	test_setup()
 	nextdaybutton.pressed.connect(self._next_day_button)
+
+# ── Selection ─────────────────────────────────────────────────────────────────
 
 func _select_piece(piece: Node2D, hex: Vector2i):
 	show_stats(piece)
 	hex_to_move = hex
- 
+
 func _deselect_piece():
 	path_line.clear_points()
 	hex_to_move = null
 	grid.deselect()
 	panel.hide()
-	
+
+# ── Combat / supply ───────────────────────────────────────────────────────────
+
 func _die(dead_piece):
-	print("dead boy")
 	var dead_hex = dead_piece.get_hex()
-	# Remove from grid
 	if dead_hex and grid.Grid.has(dead_hex):
 		grid.Grid[dead_hex]["Piece"] = null
-	
-	# Remove from units
-	if dead_piece in units:
-		units.erase(dead_piece)
-		
-	# Remove piece
+	units.erase(dead_piece)
+	trains.erase(dead_piece)
 	dead_piece.queue_free()
-	
-	# Free space
 	grid.enable_hex(dead_hex)
-		
-	print(grid.Grid[dead_hex]["Piece"])
-	
+
 func _fight(piece1, piece2):
 	var to_die = []
-	if piece1.combatant():
-		# Returns true if the piece 'selected' dies
-		if piece1.attack(piece2):
-			to_die.append(piece2)
-	if piece2.combatant():
-		if piece2.attack(piece1):
-			to_die.append(piece1)
-	
-	# After all attacks remove dead pieces
-	for i in to_die:
-		_die(i)	
+	if piece1.combatant() and piece1.attack(piece2): to_die.append(piece2)
+	if piece2.combatant() and piece2.attack(piece1): to_die.append(piece1)
+	for i in to_die: _die(i)
 
 func _supply(piece1, piece2):
-	print("resupply")
 	if piece1.supplier > piece2.supplier:
 		piece2.resupply_from(piece1)
 	elif piece2.supplier > piece1.supplier:
 		piece1.resupply_from(piece2)
 
-func _play_selected(hex, hex_to_move):
-	# Checks the previously selected hex is adjacent
-	if hex_to_move in HEX.axial_neighbours(hex):
-		var selected = grid.Grid[hex]["Piece"]
-		
-		# If there was a previously selected hex
-		if hex_to_move:
-			var previous_selected = grid.Grid[hex_to_move]["Piece"]
-			
-			# If there is a piece we do an action
-			if previous_selected:
-				var same_team = previous_selected.is_allied() == selected.is_allied()
-				# Both pieces have a chance to fight
-				if not same_team:
-					if previous_selected.combatant() or selected.combatant():
-						_fight(previous_selected, selected)
-				# Resupply if allied
-				elif same_team:
-					_supply(previous_selected, selected)
+func _play_selected(hex, p_hex_to_move):
+	if p_hex_to_move in HEX.axial_neighbours(hex):
+		var selected          = grid.Grid[hex]["Piece"]
+		var previous_selected = grid.Grid[p_hex_to_move]["Piece"]
+		if previous_selected:
+			var same_team = previous_selected.is_allied() == selected.is_allied()
+			if not same_team:
+				if previous_selected.combatant() or selected.combatant():
+					_fight(previous_selected, selected)
 			else:
-				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
-				hex_to_move = null
-				grid.deselect()
-				# Old code about to_move being 0,0 not sure what thats about
-				#elif to_move or to_move == Vector2i(0,0):
-		# First selection
+				_supply(previous_selected, selected)
 		else:
-			# Caches the piece to be moved on the next click
-			hex_to_move = hex
+			grid = grid.Grid[p_hex_to_move]["Piece"].move_to(hex, p_hex_to_move, grid)
+			grid.deselect()
 
-func _input(event):	
+# ── Rail building ─────────────────────────────────────────────────────────────
+
+func _toggle_rail(hex: Vector2i):
+	if hex in building_route:
+		building_route.erase(hex)
+		if rail_nodes_building.has(hex):
+			rail_nodes_building[hex].queue_free()
+			rail_nodes_building.erase(hex)
+		return
+
+	if rail_hexes.has(hex):
+		print("Hex %s already has committed rail" % str(hex))
+		return
+
+	var rail_node = RAIL.instantiate()
+	add_child(rail_node)
+	rail_node.hex_pos  = hex
+	rail_node.position = grid.map_to_local(HEX.axial_to_oddr(hex))
+	rail_node.modulate = Color(0.6, 0.6, 1.0)  # Blue = preview
+
+	building_route.append(hex)
+	rail_nodes_building[hex] = rail_node
+	print("Rail preview: %d hexes so far" % building_route.size())
+
+func _commit_rail_route():
+	if building_route.size() < 2:
+		print("Need at least 2 hexes to commit a route")
+		return
+
+	var id = next_route_id
+	next_route_id += 1
+
+	for hex in building_route:
+		var rail_node = rail_nodes_building[hex]
+		rail_node.modulate = Color(1.0, 1.0, 1.0)  # White = committed
+		rail_hexes[hex] = { "route_id": id, "broken": false, "node": rail_node }
+
+	rail_routes[id] = building_route.duplicate()
+
+	var train = TRAIN.instantiate()
+	add_child(train, true)
+	train.setup_route(rail_routes[id], id, self)
+	trains.append(train)
+
+	print("Route %d committed (%d hexes). Train spawned." % [id, building_route.size()])
+	building_route.clear()
+	rail_nodes_building.clear()
+
+func _cancel_rail_build():
+	for hex in building_route:
+		if rail_nodes_building.has(hex):
+			rail_nodes_building[hex].queue_free()
+	building_route.clear()
+	rail_nodes_building.clear()
+	print("Rail route cancelled")
+
+func _tick_trains():
+	for train in trains:
+		train.train_tick(self)
+
+# ── Input ─────────────────────────────────────────────────────────────────────
+
+func _input(event):
 	if event.is_action_pressed("select"):
-		# Gets the selected hex axial
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
-		var hex = HEX.oddr_to_axial(oddr_hex)
-		
-		# Checks the hex exists
+		var hex      = HEX.oddr_to_axial(oddr_hex)
 		if hex in grid.Grid.keys():
-			# Draws selection around cell for user
 			grid.select_cell(oddr_hex)
 			var selected = grid.Grid[hex]["Piece"]
-
-			# If a piece exists in the selected hex
 			if selected:
 				if hex_to_move:
 					_play_selected(hex, hex_to_move)
@@ -212,107 +245,101 @@ func _input(event):
 				else:
 					_select_piece(selected, hex)
 			elif hex_to_move:
-				print("moving")
 				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
 				_deselect_piece()
-				
+
 	elif event.is_action_pressed("deselect"):
 		_deselect_piece()
-		
+
 	elif event is InputEventMouseMotion:
 		if hex_to_move:
-			var oddr_hex = grid.local_to_map(get_global_mouse_position())
+			var oddr_hex   = grid.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
-			
 			if target_hex in grid.Grid.keys():
 				grid.enable_hex(hex_to_move)
-				var pixel_path = grid.get_hex_path(hex_to_move, target_hex)
-				path_line.points = pixel_path
+				path_line.points = grid.get_hex_path(hex_to_move, target_hex)
 				grid.disable_hex(hex_to_move)
 			else:
 				path_line.clear_points()
+
+	elif event is InputEventKey and event.pressed and not event.echo:
+		var oddr_hex = grid.local_to_map(get_global_mouse_position())
+		var hex      = HEX.oddr_to_axial(oddr_hex)
+
+		match event.keycode:
+			KEY_R:
+				if hex in grid.Grid.keys():
+					_toggle_rail(hex)
+			KEY_T:
+				_commit_rail_route()
+			KEY_ESCAPE:
+				if not building_route.is_empty():
+					_cancel_rail_build()
+
+# ── Day cycle ─────────────────────────────────────────────────────────────────
 
 func _unfreeze_all():
 	for hex in grid.Grid:
 		var piece = grid.Grid[hex]["Piece"]
 		if piece:
 			piece.unfreeze()
-			
-"Functionality for a single game turn"
+
 func clock_increment():
 	day += 1
-	daycounter.text = "DAY "+str(day)
-	print(daycounter.position)
-	
-	# Auto-play
+	daycounter.text = "DAY " + str(day)
+
 	_unfreeze_all()
+	_check_pending()
+
 	for hex in grid.Grid:
 		var piece = grid.Grid[hex]["Piece"]
 		if piece:
 			piece.unfreeze()
-			
 			for adjacent in HEX.axial_neighbours(hex):
 				if adjacent in grid.Grid.keys():
 					var adj_piece = grid.Grid[adjacent]["Piece"]
-					if adj_piece:
-						# All pairs only play once per day
-						if hex < adjacent:
-							var same_team = piece.is_allied() == adj_piece.is_allied()
-							
-							# Combat
-							if not same_team:
-								_fight(piece, adj_piece)
-							# Resupply
-							elif same_team:
-								_supply(piece, adj_piece)
+					if adj_piece and hex < adjacent:
+						var same_team = piece.is_allied() == adj_piece.is_allied()
+						if not same_team:
+							_fight(piece, adj_piece)
+						else:
+							_supply(piece, adj_piece)
 
-	var cycle = day % 3
-	var required_type = ""
-	
-	if cycle == 1:
-		required_type = "intel"
-	elif cycle == 2:
-		required_type = "event"
-	elif cycle == 0:
-		required_type = "decision"
-	
-	# Search the deck for the first card that matches the required type
-	var card_to_play = null
+	# Card draw
+	var required_type = ["decision", "intel", "event"][day % 3]
+	var card_to_play  = null
 	for i in range(deck.size()):
-		var checked_card = deck.queue[i]
-		if deck.len() > 1:
-			if checked_card["type"] == required_type:
-				card_to_play = checked_card
-				deck.queue.remove_at(i) # Remove it from the deck
-				break
-			
-	# Send the card to the UI
+		var checked = deck.queue[i]
+		if deck.len() > 1 and checked["type"] == required_type:
+			card_to_play = checked
+			deck.queue.remove_at(i)
+			break
 	if card_to_play != null:
-		print("Drawing card: ", card_to_play["text"])
 		card_ui.display_card(card_to_play)
 	else:
 		card_ui.hide()
-	
-	# Replenish cities
+
+	# City replenish
 	for city in cities:
 		city.restore(100)
-	
-	# Deplete units and automove
+
+	# Unit auto-path and daily depletion
 	for unit in units:
 		if unit.path and unit.path.size() > 0:
 			var next_hex = unit.path[0]
 			if grid.Grid[next_hex]["Piece"] == null:
 				unit.move_to(next_hex, unit.get_hex(), grid)
 				unit.path.remove_at(0)
-			
 		unit.auto_deplete()
-	
+
+	# Train movement and supply delivery
+	_tick_trains()
 	_unfreeze_all()
 
 func show_stats(piece):
 	lbl_name.text = str(piece.name)
-	lbl_res.text = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
-	lbl_act.text = "Frozen: %s" % str(piece.is_frozen())
+	lbl_res.text  = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
+	lbl_act.text  = "Frozen: %s" % str(piece.is_frozen())
 	panel.show()
 
 func _next_day_button():

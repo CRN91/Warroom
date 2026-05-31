@@ -53,6 +53,18 @@ func set_hex(new_cell, grid):
 	# Returns the grid so we have one central location where all pieces are referenced
 	return grid
 
+## Bypasses adjacency and occupancy checks.
+## Used by Train which manages its own route validation.
+func force_hex(new_cell, grid):
+	if typeof(new_cell) == 7:
+		new_cell = Vector2i(new_cell.x, new_cell.y)
+	if hex:
+		grid.Grid[hex]["Piece"] = null
+	hex = new_cell
+	grid.Grid[new_cell]["Piece"] = piece
+	piece.position = grid.map_to_local(HEX.axial_to_oddr(new_cell))
+	return grid
+
 func get_cell():
 	return hex
 
