@@ -283,26 +283,52 @@ func _die(dead_piece):
 
 func _toggle_rail(hex):
 	if hex in building_route:
-		building_route.erase(hex)
-		if rail_nodes_building.has(hex):
-			rail_nodes_building[hex].queue_free()
-			rail_nodes_building.erase(hex)
+		var is_back = hex == building_route.back()
+		var is_front = hex == building_route.front()
+		if is_back or is_front:
+			if is_back:
+				building_route.pop_back()
+			else:
+				building_route.pop_front()
+			
+			if rail_nodes_building.has(hex):
+				rail_nodes_building[hex].queue_free() # Deletes the visual sprite
+				rail_nodes_building.erase(hex)
+		else:
+			print("You can only remove unbuilt tracks from either end of the line.")
 		return
+		
 	if rail_hexes.has(hex):
-		return
-	var piece = grid.Grid[hex]["Piece"]
+		return 
+		
+	var piece = grid.get_piece(hex)
 	if piece is City:
-		return
-	if building_route.size() > 1:
-		if hex not in HEX.axial_neighbours(building_route[-1]):
+		return 
+	
+	var add_to_back = true
+	if building_route.size() > 0:
+		var back_neighbours = HEX.axial_neighbours(building_route.back())
+		var front_neighbours = HEX.axial_neighbours(building_route.front())
+		if hex in front_neighbours:
+			add_to_back = false
+		elif hex not in back_neighbours:
 			return
+
 	var rail_node = RAIL.instantiate()
 	add_child(rail_node)
-	rail_node.hex_pos  = hex
-	rail_node.position = grid.map_to_local(HEX.axial_to_oddr(hex))
+	rail_node.hex_pos = hex
+	rail_node.position = _hex_to_pos(hex)
+	
+	# Tints the track blue so the player knows it's a "blueprint" and not finished
 	rail_node.modulate = Color(0.6, 0.6, 1.0)
-	building_route.append(hex)
+	
+	if add_to_back:
+		building_route.append(hex)
+	else:
+		building_route.insert(0, hex)
 	rail_nodes_building[hex] = rail_node
+
+func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
 
 func _commit_rail_route():
 	if building_route.size() < 2:
@@ -443,8 +469,6 @@ func clock_increment():
 
 	for city in cities:
 		city.next_day()
-
-	
 
 	for dead in starved:
 		print("%s starved." % dead.name)
