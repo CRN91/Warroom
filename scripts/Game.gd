@@ -42,6 +42,13 @@ var next_route_id: int          = 0
 var building_route: Array       = []
 var rail_nodes_building: Dictionary = {}
 
+func get_piece(hex):
+	return grid.get_piece(hex)
+
+func set_piece(hex, piece=null):
+	grid.set_piece(hex,piece)
+
+
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
 func _on_card_choice(card_data: Dictionary, choice: String):
@@ -122,7 +129,7 @@ func _find_enemy_in_range(unit: Node2D) -> Node2D:
 	for hex in range_hexes:
 		if not grid.Grid.has(hex):
 			continue
-		var piece = grid.Grid[hex]["Piece"]
+		var piece = get_piece(hex)
 		
 		# If it's an enemy piece, add it to our list of choices
 		if piece and piece.is_allied() != unit.is_allied():
@@ -220,19 +227,19 @@ func _supply(piece1, piece2):
 
 # ── Play selected ─────────────────────────────────────────────────────────────
 
-func _play_selected(hex, p_hex_to_move):
-	var selected          = grid.Grid[hex]["Piece"]
-	var previous_selected = grid.Grid[p_hex_to_move]["Piece"]
+func _play_selected(hex, hex_to_move):
+	var selected = get_piece(hex)
+	var previous_selected = get_piece(hex_to_move)
 
 	if not previous_selected:
 		return
 
 	if not selected:
-		grid = previous_selected.move_to(hex, p_hex_to_move, grid)
+		grid = previous_selected.move_to(hex, hex_to_move, grid)
 		return
 
 	var same_team = previous_selected.is_allied() == selected.is_allied()
-	var dist      = HEX.axial_distance(p_hex_to_move, hex)
+	var dist = HEX.axial_distance(hex_to_move, hex)
 
 	if not same_team:
 		if previous_selected.combatant() and dist <= previous_selected.get_attack_range():
@@ -293,6 +300,7 @@ func _commit_rail_route():
 	add_child(train, true)
 	train.setup_route(rail_routes[id], id, self)
 	trains.append(train)
+	units.append(train)
 	building_route.clear()
 	rail_nodes_building.clear()
 
@@ -314,8 +322,8 @@ func _input(event):
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
 		if hex in grid.Grid.keys():
-			grid.select_cell(oddr_hex)
-			var selected = grid.Grid[hex]["Piece"]
+			grid.select_hex(oddr_hex)
+			var selected = get_piece(hex)
 			if selected:
 				if hex_to_move:
 					_play_selected(hex, hex_to_move)
@@ -323,7 +331,10 @@ func _input(event):
 				else:
 					_select_piece(selected, hex)
 			elif hex_to_move:
-				grid = grid.Grid[hex_to_move]["Piece"].move_to(hex, hex_to_move, grid)
+				# Check piece still exists
+				var piece_to_move = get_piece(hex_to_move)
+				if piece_to_move:
+					grid = piece_to_move.move_to(hex, hex_to_move, grid)
 				_deselect_piece()
 
 	elif event.is_action_pressed("deselect"):
@@ -334,9 +345,13 @@ func _input(event):
 			var oddr_hex   = grid.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
 			if target_hex in grid.Grid.keys():
-				grid.enable_hex(hex_to_move)
-				path_line.points = grid.get_hex_path(hex_to_move, target_hex)
-				grid.disable_hex(hex_to_move)
+				# Check piece still exists
+				if get_piece(hex_to_move):
+					grid.enable_hex(hex_to_move)
+					path_line.points = grid.get_hex_path(hex_to_move, target_hex)
+					grid.disable_hex(hex_to_move)
+				else:
+					path_line.clear_points()
 			else:
 				path_line.clear_points()
 
@@ -353,7 +368,7 @@ func _input(event):
 			KEY_F:
 				# Clear persistent target on selected unit
 				if hex_to_move:
-					var piece = grid.Grid[hex_to_move]["Piece"]
+					var piece = get_piece(hex_to_move)
 					if piece and piece.combatant():
 						piece.clear_target()
 						show_stats(piece)
@@ -379,11 +394,11 @@ func clock_increment():
 
 	# Auto-supply between adjacent friendly units
 	for hex in grid.Grid:
-		var piece = grid.Grid[hex]["Piece"]
+		var piece = get_piece(hex)
 		if not piece: continue
 		for adjacent in HEX.axial_neighbours(hex):
 			if not grid.Grid.has(adjacent): continue
-			var adj_piece = grid.Grid[adjacent]["Piece"]
+			var adj_piece = get_piece(adjacent)
 			if adj_piece and adj_piece.is_allied() == piece.is_allied() and hex < adjacent:
 				_supply(piece, adj_piece)
 
@@ -411,7 +426,7 @@ func clock_increment():
 	for unit in units:
 		if unit.path and unit.path.size() > 0:
 			var next_hex = unit.path[0]
-			if grid.Grid[next_hex]["Piece"] == null:
+			if get_piece(next_hex) == null:
 				unit.move_to(next_hex, unit.get_hex(), grid)
 				unit.path.remove_at(0)
 		if unit.next_day():
@@ -428,7 +443,7 @@ func clock_increment():
 
 func show_stats(piece):
 	lbl_name.text = str(piece.name)
-	lbl_res.text  = "HP: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
+	lbl_res.text  = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
 	lbl_act.text  = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
 
 	if piece.combatant():

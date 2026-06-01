@@ -10,12 +10,13 @@ var supplier: int = 0
 var supplier_reserve: int = 0
 var path = []
 
+# Compulsorary modules
 @onready var movement_comp = $Movement
 @onready var resource_comp = $Resources
-@onready var resupply_comp = $Resupply
 
-var DAILY_DEPLETE: int = 1
-var attack_range: int = 1
+# Optional modules
+@onready var attack_comp = get_node_or_null("Attack")
+@onready var resupply_comp = get_node_or_null("Resupply")
 
 # ── Targeting ─────────────────────────────────────────────────────────────────
 var target: Node2D = null        # Persistent preferred target — survives between days
@@ -25,16 +26,19 @@ func is_allied(): return allied
 func combatant(): return false
 func is_frozen(): return frozen
 func unfreeze(): frozen = false
-func get_hex(): return movement_comp.get_cell()
+func get_hex(): return movement_comp.get_hex()
 func get_resources(): return resource_comp.get_resources()
 func get_max_resources(): return resource_comp.get_max_resources()
 func deplete(x): return resource_comp.deplete(x)
 func restore(x): resource_comp.resupply(x)
 func set_enemy(): allied = false
 func set_path(x): path = x
-func resupply_from(ally): resupply_comp.resupply_from(ally)
-func get_attack_range() -> int: return attack_range
-func get_damage() -> int: return 0
+func get_attack_range(): return attack_comp.get_range() if attack_comp else 0
+func get_damage(): return attack_comp.get_damage() if attack_comp else 0
+func attack(enemy): return attack_comp.attack(enemy) if attack_comp else false
+func resupply_from(ally):
+	if resupply_comp:
+		resupply_comp.resupply_from(ally)
 
 ## Player action — queues attack for this turn AND remembers as persistent target.
 func set_target(enemy: Node2D):
@@ -51,7 +55,7 @@ func clear_target():
 
 ## Called each day. Returns true if unit starved.
 func next_day() -> bool:
-	return resource_comp.clock_cycle(DAILY_DEPLETE)
+	return resource_comp.clock_cycle()
 
 func resupply(supply_source: Node2D):
 	if not frozen:

@@ -12,17 +12,18 @@ func _ready():
 
 ## Fires at enemy. Returns true if enemy is destroyed.
 ## Caller is responsible for range checking before calling this.
-func attack(enemy, specific_damage: int = -1) -> bool:
-	if specific_damage == -1:
-		specific_damage = damage
+func attack(enemy, damage_override = null):
+	var dmg = damage
+	if damage_override:
+		dmg = damage_override
 
 	var destroyed := false
 
 	if enemy.combatant():
 		if ally.is_allied() != enemy.is_allied():
-			destroyed = enemy.deplete(specific_damage)
+			destroyed = enemy.deplete(dmg)
 	else:
-		destroyed = enemy.deplete(specific_damage)
+		destroyed = enemy.deplete(dmg)
 
 	# Deplete attacker's own resources (ammo / exertion cost)
 	if attack_cost > 0:
@@ -30,5 +31,8 @@ func attack(enemy, specific_damage: int = -1) -> bool:
 
 	return destroyed
 
-func get_damage() -> int:
+func get_damage():
 	return damage
+
+func get_range():
+	return attack_range

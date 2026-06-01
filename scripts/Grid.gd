@@ -12,6 +12,9 @@ var hex_to_id = {}
 var id_to_hex = {}
 var next_id = 0
 
+func get_piece(hex): return Grid[hex]["Piece"]
+func set_piece(hex, piece=null): Grid[hex]["Piece"] = piece
+
 func make_grid_axial():
 	var shortest_width = 4
 	var grid_list = HEX.cube_spiral(Vector3i(0,0,0), 4)
@@ -82,7 +85,7 @@ func erase_highlight(highlights):
 func _ready():
 	make_grid_axial()
 
-func select_cell(oddr_hex):
+func select_hex(oddr_hex):
 	deselect()
 	selected = oddr_hex
 

@@ -3,6 +3,7 @@ class_name Resources
 
 @export var MAX_RESC := 100
 @export var resupply_rate := 0
+@export var daily_deplete := 0
 var resources: int
 
 func _ready():
@@ -21,7 +22,7 @@ func resupply(x):
 	resources = min(resources + x, MAX_RESC)
 
 ## Called once per game day. Returns true if the unit starved (resources <= 0).
-func clock_cycle(daily_deplete: int) -> bool:
+func clock_cycle():
 	if resupply_rate > 0:
 		resupply(resupply_rate)
 		return false

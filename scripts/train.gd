@@ -1,120 +1,163 @@
 extends Unit
 class_name Train
 
-# ── Route state ───────────────────────────────────────────────────────────────
-var route: Array = []          # Ordered Array[Vector2i], terminus A → terminus B
-var route_id: int = -1         # Matches Game.rail_routes key
-var direction: int = 1         # 1 = moving toward route.back(), -1 = toward route.front()
-var position_index: int = 0    # Current position as index into route
-var speed: int = 2             # Hexes moved per day
+var route: Array = []
+var route_id: int = -1
+var direction: int = 1
+var speed: int = 2
+var manual_override: bool = false # Tracks if the player manually dragged it
 
 func _ready():
-	allied   = true
-	supplier = 1    # Trains supply adjacent units at endpoints like a logistics truck
+	supplier = 1
 	supplier_reserve = 10
 
-func combatant(): return false
-
-# ── Setup ─────────────────────────────────────────────────────────────────────
-
-## Called by Game.gd after the player commits a rail route.
-## Places the train at route[0] and registers it in the grid.
 func setup_route(new_route: Array, id: int, game: Node):
-	route    = new_route
+	route = new_route
 	route_id = id
-	position_index = 0
-	direction      = 1
+	direction = 1
+	manual_override = false
 
-	# Place on grid at the first hex of the route
 	var start = route[0]
-	game.grid.Grid[start]["Piece"] = self
+	game.set_piece(start, self)
 	game.grid.disable_hex(start)
 	game.grid = movement_comp.force_hex(start, game.grid)
-	position = game.grid.map_to_local(HEX.axial_to_oddr(start))
 
-# ── Daily tick ────────────────────────────────────────────────────────────────
+	if has_node("Sprite2D"):
+		$Sprite2D.flip_h = false
 
-## Called each day by Game.clock_increment().
+func move_to(new_hex, old_hex, grid):
+	if frozen: return grid
+
+	if old_hex == null:
+		frozen = true
+		grid.disable_hex(new_hex)
+		return movement_comp.force_hex(new_hex, grid)
+
+	var old_idx = route.find(old_hex)
+	var new_idx = route.find(new_hex)
+
+	if new_idx == -1 or old_idx == -1 or new_idx == old_idx:
+		return grid
+
+	var distance = abs(new_idx - old_idx)
+	if distance > speed:
+		return grid
+
+	var step_dir = 1 if new_idx > old_idx else -1
+	for i in range(1, distance + 1):
+		var check_idx = old_idx + (i * step_dir)
+		var check_hex = route[check_idx]
+		if grid.get_piece(check_hex) != null:
+			return grid
+
+	frozen = true
+	direction = step_dir
+	manual_override = true
+
+	if has_node("Sprite2D"):
+		$Sprite2D.flip_h = (direction == -1)
+
+	grid.enable_hex(old_hex)
+	grid.disable_hex(new_hex)
+	return movement_comp.force_hex(new_hex, grid)
+
 func train_tick(game: Node):
 	if route.is_empty():
 		return
 
-	# Halt if any hex in the owned route is broken
 	if not _route_intact(game.rail_hexes):
 		print("%s halted — rail broken at %s" % [name, _first_broken(game.rail_hexes)])
 		return
 
-	# At an endpoint: exchange supplies then reverse
-	var at_terminus = (direction == 1  and position_index == route.size() - 1) \
-				   or (direction == -1 and position_index == 0)
+	var current_hex = get_hex()
+	var current_idx = route.find(current_hex)
 
-	if at_terminus:
-		_exchange_supplies(game)
-		direction = -direction
+	if current_idx == -1:
+		print("Error: Train got derailed off its route!")
 		return
 
-	# Move up to `speed` steps along the route
+	var facing_terminus_a = (direction == -1 and current_idx == 0)
+	var facing_terminus_b = (direction == 1 and current_idx == route.size() - 1)
+
+	# CARGO WAITING LOGIC
+	if facing_terminus_a or facing_terminus_b:
+		_exchange_supplies(game)
+
+		# If the user dragged it, we skip the waiting check completely and just go!
+		if not manual_override:
+			var ready_to_leave = false
+
+			if facing_terminus_a:
+				if get_resources() >= get_max_resources():
+					ready_to_leave = true
+			elif facing_terminus_b:
+				if get_resources() < get_max_resources():
+					ready_to_leave = true
+
+			if ready_to_leave:
+				direction = -direction
+				if has_node("Sprite2D"):
+					$Sprite2D.flip_h = (direction == -1)
+			else:
+				print("%s waiting at terminus for cargo conditions." % name)
+				return # End turn and wait!
+
+	manual_override = false
+
 	for _step in range(speed):
-		var next_idx = position_index + direction
+		current_idx = route.find(get_hex())
+		var next_idx = current_idx + direction
+
 		if next_idx < 0 or next_idx >= route.size():
 			direction = -direction
+			if has_node("Sprite2D"):
+				$Sprite2D.flip_h = (direction == -1)
 			break
 
 		var next_hex = route[next_idx]
-		if game.grid.Grid[next_hex]["Piece"] != null:
-			break  # Occupied — wait one day
+		if game.get_piece(next_hex) != null:
+			break # Blocked
 
-		# Vacate current hex
-		var old_hex = route[position_index]
-		game.grid.Grid[old_hex]["Piece"] = null
-		game.grid.enable_hex(old_hex)
+		game.set_piece(get_hex())
+		game.grid.enable_hex(get_hex())
 
-		# Occupy next hex
-		position_index = next_idx
-		game.grid.Grid[next_hex]["Piece"] = self
+		game.set_piece(next_hex, self)
 		game.grid.disable_hex(next_hex)
 		game.grid = movement_comp.force_hex(next_hex, game.grid)
-		position = game.grid.map_to_local(HEX.axial_to_oddr(next_hex))
 
-# ── Supply exchange ───────────────────────────────────────────────────────────
-
-## At terminus A (index 0): train loads up from any adjacent allied city.
-## At terminus B (last index): train unloads into any adjacent allied city.
 func _exchange_supplies(game: Node):
-	var endpoint  = route[position_index]
-	var check_hexes = [endpoint] + HEX.axial_neighbours(endpoint)
+	var current_hex = get_hex()
+	var current_idx = route.find(current_hex)
+
+	if current_idx == -1: return
+
+	var check_hexes = [current_hex] + HEX.axial_neighbours(current_hex)
 
 	for hex in check_hexes:
-		if not game.grid.Grid.has(hex):
-			continue
-		var city = game.grid.Grid[hex]["Piece"]
-		# Check its a city
-		if city == null or not (city is City):
-			continue
-		if city.is_allied() != allied:
-			continue
+		if not game.grid.Grid.has(hex): continue
+		var city = game.get_piece(hex)
 
-		# Terminus A — train fills up from city
-		if position_index == 0:
-			var cargo_space = get_max_resources() - get_resources()
+		if city == null or not (city is City): continue
+		if city.is_allied() != allied: continue
+
+		if current_idx == 0:
 			resupply_from(city)
+			print("%s loaded supplies from %s at Terminus A" % [name, city.name])
 
-		# Terminus B — train delivers to city
-		#else:
-		#	var carry = get_resources()
-		#	if carry > 0:
-		#		piece.restore(carry)
-		#		deplete(carry)
-		#		print("%s delivered %d supplies to %s" % [name, carry, piece.name])
+		elif current_idx == route.size() - 1:
+			var carry = get_resources()
+			var cargo_space = city.get_max_resources() - city.get_resources()
+			var drop_off = min(carry, cargo_space)
 
-# ── Route integrity ───────────────────────────────────────────────────────────
+			if drop_off > 0:
+				city.restore(drop_off)
+				deplete(drop_off)
+				print("%s delivered %d supplies to %s at Terminus B" % [name, drop_off, city.name])
 
 func _route_intact(rail_hexes: Dictionary) -> bool:
 	for hex in route:
-		if not rail_hexes.has(hex):
-			return false
-		if rail_hexes[hex].get("broken", false):
-			return false
+		if not rail_hexes.has(hex): return false
+		if rail_hexes[hex].get("broken", false): return false
 	return true
 
 func _first_broken(rail_hexes: Dictionary) -> Vector2i:
@@ -123,16 +166,11 @@ func _first_broken(rail_hexes: Dictionary) -> Vector2i:
 			return hex
 	return Vector2i(-99, -99)
 
-# ── Sabotage API (called by Game.gd when an enemy attacks a rail hex) ─────────
-
-## Marks the rail hex closest to this train as sabotaged.
-## Called externally; the train doesn't move until repaired.
 func sabotage_at(hex: Vector2i, game: Node):
 	if game.rail_hexes.has(hex):
 		game.rail_hexes[hex]["broken"] = true
 		print("Rail sabotaged at %s — %s halted!" % [str(hex), name])
 
-## Repairs a broken hex on this route (e.g. from a repair card/event).
 func repair_at(hex: Vector2i, game: Node):
 	if game.rail_hexes.has(hex):
 		game.rail_hexes[hex]["broken"] = false
