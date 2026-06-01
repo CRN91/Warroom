@@ -216,6 +216,23 @@ func _resolve_all_combat():
 			if is_instance_valid(unit) and unit.target == dead:
 				unit.target = null
 		_die(dead)
+		
+func _resolve_all_movement():
+	var starved: Array = []
+	for unit in units:
+		if unit.get_pending_move():
+			unit.move_to(unit.pending_move, unit.get_hex(), grid)
+			unit.clear_pending_move()
+			
+		elif unit.path and unit.path.size() > 0:
+			var next_hex = unit.path[0]
+			if get_piece(next_hex) == null:
+				unit.move_to(next_hex, unit.get_hex(), grid)
+				unit.path.remove_at(0)
+				
+		if unit.next_day():
+			starved.append(unit)
+	return starved
 
 # ── Supply ────────────────────────────────────────────────────────────────────
 
@@ -235,7 +252,8 @@ func _play_selected(hex, hex_to_move):
 		return
 
 	if not selected:
-		grid = previous_selected.move_to(hex, hex_to_move, grid)
+		previous_selected.queue_move(hex)
+		#grid = previous_selected.move_to(hex, hex_to_move, grid)
 		return
 
 	var same_team = previous_selected.is_allied() == selected.is_allied()
@@ -320,7 +338,7 @@ func _tick_trains():
 func _input(event):
 	if event.is_action_pressed("select"):
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
-		var hex      = HEX.oddr_to_axial(oddr_hex)
+		var hex = HEX.oddr_to_axial(oddr_hex)
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
 			var selected = get_piece(hex)
@@ -334,7 +352,8 @@ func _input(event):
 				# Check piece still exists
 				var piece_to_move = get_piece(hex_to_move)
 				if piece_to_move:
-					grid = piece_to_move.move_to(hex, hex_to_move, grid)
+					piece_to_move.queue_move(hex)
+					#grid = piece_to_move.move_to(hex, hex_to_move, grid)
 				_deselect_piece()
 
 	elif event.is_action_pressed("deselect"):
@@ -342,7 +361,7 @@ func _input(event):
 
 	elif event is InputEventMouseMotion:
 		if hex_to_move:
-			var oddr_hex   = grid.local_to_map(get_global_mouse_position())
+			var oddr_hex = grid.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
 			if target_hex in grid.Grid.keys():
 				# Check piece still exists
@@ -392,6 +411,12 @@ func clock_increment():
 	_unfreeze_all()
 	_check_pending()
 
+	# Resolve all attacks simultaneously
+	_resolve_all_combat()
+
+	# Move
+	var starved = _resolve_all_movement()
+	
 	# Auto-supply between adjacent friendly units
 	for hex in grid.Grid:
 		var piece = get_piece(hex)
@@ -401,9 +426,6 @@ func clock_increment():
 			var adj_piece = get_piece(adjacent)
 			if adj_piece and adj_piece.is_allied() == piece.is_allied() and hex < adjacent:
 				_supply(piece, adj_piece)
-
-	# Resolve all attacks simultaneously
-	_resolve_all_combat()
 
 	# Card draw
 	var required_type = ["decision", "intel", "event"][day % 3]
@@ -422,15 +444,7 @@ func clock_increment():
 	for city in cities:
 		city.next_day()
 
-	var starved: Array = []
-	for unit in units:
-		if unit.path and unit.path.size() > 0:
-			var next_hex = unit.path[0]
-			if get_piece(next_hex) == null:
-				unit.move_to(next_hex, unit.get_hex(), grid)
-				unit.path.remove_at(0)
-		if unit.next_day():
-			starved.append(unit)
+	
 
 	for dead in starved:
 		print("%s starved." % dead.name)

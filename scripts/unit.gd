@@ -21,6 +21,7 @@ var path = []
 # ── Targeting ─────────────────────────────────────────────────────────────────
 var target: Node2D = null        # Persistent preferred target — survives between days
 var pending_attack: Node2D = null  # Queued for this day's resolution only
+var pending_move = null
 
 func is_allied(): return allied
 func combatant(): return false
@@ -36,6 +37,8 @@ func set_path(x): path = x
 func get_attack_range(): return attack_comp.get_range() if attack_comp else 0
 func get_damage(): return attack_comp.get_damage() if attack_comp else 0
 func attack(enemy): return attack_comp.attack(enemy) if attack_comp else false
+func get_pending_move(): return pending_move
+func clear_pending_move(): pending_move = null
 func resupply_from(ally):
 	if resupply_comp:
 		resupply_comp.resupply_from(ally)
@@ -44,14 +47,19 @@ func resupply_from(ally):
 func set_target(enemy: Node2D):
 	if frozen:
 		return
-	frozen        = true
+	frozen = true
 	pending_attack = enemy
-	target         = enemy  # Persist for future days
+	target = enemy  # Persist for future days
 
 ## Clears the persistent target (F key).
 func clear_target():
-	target         = null
+	target = null
 	pending_attack = null
+
+func queue_move(hex):
+	if frozen:
+		return
+	pending_move = hex
 
 ## Called each day. Returns true if unit starved.
 func next_day() -> bool:
