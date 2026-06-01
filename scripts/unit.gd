@@ -7,7 +7,7 @@ var HEX = HEXGRID.new()
 var allied: bool = true
 var frozen: bool = false
 var supplier: int = 0
-var supplier_reserve: int = 0  # Resources kept back — never given away
+var supplier_reserve: int = 0
 var path = []
 
 @onready var movement_comp = $Movement
@@ -16,6 +16,10 @@ var path = []
 
 var DAILY_DEPLETE: int = 1
 var attack_range: int = 1
+
+# ── Targeting ─────────────────────────────────────────────────────────────────
+var target: Node2D = null        # Persistent preferred target — survives between days
+var pending_attack: Node2D = null  # Queued for this day's resolution only
 
 func is_allied(): return allied
 func combatant(): return false
@@ -30,10 +34,29 @@ func set_enemy(): allied = false
 func set_path(x): path = x
 func resupply_from(ally): resupply_comp.resupply_from(ally)
 func get_attack_range() -> int: return attack_range
+func get_damage() -> int: return 0
 
-## Called each day. Returns true if the unit has starved (resources <= 0).
+## Player action — queues attack for this turn AND remembers as persistent target.
+func set_target(enemy: Node2D):
+	if frozen:
+		return
+	frozen        = true
+	pending_attack = enemy
+	target         = enemy  # Persist for future days
+
+## Clears the persistent target (F key).
+func clear_target():
+	target         = null
+	pending_attack = null
+
+## Called each day. Returns true if unit starved.
 func next_day() -> bool:
 	return resource_comp.clock_cycle(DAILY_DEPLETE)
+
+func resupply(supply_source: Node2D):
+	if not frozen:
+		frozen = true
+		resupply_comp.resupply_from(supply_source)
 
 func move_to(new_hex, old_hex, grid):
 	if not frozen:
@@ -62,7 +85,10 @@ func move_to(new_hex, old_hex, grid):
 				frozen = false
 	return grid
 
-func status():
-	return "Hex: %s | Unit: %s | HP: %d/%d" % [
-		get_hex(), name, get_resources(), get_max_resources()
+func status() -> String:
+	var t_str = ""
+	if target and is_instance_valid(target):
+		t_str = " | Target: %s" % target.name
+	return "Hex: %s | %s | HP: %d/%d%s" % [
+		get_hex(), name, get_resources(), get_max_resources(), t_str
 	]
