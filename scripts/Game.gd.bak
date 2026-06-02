@@ -98,12 +98,12 @@ func test_setup():
 	var city2 = CITY.instantiate()
 	add_child(city2, true)
 	city2.set_enemy()
-	city2.is_capital = true
+	city2.is_hq = true
 	grid = city2.set_hex(Vector2i(0, -3), grid); cities.append(city2)
 
 	var city3 = CITY.instantiate()
 	add_child(city3, true)
-	city3.is_capital = true
+	city3.is_hq = true
 	grid = city3.set_hex(Vector2i(0, 3), grid); cities.append(city3)
 
 	var logi = LOGI.instantiate()
@@ -366,7 +366,7 @@ func _die(dead_piece):
 	
 	if dead_piece in cities:
 		cities.erase(dead_piece)
-		if dead_piece.is_capital:
+		if dead_piece.is_hq:
 			_game_over(dead_piece.is_allied())
 	else:
 		units.erase(dead_piece)
@@ -621,9 +621,6 @@ func clock_increment():
 	for city in cities:
 		var sieged = false
 		for adj in HEX.axial_neighbours(city.get_hex()):
-			if not grid.Grid.has(adj):
-				continue
-				
 			var p = get_piece(adj)
 			if p and p.is_allied() != city.is_allied() and p.combatant():
 				sieged = true

@@ -2,7 +2,7 @@ extends Unit
 class_name City
  
 @export var hex_tile: Vector2i
-var is_capital: bool = false
+var is_hq: bool = false
  
 func _ready():
 	supplier = 2

@@ -13,7 +13,7 @@ hex_tile = Vector2i(-2, 4)
 
 [node name="Resources" parent="." unique_id=1054909760 instance=ExtResource("3_5aspk")]
 MAX_RESC = 1000
-resupply_rate = 200
+resupply_rate = 50
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=446907683]
 texture = ExtResource("4_v51tb")
