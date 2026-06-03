@@ -195,7 +195,19 @@ func process_movement(game):
 			grid.enable_hex(current_hex)
 			if goal_piece: grid.enable_hex(goal)
 
+			# NEW: Temporarily enable hexes with invisible enemies so A* paths through the fog!
+			var hidden_hexes = []
+			for h in grid.Grid:
+				var p = grid.get_piece(h)
+				if p and not p.visible and p.team != team:
+					grid.enable_hex(h)
+					hidden_hexes.append(h)
+
 			var astar_path = grid.get_map_path(current_hex, goal)
+
+			# Re-disable the hidden enemies to restore the grid state
+			for h in hidden_hexes:
+				grid.disable_hex(h)
 
 			grid.disable_hex(current_hex)
 			if goal_piece: grid.disable_hex(goal)

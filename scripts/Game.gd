@@ -29,6 +29,7 @@ const COST = {
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
 var pending_cards: Array    = []
 var pending_restores: Array = []
+var recent_death_hexes: Array = []
 
 var day: int = 0
 var hex_to_move
@@ -143,7 +144,9 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
-		if get_piece(adj) == null and not rail_hexes.has(adj):
+		
+		# NEW: Added 'and not adj in recent_death_hexes' to the checks!
+		if get_piece(adj) == null and not rail_hexes.has(adj) and not adj in recent_death_hexes:
 			var unit = scene.instantiate()
 			add_child(unit, true)
 			if city.team == 2: unit.set_enemy()
@@ -152,6 +155,7 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 			units.append(unit)
 			_update_fow()
 			return true
+			
 	print("No free hex adjacent to %s" % city.name)
 	return false
 
@@ -247,6 +251,28 @@ func _play_selected(hex, p_hex_to_move):
 
 	if not previous_selected: return
 
+	# NEW: Treat invisible enemies as empty space so we can click them to path toward them!
+	var click_as_empty = (not selected) or (not selected.visible and selected.team != previous_selected.team)
+
+	if click_as_empty:
+		if previous_selected.use_manual_path:
+			# Calculate route from the LAST waypoint to the clicked hex
+			var start_hex = previous_selected.get_hex()
+			if previous_selected.path.size() > 0:
+				start_hex = previous_selected.path.back()
+				
+			grid.enable_hex(start_hex)
+			var route = grid.get_map_path(start_hex, hex)
+			grid.disable_hex(start_hex)
+			
+			if route.size() > 1:
+				for i in range(1, route.size()):
+					previous_selected.add_waypoint(route[i])
+		else:
+			previous_selected.set_goal(hex)
+		grid.enable_hex(p_hex_to_move) 
+		return
+
 	if not selected:
 		if previous_selected.use_manual_path:
 			# Calculate route from the LAST waypoint to the clicked hex
@@ -285,6 +311,10 @@ func _die(dead_piece):
 	var dead_hex = dead_piece.get_hex()
 	if dead_hex and grid.Grid.has(dead_hex):
 		grid.Grid[dead_hex]["Piece"] = null
+		
+		# NEW: Log this hex so a city can't instantly spawn here
+		if not dead_hex in recent_death_hexes:
+			recent_death_hexes.append(dead_hex)
 
 	if dead_piece in cities:
 		cities.erase(dead_piece)
@@ -464,11 +494,15 @@ func clock_increment():
 	ui.update_day(day)
 
 	_unfreeze_all()
-	card_manager.check_pending(day) # Delegate pending checks
-	_run_enemy_ai()
+	card_manager.check_pending(day)
+	_run_enemy_ai() # AI tries to spawn, but graveyard hexes are blocked
 
-	var starved = _resolve_all_movement()
-	_resolve_all_combat()
+	var starved = _resolve_all_movement() # Units finally step into the empty gaps
+	
+	# NEW: Grace period is over! Clear the graveyard so cities can spawn here again.
+	recent_death_hexes.clear() 
+
+	_resolve_all_combat() # New deaths happen here, repopulating the graveyard for tomorrow
 
 	for unit in units:
 		if unit.resupply_comp:
@@ -488,8 +522,14 @@ func clock_increment():
 			var p = get_piece(adj)
 			if p and p.team != city.team and p.combatant():
 				sieged = true; break
-		city.resource_comp.set_resupply_rate(0 if sieged else 100)
-		city.next_day()
+		
+		if sieged:
+			var original_rate = city.resource_comp.resupply_rate
+			city.resource_comp.resupply_rate = 0
+			city.next_day()
+			city.resource_comp.resupply_rate = original_rate # Put it back!
+		else:
+			city.next_day()
 
 	for dead in starved:
 		print("%s starved." % dead.name); _die(dead)
