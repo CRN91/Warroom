@@ -29,6 +29,7 @@ const COST = {
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
 var pending_cards: Array    = []
 var pending_restores: Array = []
+var _ghosted_hexes: Array = []
 var recent_death_hexes: Array = []
 
 var day: int = 0
@@ -214,18 +215,45 @@ func _resolve_all_movement() -> Array:
 func _handle_movement_command(unit, target_hex):
 	if unit.use_manual_path:
 		var start_hex = unit.path.back() if unit.path.size() > 0 else unit.get_hex()
-		grid.enable_hex(start_hex)
+		
+		_ghost_grid(start_hex) # Turn units into ghosts
 		var route = grid.get_map_path(start_hex, target_hex)
-		grid.disable_hex(start_hex)
+		_unghost_grid() # Make them solid again instantly
+		
 		for i in range(1, route.size()):
 			unit.add_waypoint(route[i])
 	else:
 		unit.set_goal(target_hex)
+		
+func _ghost_grid(start_hex):
+	_ghosted_hexes.clear()
+	for h in grid.Grid:
+		var p = get_piece(h)
+		if p:
+			if p is City: continue # Cities are permanent walls, don't ghost them!
+			grid.enable_hex(h)
+			_ghosted_hexes.append(h)
+			
+	# Make sure the start hex is open so A* can escape
+	if not start_hex in _ghosted_hexes:
+		grid.enable_hex(start_hex)
+		_ghosted_hexes.append(start_hex)
+
+func _unghost_grid():
+	for h in _ghosted_hexes:
+		grid.disable_hex(h)
+	_ghosted_hexes.clear()
 
 func _play_selected(hex, p_hex_to_move):
 	var selected = get_piece(hex)
 	var active_unit = get_piece(p_hex_to_move)
 	if not active_unit: return
+
+	# NEW: Manual Pathing overrides EVERYTHING (except clicking a city)
+	if active_unit.use_manual_path:
+		if not selected is City:
+			_handle_movement_command(active_unit, hex)
+		return
 
 	var click_as_empty = (not selected) or (not selected.visible and selected.team != active_unit.team)
 
@@ -241,7 +269,7 @@ func _play_selected(hex, p_hex_to_move):
 			active_unit.set_target(selected)
 			ui.show_stats(active_unit)
 	elif dist == 1:
-		active_unit.interact_with_ally(selected) # Trigger interaction via unit.gd
+		active_unit.interact_with_ally(selected)
 
 # ── Death ─────────────────────────────────────────────────────────────────────
 
@@ -313,7 +341,7 @@ func _unhandled_input(event):
 				if piece:
 					if piece.use_manual_path:
 						path_line.default_color = Color(1.0, 0.8, 0.2)
-						# Draw fixed waypoints PLUS line to the mouse
+						# Draw fixed waypoints
 						var points = PackedVector2Array()
 						var prev = piece.get_hex()
 						points.append(grid.map_to_local(HEX.axial_to_oddr(prev)))
@@ -321,17 +349,18 @@ func _unhandled_input(event):
 							points.append(grid.map_to_local(HEX.axial_to_oddr(p)))
 							prev = p
 						
-						grid.enable_hex(prev)
+						# Ghost the grid before drawing the line to the mouse!
+						_ghost_grid(prev)
 						var mouse_points = grid.get_hex_path(prev, target_hex)
-						grid.disable_hex(prev)
+						_unghost_grid()
 						
 						# Skip the first point so it doesn't overlap
 						for i in range(1, mouse_points.size()):
 							points.append(mouse_points[i])
 						path_line.points = points
 					else:
+						# THIS WAS MISSING: Standard Auto-Pathing line
 						path_line.default_color = Color(0.5, 1, 0.2)
-						# Standard Auto-Pathing drawing
 						grid.enable_hex(hex_to_move)
 						path_line.points = grid.get_hex_path(hex_to_move, target_hex)
 						grid.disable_hex(hex_to_move)
@@ -417,3 +446,4 @@ func clock_increment():
 
 func _next_day_button():
 	clock_increment()
+	
