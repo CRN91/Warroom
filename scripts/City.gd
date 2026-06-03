@@ -38,3 +38,18 @@ func is_frozen():
  
 func move_to(_hex, _old_hex, grid):
 	return grid
+	
+func capture(new_team: int, game: Node):
+	if is_hq:
+		game._game_over(team == 1)
+		return
+
+	team = new_team
+	resource_comp.resources = 500
+
+	if team == 1: 
+		set_player()
+	elif team == 2: 
+		set_enemy()
+		
+	print("%s captured by team %d" % [name, team])

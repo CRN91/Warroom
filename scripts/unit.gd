@@ -77,6 +77,45 @@ func clear_path():
 
 # ── Combat API ────────────────────────────────────────────────────────────────
 
+func get_attack_target(grid) -> Node2D:
+	# 1. Clean up dead targets to avoid crashes
+	if target and not is_instance_valid(target): target = null
+	if pending_attack and not is_instance_valid(pending_attack): pending_attack = null
+
+	# 2. Manual attacks ordered this turn take priority
+	if pending_attack:
+		var t = pending_attack
+		pending_attack = null
+		return t
+		
+	# 3. If we already moved (frozen), we cannot auto-attack this turn
+	if is_frozen(): return null
+	
+	# 4. Check if our sticky target is still in range
+	if target:
+		if HEX.axial_distance(get_hex(), target.get_hex()) <= get_attack_range():
+			return target
+			
+	# 5. Otherwise, scan for a new target
+	return _find_enemy_in_range(grid)
+
+func _find_enemy_in_range(grid) -> Node2D:
+	var possible: Array = []
+	for hex in HEX.axial_radius(get_hex(), get_attack_range()):
+		if not grid.Grid.has(hex): continue
+		var piece = grid.get_piece(hex)
+		if piece and piece.team != team:
+			possible.append(piece)
+			
+	if possible.is_empty(): return null
+	
+	# Priority targeting: Combatants > Logistics > Anything else (Cities)
+	for t in possible:
+		if t.combatant(): return t
+	for t in possible:
+		if t is Logistics: return t
+	return possible[0]
+
 func set_target(enemy: Node2D):
 	if frozen: return
 	frozen        = true

@@ -262,70 +262,37 @@ func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
 
 # ── Combat ────────────────────────────────────────────────────────────────────
 
-func _find_enemy_in_range(unit: Node2D) -> Node2D:
-	var possible: Array = []
-	for hex in HEX.axial_radius(unit.get_hex(), unit.get_attack_range()):
-		if not grid.Grid.has(hex): continue
-		var piece = get_piece(hex)
-		if piece and piece.team != unit.team:
-			possible.append(piece)
-	if possible.is_empty(): return null
-	for t in possible:
-		if t.combatant(): return t
-	for t in possible:
-		if t is Logistics: return t
-	return possible[0]
-
-func _get_attack_target(unit: Node2D) -> Node2D:
-	if unit.pending_attack and not is_instance_valid(unit.pending_attack):
-		unit.pending_attack = null
-	if unit.target and not is_instance_valid(unit.target):
-		unit.target = null
-
-	if unit.pending_attack:
-		var t = unit.pending_attack
-		unit.pending_attack = null
-		return t
-	if unit.is_frozen(): return null
-	if unit.target and is_instance_valid(unit.target):
-		if HEX.axial_distance(unit.get_hex(), unit.target.get_hex()) <= unit.get_attack_range():
-			return unit.target
-	return _find_enemy_in_range(unit)
-
 func _resolve_all_combat():
-	var attack_pairs: Array = []
+	var attacks: Array = []
+	var to_die: Array = []
+	
+	# 1. Ask every combatant who they want to attack
 	for unit in units:
 		if not unit.combatant(): continue
-		var t = _get_attack_target(unit)
-		if t and is_instance_valid(t):
-			attack_pairs.append({ "attacker": unit, "target": t })
+		var t = unit.get_attack_target(grid)
+		if t:
+			attacks.append({ "attacker": unit, "target": t })
 
-	var to_die: Array = []
-	var to_capture: Array = []
-
-	for pair in attack_pairs:
+	# 2. Execute the attacks
+	for pair in attacks:
 		var attacker = pair["attacker"]
 		var target   = pair["target"]
+		
+		# Skip if someone else already blew them up this loop
 		if not is_instance_valid(attacker) or not is_instance_valid(target): continue
+		
+		# attacker.attack() returns true if the target's HP hit 0
 		if attacker.attack(target):
 			if target is City:
-				to_capture.append({ "city": target, "new_team": attacker.team })
+				target.capture(attacker.team, self)
 			elif target not in to_die:
 				to_die.append(target)
+				
+		# Did the attacker starve/die from attack costs?
 		if attacker.get_resources() <= 0 and attacker not in to_die:
 			to_die.append(attacker)
 
-	for cap in to_capture:
-		var city = cap["city"]
-		if city.is_hq:
-			_game_over(city.team == 1)
-			return
-		city.team = cap["new_team"]
-		city.resource_comp.resources = 500
-		if city.team == 1: city.set_player()
-		elif city.team == 2: city.set_enemy()
-		print("%s captured by team %d" % [city.name, city.team])
-
+	# 3. Clean up the dead (Keep _die() in Game.gd so it can clear the arrays and grid)
 	for dead in to_die:
 		for unit in units:
 			if is_instance_valid(unit) and unit.target == dead:
