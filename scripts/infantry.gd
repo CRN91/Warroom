@@ -3,6 +3,7 @@ class_name Infantry
 
 func _ready():
 	allied = true
+	update_ui()
 
 func combatant(): return true
 

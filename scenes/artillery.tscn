@@ -27,3 +27,9 @@ attack_range = 3
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]
 script = ExtResource("6_q00lq")
+
+[node name="ResourceBar" type="ProgressBar" parent="." unique_id=1779556108]
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = -100.0
+show_percentage = false

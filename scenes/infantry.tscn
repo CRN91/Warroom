@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="1_1bh05"]
 [ext_resource type="Script" uid="uid://dh2mulp47wvfd" path="res://scripts/infantry.gd" id="1_1qsph"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="2_3dir1"]
-[ext_resource type="Texture2D" uid="uid://drqvnavbykv8d" path="res://assets/troopsg.png" id="3_68dwf"]
+[ext_resource type="Texture2D" uid="uid://cujmcbsgxkrr1" path="res://assets/troopsg.png" id="3_68dwf"]
 [ext_resource type="Script" uid="uid://d0io42jtcsf2r" path="res://scripts/attack_comp.gd" id="5_doxku"]
 [ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="6_q00lq"]
 
@@ -25,3 +25,9 @@ script = ExtResource("5_doxku")
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]
 script = ExtResource("6_q00lq")
+
+[node name="ResourceBar" type="ProgressBar" parent="." unique_id=1539453042]
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = -100.0
+show_percentage = false

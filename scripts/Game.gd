@@ -305,7 +305,9 @@ func set_piece(hex, piece=null): grid.set_piece(hex, piece)
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 
-func _input(event):
+func _unhandled_input(event):
+	if (event is InputEventMouse or event is InputEventMouseButton) and ui.is_mouse_over_ui():
+		return
 	if event.is_action_pressed("select"):
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
@@ -486,7 +488,7 @@ func clock_increment():
 			var p = get_piece(adj)
 			if p and p.team != city.team and p.combatant():
 				sieged = true; break
-		city.resource_comp.set_resupply_rate(0 if sieged else 1000)
+		city.resource_comp.set_resupply_rate(0 if sieged else 100)
 		city.next_day()
 
 	for dead in starved:
@@ -497,6 +499,9 @@ func clock_increment():
 
 	if ui.city_menu.visible: 
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
+		
+	if ui.panel.visible:
+		ui.refresh_stats()
 
 func _next_day_button():
 	clock_increment()

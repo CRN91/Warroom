@@ -16,3 +16,9 @@ MAX_RESC = 1000
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=446907683]
 texture = ExtResource("4_v51tb")
+
+[node name="ResourceBar" type="ProgressBar" parent="." unique_id=547175361]
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = -100.0
+show_percentage = false

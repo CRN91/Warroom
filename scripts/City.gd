@@ -9,6 +9,7 @@ func _ready():
 	supplier = 2
 	if has_node("Sprite2D"):
 		original_texture = $Sprite2D.texture
+	update_ui()
  
 func set_hex(hex, grid):
 	grid.disable_hex(hex)

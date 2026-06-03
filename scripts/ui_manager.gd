@@ -17,6 +17,7 @@ signal card_choice_made(card_data: Dictionary, choice: String)
 @onready var lbl_mode      = $Panel/VBoxContainer/Mode
 @onready var card_ui       = $CardUI
 
+var current_viewed_piece: Node2D = null
 var city_menu: Panel = null
 var city_menu_city: Node2D = null
 var city_title_lbl: Label
@@ -121,6 +122,13 @@ func show_stats(piece):
 
 	panel.show()
 
+func refresh_stats():
+	if current_viewed_piece and is_instance_valid(current_viewed_piece):
+		show_stats(current_viewed_piece)
+	else:
+		# If the unit died or starved during the turn, close the panel
+		hide_panels()
+
 func hide_panels():
 	panel.hide()
 	close_city_menu()
@@ -142,3 +150,17 @@ func show_game_over(player_lost: bool):
 func _on_card_ui_choice_made(card_data: Dictionary, choice: String):
 	# When the CardUI registers a click, we bubble the signal up to Game.gd
 	card_choice_made.emit(card_data, choice)
+	
+# ── Mouse Shield ──────────────────────────────────────────────────────────────
+
+func is_mouse_over_ui() -> bool:
+	# Get the mouse position relative to the UI layer
+	var pos = get_viewport().get_mouse_position()
+	
+	# If the mouse is inside any of these rectangles, block the game board
+	if nextdaybutton.visible and nextdaybutton.get_global_rect().has_point(pos): return true
+	if panel.visible and panel.get_global_rect().has_point(pos): return true
+	if card_ui.visible and card_ui.get_global_rect().has_point(pos): return true
+	if city_menu and city_menu.visible and city_menu.get_global_rect().has_point(pos): return true
+	
+	return false

@@ -1,7 +1,8 @@
 extends Panel
 class_name CardUI
 
-signal choice_made(card_data: Dictionary, choice: String)
+# Only need this one!
+signal card_chosen(card_data: Dictionary, choice: String)
 
 @onready var lbl_type = $VBoxContainer/type
 @onready var lbl_text = $VBoxContainer/text
@@ -15,14 +16,12 @@ func _ready():
 	btn_yes.pressed.connect(_on_yes_pressed)
 	btn_no.pressed.connect(_on_no_pressed)
 
-# Updates the UI based on the dictionary passed from the Deck
 func display_card(card_data: Dictionary):
 	current_card_data = card_data
 	
 	lbl_type.text = str(card_data["type"]).capitalize()
 	lbl_text.text = str(card_data["text"])
 	
-	# Decision card buttons
 	if card_data["type"] == "decision":
 		button_container.show()
 		
@@ -33,16 +32,14 @@ func display_card(card_data: Dictionary):
 			btn_yes.text = "Yes"
 			btn_no.text = "No"
 	else:
-		# Hide the buttons for Intel and Event cards
 		button_container.hide()
 	
-	# Show the panel
 	show()
 
 func _on_yes_pressed():
-	choice_made.emit(current_card_data, "yes")
-	button_container.hide() # Close the card after making a choice
+	card_chosen.emit(current_card_data, "yes")
+	hide() # Hides the whole CardUI panel!
 
 func _on_no_pressed():
-	choice_made.emit(current_card_data, "no")
-	button_container.hide() # Close the card after making a choice
+	card_chosen.emit(current_card_data, "no")
+	hide() # Hides the whole CardUI panel!

@@ -21,3 +21,9 @@ script = ExtResource("4_omayn")
 
 [node name="Resupply" type="Node2D" parent="." unique_id=634396179]
 script = ExtResource("5_4cr84")
+
+[node name="ResourceBar" type="ProgressBar" parent="." unique_id=70061592]
+offset_top = -200.0
+offset_right = 300.0
+offset_bottom = -100.0
+show_percentage = false
