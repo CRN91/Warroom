@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://bmir1qqmb18s4" path="res://scenes/enemy_ai.tscn" id="10_vtaks"]
 [ext_resource type="PackedScene" uid="uid://bkpjdilsaiovo" path="res://scenes/UI.tscn" id="11_dinhu"]
 [ext_resource type="Script" uid="uid://dj6qrn4kql00k" path="res://scripts/rail_network.gd" id="11_kvpfn"]
+[ext_resource type="Script" uid="uid://dc6s6vftcppbo" path="res://scripts/fow_manager.gd" id="11_kvuet"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_bbf4d"]
 texture = ExtResource("2_t3w5q")
@@ -73,3 +74,6 @@ script = ExtResource("11_kvpfn")
 [node name="CardManager" parent="." unique_id=4359198 instance=ExtResource("9_0tnpc")]
 
 [node name="EnemyAI" parent="." unique_id=571729301 instance=ExtResource("10_vtaks")]
+
+[node name="FowManager" type="Node" parent="." unique_id=804854044]
+script = ExtResource("11_kvuet")

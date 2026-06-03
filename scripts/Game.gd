@@ -24,6 +24,7 @@ const COST = {
 @onready var card_manager = $CardManager
 @onready var enemy_ai = $EnemyAI
 @onready var rail_network = $RailNetwork
+@onready var fow_manager = $FowManager
 
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
 var pending_cards: Array    = []
@@ -87,42 +88,14 @@ func _ready():
 	card_manager.setup(self)
 	rail_network.setup(self)
 	enemy_ai.setup(self)
+	fow_manager.setup(self)
 	
 	ui.setup(COST)
 	ui.next_day_requested.connect(self.clock_increment)
 	ui.buy_requested.connect(self._on_city_buy_requested)
 	ui.card_choice_made.connect(card_manager.resolve_choice)
 	test_setup()
-	_update_fow()
-
-# ── Fog of War ────────────────────────────────────────────────────────────────
-
-func _update_fow():
-	var visible_hexes = {}
-
-	for city in cities:
-		if city.team == 1:
-			for h in HEX.axial_radius(city.get_hex(), 2):
-				visible_hexes[h] = true
-
-	for unit in units:
-		if unit.team == 1:
-			var vision = max(2, unit.get_attack_range())
-			for h in HEX.axial_radius(unit.get_hex(), vision):
-				visible_hexes[h] = true
-
-	for hex in grid.Grid:
-		var piece = get_piece(hex)
-		if piece:
-			piece.visible = piece.team == 1 or visible_hexes.has(hex)
-
-	for train in trains:
-		if train.team != 1:
-			train.visible = visible_hexes.has(train.get_hex())
-
-	for hex in rail_hexes:
-		if rail_hexes[hex].has("node"):
-			rail_hexes[hex]["node"].visible = visible_hexes.has(hex)
+	fow_manager.update_fow()
 
 func _on_city_buy_requested(item_type: String, city: Node2D):
 	if city.team != 1: return
@@ -130,17 +103,18 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 	if city.get_resources() < cost: return
 
 	var purchased = false
-	match item_type:
-		"infantry":  purchased = _spawn_unit_near_city(INFANTRY,  city)
-		"artillery": purchased = _spawn_unit_near_city(ARTILLERY, city)
-		"logistics": purchased = _spawn_unit_near_city(LOGI,      city)
-		"rail":      rail_network.player_rail_stock  += 1; purchased = true
-		"train":     rail_network.player_train_stock += 1; purchased = true
+	if item_type == "rail":
+		rail_network.player_rail_stock += 1; purchased = true
+	elif item_type == "train":
+		rail_network.player_train_stock += 1; purchased = true
+	else:
+		var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[item_type]
+		purchased = _spawn_unit_near_city(scene, city)
 
 	if purchased:
 		city.deplete(cost)
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
-
+		
 func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
@@ -153,7 +127,7 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 			# Initial placement — unit is NOT frozen (no action cost)
 			grid = unit.move_to(adj, null, grid)
 			units.append(unit)
-			_update_fow()
+			fow_manager.update_fow()
 			return true
 			
 	print("No free hex adjacent to %s" % city.name)
@@ -235,75 +209,39 @@ func _resolve_all_movement() -> Array:
 
 	return starved
 
-# ── Supply ────────────────────────────────────────────────────────────────────
-
-func _supply(piece1, piece2):
-	if piece1.supplier > piece2.supplier:
-		piece2.resupply_from(piece1)
-	elif piece2.supplier > piece1.supplier:
-		piece1.resupply_from(piece2)
-
 # ── Play selected ─────────────────────────────────────────────────────────────
+
+func _handle_movement_command(unit, target_hex):
+	if unit.use_manual_path:
+		var start_hex = unit.path.back() if unit.path.size() > 0 else unit.get_hex()
+		grid.enable_hex(start_hex)
+		var route = grid.get_map_path(start_hex, target_hex)
+		grid.disable_hex(start_hex)
+		for i in range(1, route.size()):
+			unit.add_waypoint(route[i])
+	else:
+		unit.set_goal(target_hex)
 
 func _play_selected(hex, p_hex_to_move):
 	var selected = get_piece(hex)
-	var previous_selected = get_piece(p_hex_to_move)
+	var active_unit = get_piece(p_hex_to_move)
+	if not active_unit: return
 
-	if not previous_selected: return
-
-	# NEW: Treat invisible enemies as empty space so we can click them to path toward them!
-	var click_as_empty = (not selected) or (not selected.visible and selected.team != previous_selected.team)
+	var click_as_empty = (not selected) or (not selected.visible and selected.team != active_unit.team)
 
 	if click_as_empty:
-		if previous_selected.use_manual_path:
-			# Calculate route from the LAST waypoint to the clicked hex
-			var start_hex = previous_selected.get_hex()
-			if previous_selected.path.size() > 0:
-				start_hex = previous_selected.path.back()
-				
-			grid.enable_hex(start_hex)
-			var route = grid.get_map_path(start_hex, hex)
-			grid.disable_hex(start_hex)
-			
-			if route.size() > 1:
-				for i in range(1, route.size()):
-					previous_selected.add_waypoint(route[i])
-		else:
-			previous_selected.set_goal(hex)
+		_handle_movement_command(active_unit, hex)
 		grid.enable_hex(p_hex_to_move) 
 		return
 
-	if not selected:
-		if previous_selected.use_manual_path:
-			# Calculate route from the LAST waypoint to the clicked hex
-			var start_hex = previous_selected.get_hex()
-			if previous_selected.path.size() > 0:
-				start_hex = previous_selected.path.back()
-				
-			grid.enable_hex(start_hex)
-			var route = grid.get_map_path(start_hex, hex)
-			grid.disable_hex(start_hex)
-			
-			if route.size() > 1:
-				for i in range(1, route.size()):
-					previous_selected.add_waypoint(route[i])
-		else:
-			# Move to empty hex — set as goal, enable source hex immediately
-			previous_selected.set_goal(hex)
-		grid.enable_hex(p_hex_to_move)  # Available for other units' pathfinding now
-		return
+	var dist = HEX.axial_distance(p_hex_to_move, hex)
 
-	var same_team = previous_selected.team == selected.team
-	var dist      = HEX.axial_distance(p_hex_to_move, hex)
-
-	if not same_team:
-		if previous_selected.combatant() and dist <= previous_selected.get_attack_range():
-			previous_selected.set_target(selected)
-			ui.show_stats(previous_selected)
-			return
-	else:
-		if dist == 1:
-			_supply(previous_selected, selected)
+	if active_unit.team != selected.team:
+		if active_unit.combatant() and dist <= active_unit.get_attack_range():
+			active_unit.set_target(selected)
+			ui.show_stats(active_unit)
+	elif dist == 1:
+		active_unit.interact_with_ally(selected) # Trigger interaction via unit.gd
 
 # ── Death ─────────────────────────────────────────────────────────────────────
 
@@ -457,34 +395,19 @@ func clock_increment():
 		if unit.resupply_comp:
 			unit.resupply_comp.process_resupply(grid)
 
-	# Delegate card drawing
 	var card_to_play = card_manager.draw_daily_card(day)
-	if card_to_play: 
-		ui.card_ui.display_card(card_to_play)
-	else: 
-		ui.card_ui.hide()
+	if card_to_play: ui.card_ui.display_card(card_to_play)
+	else: ui.card_ui.hide()
 
+	# The City sieging logic is GONE! We just tell the cities to tick.
 	for city in cities:
-		var sieged = false
-		for adj in HEX.axial_neighbours(city.get_hex()):
-			if not grid.Grid.has(adj): continue
-			var p = get_piece(adj)
-			if p and p.team != city.team and p.combatant():
-				sieged = true; break
-		
-		if sieged:
-			var original_rate = city.resource_comp.resupply_rate
-			city.resource_comp.resupply_rate = 0
-			city.next_day()
-			city.resource_comp.resupply_rate = original_rate # Put it back!
-		else:
-			city.next_day()
+		city.next_day(grid)
 
 	for dead in starved:
 		print("%s starved." % dead.name); _die(dead)
 
 	_unfreeze_all()
-	_update_fow()
+	fow_manager.update_fow() # Delegate to FOW
 
 	if ui.city_menu.visible: 
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)

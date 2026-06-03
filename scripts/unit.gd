@@ -264,3 +264,9 @@ func status() -> String:
 	return "Hex: %s | %s | HP: %d/%d%s" % [
 		get_hex(), name, get_resources(), get_max_resources(), extras
 	]
+	
+func interact_with_ally(ally: Node2D):
+	if supplier > ally.supplier:
+		ally.resupply_from(self)
+	elif ally.supplier > supplier:
+		resupply_from(ally)

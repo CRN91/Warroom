@@ -54,3 +54,22 @@ func capture(new_team: int, game: Node):
 		set_enemy()
 		
 	print("%s captured by team %d" % [name, team])
+	
+func next_day(grid = null) -> bool:
+	var sieged = false
+	if grid:
+		for adj in HEX.axial_neighbours(get_hex()):
+			if not grid.Grid.has(adj): continue
+			var p = grid.get_piece(adj)
+			if p and p.team != team and p.combatant():
+				sieged = true
+				break
+	
+	if sieged:
+		var original_rate = resource_comp.resupply_rate
+		resource_comp.resupply_rate = 0
+		var starved = super() # FIX: Removed 'grid' from inside the brackets!
+		resource_comp.resupply_rate = original_rate # Puts it back
+		return starved
+	else:
+		return super()
