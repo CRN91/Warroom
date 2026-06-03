@@ -99,17 +99,19 @@ func resupply(supply_source: Node2D):
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
-func process_movement(grid):
+func process_movement(game):
+	var grid = game.grid
 	var current_hex = get_hex()
-	if not current_hex: return
+	if not current_hex or is_frozen(): return
 
+	# Manual pathing check
 	if path.size() > 0:
 		var next_hex = path[0]
 		if grid.get_piece(next_hex) == null:
 			move_to(next_hex, current_hex, grid)
-			path.pop_front() # Remove the waypoint we just reached
-			
-	elif goal != null and not is_frozen():
+			path.pop_front()
+	# Auto pathing check
+	elif goal != null:
 		if current_hex == goal:
 			clear_goal()
 		else:

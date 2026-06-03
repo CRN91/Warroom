@@ -16,8 +16,6 @@ func set_resupply_rate(x): resupply_rate = x
 
 func deplete(x) -> bool:
 	resources -= x
-	print("deplete")
-	print(resources)
 	return resources <= 0
 
 func resupply(x):

@@ -59,34 +59,34 @@ func move_to(new_hex, old_hex, grid):
 
 	grid.enable_hex(old_hex)
 	grid.disable_hex(new_hex)
-	return movement_comp.force_hex(new_hex, grid)
+	grid = movement_comp.force_hex(new_hex, grid)
+	
+	# NEW: Unload immediately when arriving manually
+	_exchange_supplies(grid) 
 
-func train_tick(game: Node):
+	return grid
+
+func process_movement(game: Node):
 	if route.is_empty():
 		return
 
-	if not _route_intact(game.rail_hexes):
-		print("%s halted — rail broken at %s" % [name, _first_broken(game.rail_hexes)])
+	if not _route_intact(game.rail_network.rail_hexes):
+		print("%s halted — rail broken at %s" % [name, _first_broken(game.rail_network.rail_hexes)])
 		return
 
 	var current_hex = get_hex()
 	var current_idx = route.find(current_hex)
-
-	if current_idx == -1:
-		print("Error: Train got derailed off its route!")
-		return
+	if current_idx == -1: return
 
 	var facing_terminus_a = (direction == -1 and current_idx == 0)
 	var facing_terminus_b = (direction == 1 and current_idx == route.size() - 1)
 
-	# CARGO WAITING LOGIC
+	# CARGO WAITING LOGIC (Check before moving)
 	if facing_terminus_a or facing_terminus_b:
-		_exchange_supplies(game)
+		_exchange_supplies(game.grid) # Updated to use grid
 
-		# If the user dragged it, we skip the waiting check completely and just go!
 		if not manual_override:
 			var ready_to_leave = false
-
 			if facing_terminus_a:
 				if get_resources() >= get_max_resources():
 					ready_to_leave = true
@@ -100,10 +100,10 @@ func train_tick(game: Node):
 					$Sprite2D.flip_h = (direction == -1)
 			else:
 				print("%s waiting at terminus for cargo conditions." % name)
-				return # End turn and wait!
+				return 
+		manual_override = false
 
-	manual_override = false
-
+	# MOVEMENT LOOP
 	for _step in range(speed):
 		current_idx = route.find(get_hex())
 		var next_idx = current_idx + direction
@@ -116,16 +116,18 @@ func train_tick(game: Node):
 
 		var next_hex = route[next_idx]
 		if game.get_piece(next_hex) != null:
-			break # Blocked
+			break 
 
 		game.set_piece(get_hex())
 		game.grid.enable_hex(get_hex())
-
 		game.set_piece(next_hex, self)
 		game.grid.disable_hex(next_hex)
 		game.grid = movement_comp.force_hex(next_hex, game.grid)
+		
+		# NEW: Check for drop-offs dynamically at every step!
+		_exchange_supplies(game.grid)
 
-func _exchange_supplies(game: Node):
+func _exchange_supplies(grid):
 	var current_hex = get_hex()
 	var current_idx = route.find(current_hex)
 
@@ -134,17 +136,19 @@ func _exchange_supplies(game: Node):
 	var check_hexes = [current_hex] + HEX.axial_neighbours(current_hex)
 
 	for hex in check_hexes:
-		if not game.grid.Grid.has(hex): continue
-		var city = game.get_piece(hex)
+		if not grid.Grid.has(hex): continue
+		var city = grid.get_piece(hex)
 
 		if city == null or not (city is City): continue
 		if city.is_allied() != allied: continue
 
+		# Terminus A is strictly for Loading
 		if current_idx == 0:
 			resupply_from(city)
 			print("%s loaded supplies from %s at Terminus A" % [name, city.name])
 
-		elif current_idx == route.size() - 1:
+		# ANY other hex on the route is valid for Unloading!
+		else:
 			var carry = get_resources()
 			var cargo_space = city.get_max_resources() - city.get_resources()
 			var drop_off = min(carry, cargo_space)
@@ -152,7 +156,7 @@ func _exchange_supplies(game: Node):
 			if drop_off > 0:
 				city.restore(drop_off)
 				deplete(drop_off)
-				print("%s delivered %d supplies to %s at Terminus B" % [name, drop_off, city.name])
+				print("%s delivered %d supplies to %s" % [name, drop_off, city.name])
 
 func _route_intact(rail_hexes: Dictionary) -> bool:
 	for hex in route:
@@ -167,11 +171,11 @@ func _first_broken(rail_hexes: Dictionary) -> Vector2i:
 	return Vector2i(-99, -99)
 
 func sabotage_at(hex: Vector2i, game: Node):
-	if game.rail_hexes.has(hex):
-		game.rail_hexes[hex]["broken"] = true
+	if game.rail_network.rail_hexes.has(hex):
+		game.rail_network.rail_hexes[hex]["broken"] = true
 		print("Rail sabotaged at %s — %s halted!" % [str(hex), name])
 
 func repair_at(hex: Vector2i, game: Node):
-	if game.rail_hexes.has(hex):
-		game.rail_hexes[hex]["broken"] = false
+	if game.rail_network.rail_hexes.has(hex):
+		game.rail_network.rail_hexes[hex]["broken"] = false
 		print("Rail repaired at %s" % str(hex))

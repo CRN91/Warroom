@@ -33,6 +33,8 @@ const COST = {
 @onready var card_library = $CardLibrary
 @onready var resolver     = $CardResolver
 
+@onready var rail_network = $RailNetwork
+
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
 var pending_cards: Array    = []
 var pending_restores: Array = []
@@ -43,9 +45,6 @@ var hex_to_move
 var cities: Array = []
 var units: Array  = []
 var trains: Array = []
-
-var player_rail_stock: int  = 0
-var player_train_stock: int = 0
 
 var rail_hexes: Dictionary          = {}
 var rail_routes: Dictionary         = {}
@@ -115,6 +114,7 @@ func _ready():
 	panel.hide()
 	card_ui.hide()
 	deck.load()
+	rail_network.setup(self)
 	_build_city_menu()
 	test_setup()
 	_update_fow()
@@ -204,7 +204,7 @@ func _refresh_city_menu():
 	var res = city_menu_city.get_resources()
 	for key in city_buy_btns:
 		city_buy_btns[key].disabled = res < COST[key]
-	city_stock_lbl.text = "Stock: %d rail   %d trains" % [player_rail_stock, player_train_stock]
+	city_stock_lbl.text = "Stock: %d rail   %d trains" % [rail_network.player_rail_stock, rail_network.player_train_stock]
 
 func _on_buy_pressed(item_type: String):
 	if not city_menu_city or city_menu_city.team != 1: return
@@ -216,8 +216,8 @@ func _on_buy_pressed(item_type: String):
 		"infantry":  purchased = _spawn_unit_near_city(INFANTRY,  city_menu_city)
 		"artillery": purchased = _spawn_unit_near_city(ARTILLERY, city_menu_city)
 		"logistics": purchased = _spawn_unit_near_city(LOGI,      city_menu_city)
-		"rail":   player_rail_stock  += 1; purchased = true
-		"train":  player_train_stock += 1; purchased = true
+		"rail":   rail_network.player_rail_stock  += 1; purchased = true
+		"train":  rail_network.player_train_stock += 1; purchased = true
 
 	if purchased:
 		city_menu_city.deplete(cost)
@@ -257,6 +257,8 @@ func _deselect_piece():
 	grid.deselect()
 	panel.hide()
 	_close_city_menu()
+
+func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
 
 # ── Combat ────────────────────────────────────────────────────────────────────
 
@@ -335,14 +337,15 @@ func _resolve_all_combat():
 func _resolve_all_movement() -> Array:
 	var starved: Array = []
 	for unit in units:
-		if unit is City or unit is Train: continue
+		if unit is City: continue
 
 		# Delegate to the unit
 		if unit.has_method("process_movement"):
-			unit.process_movement(grid)
+			unit.process_movement(self)
 
 		if unit.next_day():
 			starved.append(unit)
+
 	return starved
 
 # ── Supply ────────────────────────────────────────────────────────────────────
@@ -356,7 +359,7 @@ func _supply(piece1, piece2):
 # ── Play selected ─────────────────────────────────────────────────────────────
 
 func _play_selected(hex, p_hex_to_move):
-	var selected          = get_piece(hex)
+	var selected = get_piece(hex)
 	var previous_selected = get_piece(p_hex_to_move)
 
 	if not previous_selected: return
@@ -423,84 +426,7 @@ func _game_over(player_lost: bool):
 	$CanvasLayer.add_child(p)
 	get_tree().paused = true
 
-# ── Rail ──────────────────────────────────────────────────────────────────────
 
-func _toggle_rail(hex):
-	if hex in building_route:
-		var is_back  = hex == building_route.back()
-		var is_front = hex == building_route.front()
-		if is_back or is_front:
-			if is_back: building_route.pop_back()
-			else:       building_route.pop_front()
-			if rail_nodes_building.has(hex):
-				rail_nodes_building[hex].queue_free()
-				rail_nodes_building.erase(hex)
-			player_rail_stock += 1
-		else:
-			print("Can only remove from either end")
-		return
-
-	if rail_hexes.has(hex): return
-	if get_piece(hex) is City: return
-
-	if player_rail_stock < 1:
-		print("Not enough rail stock"); return
-
-	if building_route.size() > 0:
-		var to_back  = hex in HEX.axial_neighbours(building_route.back())
-		var to_front = hex in HEX.axial_neighbours(building_route.front())
-		if not to_back and not to_front:
-			print("Hex must be adjacent to either end"); return
-
-	var rail_node = RAIL.instantiate()
-	add_child(rail_node)
-	rail_node.hex_pos  = hex
-	rail_node.position = _hex_to_pos(hex)
-	rail_node.modulate = Color(0.6, 0.6, 1.0)
-
-	if building_route.size() > 0 and hex in HEX.axial_neighbours(building_route.front()):
-		building_route.insert(0, hex)
-	else:
-		building_route.append(hex)
-
-	rail_nodes_building[hex] = rail_node
-	player_rail_stock -= 1
-
-func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
-
-func _commit_rail_route():
-	if building_route.size() < 2:
-		print("Need at least 2 hexes"); return
-	if player_train_stock < 1:
-		print("Need at least 1 train in stock"); return
-
-	var id = next_route_id
-	next_route_id += 1
-	for hex in building_route:
-		var rn = rail_nodes_building[hex]
-		rn.modulate = Color(1.0, 1.0, 1.0)
-		rail_hexes[hex] = { "route_id": id, "broken": false, "node": rn }
-	rail_routes[id] = building_route.duplicate()
-
-	var train = TRAIN.instantiate()
-	add_child(train, true)
-	train.setup_route(rail_routes[id], id, self)
-	trains.append(train); units.append(train)
-	player_train_stock -= 1
-	building_route.clear()
-	rail_nodes_building.clear()
-
-func _cancel_rail_build():
-	player_rail_stock += building_route.size()
-	for hex in building_route:
-		if rail_nodes_building.has(hex):
-			rail_nodes_building[hex].queue_free()
-	building_route.clear()
-	rail_nodes_building.clear()
-
-func _tick_trains():
-	for train in trains:
-		train.train_tick(self)
 
 func get_piece(hex):            return grid.get_piece(hex)
 func set_piece(hex, piece=null): grid.set_piece(hex, piece)
@@ -582,18 +508,22 @@ func _input(event):
 					if piece and piece.has_method("toggle_path_mode"):
 						piece.toggle_path_mode()
 						show_stats(piece) # Refresh UI instantly
-			KEY_R:
-				if hex in grid.Grid.keys(): _toggle_rail(hex)
-			KEY_T: _commit_rail_route()
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece and piece.combatant():
 						piece.clear_target()
 						show_stats(piece)
+			KEY_R:
+				if hex in grid.Grid.keys(): 
+					rail_network.toggle_rail(hex)
+			KEY_T: 
+				rail_network.commit_rail_route()
 			KEY_ESCAPE:
-				if not building_route.is_empty(): _cancel_rail_build()
-				else: _deselect_piece()
+				if not rail_network.building_route.is_empty(): 
+					rail_network.cancel_rail_build()
+				else: 
+					_deselect_piece()
 
 # ── Enemy AI ──────────────────────────────────────────────────────────────────
 
@@ -693,7 +623,6 @@ func clock_increment():
 	for dead in starved:
 		print("%s starved." % dead.name); _die(dead)
 
-	_tick_trains()
 	_unfreeze_all()
 	_update_fow()
 
