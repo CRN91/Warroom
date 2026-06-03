@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://d0e2bseexpwq3"]
+
+[ext_resource type="Script" uid="uid://clvc6pcgt73kj" path="res://scripts/card_manager.gd" id="1_6qhmb"]
+[ext_resource type="PackedScene" uid="uid://s6wstpymebwh" path="res://scenes/CardLibrary.tscn" id="1_untj4"]
+[ext_resource type="Script" uid="uid://bjxd6ucecovds" path="res://scripts/deck.gd" id="2_6qhmb"]
+[ext_resource type="PackedScene" uid="uid://dfgjo4mp6cpud" path="res://scenes/CardResolver.tscn" id="3_hsxh1"]
+
+[node name="CardManager" type="Node" unique_id=4359198]
+script = ExtResource("1_6qhmb")
+
+[node name="CardLibrary" parent="." unique_id=1175650699 instance=ExtResource("1_untj4")]
+
+[node name="Deck" type="Node" parent="." unique_id=1512533517]
+script = ExtResource("2_6qhmb")
+
+[node name="CardResolver" parent="." unique_id=657464377 instance=ExtResource("3_hsxh1")]

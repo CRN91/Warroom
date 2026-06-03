@@ -5,6 +5,7 @@ class_name UIManager
 # These let the UI talk back to Game.gd without needing a hard reference to it
 signal next_day_requested
 signal buy_requested(item_type: String, city: Node2D)
+signal card_choice_made(card_data: Dictionary, choice: String)
 
 # ── UI References ─────────────────────────────────────────────────────────────
 @onready var daycounter    = $DayCount
@@ -137,3 +138,7 @@ func show_game_over(player_lost: bool):
 	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	p.add_child(lbl)
 	add_child(p)
+	
+func _on_card_ui_choice_made(card_data: Dictionary, choice: String):
+	# When the CardUI registers a click, we bubble the signal up to Game.gd
+	card_choice_made.emit(card_data, choice)

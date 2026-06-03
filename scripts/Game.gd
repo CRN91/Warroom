@@ -19,12 +19,10 @@ const COST = {
 	"train":     800,
 }
 
-@onready var ui    = $UI
-@onready var path_line     = $PathLine
+@onready var ui = $UI
+@onready var path_line = $PathLine
 
-@onready var deck         = $Deck
-@onready var card_library = $CardLibrary
-@onready var resolver     = $CardResolver
+@onready var card_manager = $CardManager
 
 @onready var rail_network = $RailNetwork
 
@@ -50,21 +48,6 @@ var city_menu_city: Node2D = null
 var city_title_lbl: Label
 var city_stock_lbl: Label
 var city_buy_btns: Dictionary = {}
-
-# ── Cards ─────────────────────────────────────────────────────────────────────
-
-func _on_card_choice(card_data: Dictionary, choice: String):
-	resolver.resolve(card_data[choice]["effects"], self)
-
-func _check_pending():
-	for i in range(pending_cards.size() - 1, -1, -1):
-		if pending_cards[i]["on_day"] <= day:
-			deck.inject(card_library.get_card(pending_cards[i]["id"]), "soon")
-			pending_cards.remove_at(i)
-	for i in range(pending_restores.size() - 1, -1, -1):
-		if pending_restores[i]["on_day"] <= day:
-			game_state[pending_restores[i]["key"]] = pending_restores[i]["value"]
-			pending_restores.remove_at(i)
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -101,16 +84,13 @@ func test_setup():
 	_unfreeze_all()
 
 func _ready():
-	card_library.load_library()
-	for card in card_library.build_starting_deck(["western_front_intel", "weather_events", "command_decisions"]):
-		deck.push(card)
-	deck.load()
+	card_manager.setup(self)
 	rail_network.setup(self)
 	
 	ui.setup(COST)
 	ui.next_day_requested.connect(self.clock_increment)
 	ui.buy_requested.connect(self._on_city_buy_requested)
-	
+	ui.card_choice_made.connect(card_manager.resolve_choice)
 	test_setup()
 	_update_fow()
 
@@ -482,25 +462,22 @@ func clock_increment():
 	ui.update_day(day)
 
 	_unfreeze_all()
-	_check_pending()
+	card_manager.check_pending(day) # Delegate pending checks
 	_run_enemy_ai()
 
 	var starved = _resolve_all_movement()
 	_resolve_all_combat()
 
-	# Only units with a Resupply component will look for resources.
 	for unit in units:
 		if unit.resupply_comp:
 			unit.resupply_comp.process_resupply(grid)
 
-	var required_type = ["decision", "intel", "event"][day % 3]
-	var card_to_play  = null
-	for i in range(deck.size()):
-		var checked = deck.queue[i]
-		if deck.len() > 1 and checked["type"] == required_type:
-			card_to_play = checked; deck.queue.remove_at(i); break
-	if card_to_play: ui.card_ui.display_card(card_to_play)
-	else: ui.card_ui.hide()
+	# Delegate card drawing
+	var card_to_play = card_manager.draw_daily_card(day)
+	if card_to_play: 
+		ui.card_ui.display_card(card_to_play)
+	else: 
+		ui.card_ui.hide()
 
 	for city in cities:
 		var sieged = false
