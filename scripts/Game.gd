@@ -19,14 +19,7 @@ const COST = {
 	"train":     800,
 }
 
-@onready var daycounter    = $CanvasLayer/DayCount
-@onready var nextdaybutton = $CanvasLayer/NextDay
-@onready var panel         = $CanvasLayer/Panel
-@onready var lbl_name      = $CanvasLayer/Panel/VBoxContainer/Name
-@onready var lbl_res       = $CanvasLayer/Panel/VBoxContainer/Resources
-@onready var lbl_act       = $CanvasLayer/Panel/VBoxContainer/Action
-@onready var lbl_mode      = $CanvasLayer/Panel/VBoxContainer/Mode
-@onready var card_ui       = $CanvasLayer/CardUI
+@onready var ui    = $UI
 @onready var path_line     = $PathLine
 
 @onready var deck         = $Deck
@@ -111,14 +104,15 @@ func _ready():
 	card_library.load_library()
 	for card in card_library.build_starting_deck(["western_front_intel", "weather_events", "command_decisions"]):
 		deck.push(card)
-	panel.hide()
-	card_ui.hide()
 	deck.load()
 	rail_network.setup(self)
-	_build_city_menu()
+	
+	ui.setup(COST)
+	ui.next_day_requested.connect(self.clock_increment)
+	ui.buy_requested.connect(self._on_city_buy_requested)
+	
 	test_setup()
 	_update_fow()
-	nextdaybutton.pressed.connect(self._next_day_button)
 
 # ── Fog of War ────────────────────────────────────────────────────────────────
 
@@ -149,79 +143,22 @@ func _update_fow():
 		if rail_hexes[hex].has("node"):
 			rail_hexes[hex]["node"].visible = visible_hexes.has(hex)
 
-# ── City menu ─────────────────────────────────────────────────────────────────
-
-func _build_city_menu():
-	city_menu = Panel.new()
-	city_menu.custom_minimum_size = Vector2(200, 0)
-	city_menu.position = Vector2(10, 160)
-
-	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
-	city_menu.add_child(vbox)
-
-	city_title_lbl = Label.new()
-	vbox.add_child(city_title_lbl)
-	vbox.add_child(HSeparator.new())
-
-	for item in [
-		["infantry",  "Infantry",     COST["infantry"]],
-		["artillery", "Artillery",    COST["artillery"]],
-		["logistics", "Logistics",    COST["logistics"]],
-		["rail",      "Rail Segment", COST["rail"]],
-		["train",     "Train",        COST["train"]],
-	]:
-		var btn = Button.new()
-		btn.text = "%s  (%d)" % [item[1], item[2]]
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		vbox.add_child(btn)
-		city_buy_btns[item[0]] = btn
-		btn.pressed.connect(_on_buy_pressed.bind(item[0]))
-
-	vbox.add_child(HSeparator.new())
-	city_stock_lbl = Label.new()
-	vbox.add_child(city_stock_lbl)
-
-	$CanvasLayer.add_child(city_menu)
-	city_menu.hide()
-
-func _open_city_menu(city: Node2D):
-	city_menu_city = city
-	_refresh_city_menu()
-	city_menu.show()
-
-func _close_city_menu():
-	city_menu.hide()
-	city_menu_city = null
-
-func _refresh_city_menu():
-	if not city_menu_city: return
-	city_title_lbl.text = "%s\n%d / %d resources" % [
-		city_menu_city.name,
-		city_menu_city.get_resources(),
-		city_menu_city.get_max_resources()
-	]
-	var res = city_menu_city.get_resources()
-	for key in city_buy_btns:
-		city_buy_btns[key].disabled = res < COST[key]
-	city_stock_lbl.text = "Stock: %d rail   %d trains" % [rail_network.player_rail_stock, rail_network.player_train_stock]
-
-func _on_buy_pressed(item_type: String):
-	if not city_menu_city or city_menu_city.team != 1: return
+func _on_city_buy_requested(item_type: String, city: Node2D):
+	if city.team != 1: return
 	var cost = COST[item_type]
-	if city_menu_city.get_resources() < cost: return
+	if city.get_resources() < cost: return
 
 	var purchased = false
 	match item_type:
-		"infantry":  purchased = _spawn_unit_near_city(INFANTRY,  city_menu_city)
-		"artillery": purchased = _spawn_unit_near_city(ARTILLERY, city_menu_city)
-		"logistics": purchased = _spawn_unit_near_city(LOGI,      city_menu_city)
-		"rail":   rail_network.player_rail_stock  += 1; purchased = true
-		"train":  rail_network.player_train_stock += 1; purchased = true
+		"infantry":  purchased = _spawn_unit_near_city(INFANTRY,  city)
+		"artillery": purchased = _spawn_unit_near_city(ARTILLERY, city)
+		"logistics": purchased = _spawn_unit_near_city(LOGI,      city)
+		"rail":      rail_network.player_rail_stock  += 1; purchased = true
+		"train":     rail_network.player_train_stock += 1; purchased = true
 
 	if purchased:
-		city_menu_city.deplete(cost)
-	_refresh_city_menu()
+		city.deplete(cost)
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
 
 func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
@@ -243,20 +180,19 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 func _select_piece(piece: Node2D, hex: Vector2i):
 	if piece is City:
 		if piece.team == 1:
-			_open_city_menu(piece)
+			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock)
 		else:
-			show_stats(piece)
+			ui.show_stats(piece)
 	else:
-		_close_city_menu()
-		show_stats(piece)
+		ui.close_city_menu()
+		ui.show_stats(piece)
 		hex_to_move = hex
 
 func _deselect_piece():
 	path_line.clear_points()
 	hex_to_move = null
 	grid.deselect()
-	panel.hide()
-	_close_city_menu()
+	ui.hide_panels()
 
 func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
 
@@ -357,7 +293,7 @@ func _play_selected(hex, p_hex_to_move):
 	if not same_team:
 		if previous_selected.combatant() and dist <= previous_selected.get_attack_range():
 			previous_selected.set_target(selected)
-			show_stats(previous_selected)
+			ui.show_stats(previous_selected)
 			return
 	else:
 		if dist == 1:
@@ -381,19 +317,8 @@ func _die(dead_piece):
 	dead_piece.queue_free()
 
 func _game_over(player_lost: bool):
-	var p = Panel.new()
-	p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var lbl = Label.new()
-	lbl.text = "You Lose" if player_lost else "You Win!"
-	lbl.add_theme_font_size_override("font_size", 80)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
-	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	p.add_child(lbl)
-	$CanvasLayer.add_child(p)
+	ui.show_game_over(player_lost)
 	get_tree().paused = true
-
-
 
 func get_piece(hex):            return grid.get_piece(hex)
 func set_piece(hex, piece=null): grid.set_piece(hex, piece)
@@ -421,7 +346,7 @@ func _input(event):
 					
 					# If building a manual path, refresh the UI but KEEP the unit selected!
 					if piece_to_move.use_manual_path:
-						show_stats(piece_to_move) 
+						ui.show_stats(piece_to_move)
 					else:
 						# If auto-pathing, standard behavior is to finish and deselect
 						_deselect_piece()
@@ -474,13 +399,13 @@ func _input(event):
 					var piece = get_piece(hex_to_move)
 					if piece and piece.has_method("toggle_path_mode"):
 						piece.toggle_path_mode()
-						show_stats(piece) # Refresh UI instantly
+						ui.show_stats(piece) # Refresh UI instantly
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece and piece.combatant():
 						piece.clear_target()
-						show_stats(piece)
+						ui.show_stats(piece)
 			KEY_R:
 				if hex in grid.Grid.keys(): 
 					rail_network.toggle_rail(hex)
@@ -554,7 +479,7 @@ func _unfreeze_all():
 
 func clock_increment():
 	day += 1
-	daycounter.text = "DAY " + str(day)
+	ui.update_day(day)
 
 	_unfreeze_all()
 	_check_pending()
@@ -574,8 +499,8 @@ func clock_increment():
 		var checked = deck.queue[i]
 		if deck.len() > 1 and checked["type"] == required_type:
 			card_to_play = checked; deck.queue.remove_at(i); break
-	if card_to_play: card_ui.display_card(card_to_play)
-	else: card_ui.hide()
+	if card_to_play: ui.card_ui.display_card(card_to_play)
+	else: ui.card_ui.hide()
 
 	for city in cities:
 		var sieged = false
@@ -593,35 +518,8 @@ func clock_increment():
 	_unfreeze_all()
 	_update_fow()
 
-	if city_menu.visible: _refresh_city_menu()
-
-# ── Stats panel ───────────────────────────────────────────────────────────────
-
-func show_stats(piece):
-	lbl_name.text = str(piece.name)
-	lbl_res.text  = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
-	lbl_act.text  = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
-
-	# Build the pathing text dynamically
-	var path_text = ""
-	if piece.get("use_manual_path"):
-		path_text = " | MANUAL PATH (%d waypoints)" % piece.path.size()
-	elif piece.get("goal"):
-		path_text = " | Goal: %s" % str(piece.goal)
-
-	if piece.combatant():
-		if piece.target and is_instance_valid(piece.target):
-			lbl_mode.text = "Target: %s  (F to clear)" % piece.target.name
-		else:
-			lbl_mode.text = "Range: %d | Click enemy to target" % piece.get_attack_range()
-		
-		# Add the path text to the end of the combat stats
-		lbl_mode.text += path_text
-	else:
-		# For non-combatants, just show the path text (removing the leading " | ")
-		lbl_mode.text = path_text.trim_prefix(" | ")
-
-	panel.show()
+	if ui.city_menu.visible: 
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
 
 func _next_day_button():
 	clock_increment()

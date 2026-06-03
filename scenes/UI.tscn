@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bkpjdilsaiovo"]
+
+[ext_resource type="PackedScene" uid="uid://c1ftkj5wviygk" path="res://scenes/card.tscn" id="1_dj8aq"]
+[ext_resource type="Script" uid="uid://prici1mcwagc" path="res://scripts/ui_manager.gd" id="1_ro3t7"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_snlk1"]
+
+[node name="CanvasLayer" type="CanvasLayer" unique_id=378857695]
+script = ExtResource("1_ro3t7")
+
+[node name="Panel" type="Panel" parent="." unique_id=2095565698]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel" unique_id=1311944449]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Name" type="Label" parent="Panel/VBoxContainer" unique_id=837704174]
+layout_mode = 2
+
+[node name="Resources" type="Label" parent="Panel/VBoxContainer" unique_id=659367950]
+layout_mode = 2
+
+[node name="Action" type="Label" parent="Panel/VBoxContainer" unique_id=2030860171]
+layout_mode = 2
+
+[node name="Mode" type="Label" parent="Panel/VBoxContainer" unique_id=1141768126]
+layout_mode = 2
+
+[node name="CardUI" parent="." unique_id=1997218907 instance=ExtResource("1_dj8aq")]
+offset_left = 600.0
+offset_right = 1100.0
+offset_bottom = 100.0
+
+[node name="NextDay" type="Button" parent="." unique_id=7034990]
+material = SubResource("CanvasItemMaterial_snlk1")
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -50.0
+offset_right = 100.0
+grow_vertical = 0
+text = "End Turn"
+
+[node name="DayCount" type="Label" parent="." unique_id=233478593]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -79.0
+offset_right = 168.0
+grow_vertical = 0
+text = "DAY 0"
