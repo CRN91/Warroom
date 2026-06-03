@@ -21,9 +21,8 @@ const COST = {
 
 @onready var ui = $UI
 @onready var path_line = $PathLine
-
 @onready var card_manager = $CardManager
-
+@onready var enemy_ai = $EnemyAI
 @onready var rail_network = $RailNetwork
 
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
@@ -87,6 +86,7 @@ func test_setup():
 func _ready():
 	card_manager.setup(self)
 	rail_network.setup(self)
+	enemy_ai.setup(self)
 	
 	ui.setup(COST)
 	ui.next_day_requested.connect(self.clock_increment)
@@ -429,59 +429,6 @@ func _unhandled_input(event):
 				else: 
 					_deselect_piece()
 
-# ── Enemy AI ──────────────────────────────────────────────────────────────────
-
-func _run_enemy_ai():
-	# Buy units if affordable
-	for city in cities:
-		if city.team != 2: continue
-		var res = city.get_resources()
-		if res >= COST["infantry"]:
-			var choices = []
-			if res >= COST["artillery"]: choices.append("artillery")
-			if res >= COST["logistics"]: choices.append("logistics")
-			choices.append("infantry")
-			var choice = choices[randi() % choices.size()]
-			var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[choice]
-			if _spawn_unit_near_city(scene, city):
-				city.deplete(COST[choice])
-
-	# Move units toward targets
-	for unit in units:
-		if unit.team != 2 or unit is City or unit is Train: continue
-
-		if unit.goal != null: continue  # Already has a goal, don't override
-
-		if unit.get_resources() < 400:
-			# Low on resources — head to nearest friendly city
-			var best_city = null
-			var best_dist = 9999
-			for city in cities:
-				if city.team == 2:
-					var d = HEX.axial_distance(unit.get_hex(), city.get_hex())
-					if d < best_dist:
-						best_dist = d; best_city = city
-			if best_city:
-				unit.set_goal(best_city.get_hex())
-				grid.enable_hex(unit.get_hex())
-		else:
-			# Move toward nearest player unit or city
-			var best_target = null
-			var best_dist   = 9999
-			for p_unit in units:
-				if p_unit.team == 1:
-					var d = HEX.axial_distance(unit.get_hex(), p_unit.get_hex())
-					if d < best_dist:
-						best_dist = d; best_target = p_unit
-			for city in cities:
-				if city.team == 1:
-					var d = HEX.axial_distance(unit.get_hex(), city.get_hex())
-					if d < best_dist:
-						best_dist = d; best_target = city
-			if best_target:
-				unit.set_goal(best_target.get_hex())
-				grid.enable_hex(unit.get_hex())
-
 # ── Day cycle ─────────────────────────────────────────────────────────────────
 
 func _unfreeze_all():
@@ -495,9 +442,11 @@ func clock_increment():
 
 	_unfreeze_all()
 	card_manager.check_pending(day)
-	_run_enemy_ai() # AI tries to spawn, but graveyard hexes are blocked
+	
+	# NEW: Delegate to the AI Manager
+	enemy_ai.run_turn() 
 
-	var starved = _resolve_all_movement() # Units finally step into the empty gaps
+	var starved = _resolve_all_movement()
 	
 	# NEW: Grace period is over! Clear the graveyard so cities can spawn here again.
 	recent_death_hexes.clear() 
