@@ -99,6 +99,32 @@ func resupply(supply_source: Node2D):
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
+func process_movement(grid):
+	var current_hex = get_hex()
+	if not current_hex: return
+
+	if path.size() > 0:
+		var next_hex = path[0]
+		if grid.get_piece(next_hex) == null:
+			move_to(next_hex, current_hex, grid)
+			path.pop_front() # Remove the waypoint we just reached
+			
+	elif goal != null and not is_frozen():
+		if current_hex == goal:
+			clear_goal()
+		else:
+			var goal_piece = grid.get_piece(goal)
+			grid.enable_hex(current_hex)
+			if goal_piece: grid.enable_hex(goal)
+
+			var astar_path = grid.get_map_path(current_hex, goal)
+
+			grid.disable_hex(current_hex)
+			if goal_piece: grid.disable_hex(goal)
+
+			if astar_path.size() > 1:
+				move_to(astar_path[1], current_hex, grid)
+
 ## Move one step to new_hex from old_hex.
 ##
 ## Initial placement (old_hex = null):

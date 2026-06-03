@@ -332,51 +332,17 @@ func _resolve_all_combat():
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
-## Each turn: re-run A* from current position to goal, move one step.
-## This handles dynamic obstacles — if a friendly moves into the path,
-## A* finds a new route next turn automatically.
 func _resolve_all_movement() -> Array:
 	var starved: Array = []
-
 	for unit in units:
 		if unit is City or unit is Train: continue
 
-		var current_hex = unit.get_hex()
-		if not current_hex: continue
-
-		if unit.path.size() > 0:
-			var next_hex = unit.path[0]
-			if get_piece(next_hex) == null:
-				grid = unit.move_to(next_hex, current_hex, grid)
-				unit.path.pop_front() # Remove the waypoint we just reached
-		elif unit.goal != null and not unit.is_frozen():
-			if current_hex == unit.goal:
-				# Arrived
-				unit.clear_goal()
-			else:
-				# Temporarily enable hexes so A* can find a full route.
-				# goal hex may be occupied (enemy/ally) — enable so we can
-				# path toward it; the move itself will fail gracefully if blocked.
-				var goal_piece = get_piece(unit.goal)
-				grid.enable_hex(current_hex)
-				if goal_piece: grid.enable_hex(unit.goal)
-
-				var path = grid.get_map_path(current_hex, unit.goal)
-
-				# Restore hex states before moving
-				grid.disable_hex(current_hex)
-				if goal_piece: grid.disable_hex(unit.goal)
-
-				if path.size() > 1:
-					var prev_hex = unit.get_hex()
-					grid = unit.move_to(path[1], current_hex, grid)
-					# If move_to failed (occupied), unit.get_hex() is unchanged
-					# move_to already re-disables current_hex on failure, so nothing to fix
-				# If no path: unit waits silently, retries next turn
+		# Delegate to the unit
+		if unit.has_method("process_movement"):
+			unit.process_movement(grid)
 
 		if unit.next_day():
 			starved.append(unit)
-
 	return starved
 
 # ── Supply ────────────────────────────────────────────────────────────────────
@@ -700,14 +666,10 @@ func clock_increment():
 	var starved = _resolve_all_movement()
 	_resolve_all_combat()
 
-	for hex in grid.Grid:
-		var piece = get_piece(hex)
-		if not piece: continue
-		for adjacent in HEX.axial_neighbours(hex):
-			if not grid.Grid.has(adjacent): continue
-			var adj_piece = get_piece(adjacent)
-			if adj_piece and adj_piece.team == piece.team and hex < adjacent:
-				_supply(piece, adj_piece)
+	# Only units with a Resupply component will look for resources.
+	for unit in units:
+		if unit.resupply_comp:
+			unit.resupply_comp.process_resupply(grid)
 
 	var required_type = ["decision", "intel", "event"][day % 3]
 	var card_to_play  = null
