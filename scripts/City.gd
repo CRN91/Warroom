@@ -2,18 +2,33 @@ extends Unit
 class_name City
  
 @export var hex_tile: Vector2i
-var is_capital: bool = false
+var is_hq: bool = false
+var original_texture: Texture2D
  
 func _ready():
 	supplier = 2
+	if has_node("Sprite2D"):
+		original_texture = $Sprite2D.texture
  
 func set_hex(hex, grid):
 	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
  
 func set_enemy():
-	$Sprite2D.texture = load("res://assets/cityr.png")
-	allied = false
+	if has_node("Sprite2D"):
+		$Sprite2D.texture = load("res://assets/cityr.png")
+	modulate = Color(1, 1, 1)
+	team = 2
+
+func set_neutral():
+	team = 0
+	modulate = Color(0.6, 0.6, 0.6) # Tints it gray for neutral
+
+func set_player():
+	team = 1
+	modulate = Color(1, 1, 1)
+	if has_node("Sprite2D") and original_texture:
+		$Sprite2D.texture = original_texture
  
 func unfreeze():
 	pass

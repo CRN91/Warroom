@@ -14,7 +14,6 @@ var frozen: bool = false
 var supplier: int = 0
 var supplier_reserve: int = 0
 var path: Array = []
-var use_manual_path: bool = false
 
 @onready var movement_comp = $Movement
 @onready var resource_comp = $Resources
@@ -59,21 +58,6 @@ func set_goal(hex):
 
 func clear_goal():
 	goal = null
-
-## Toggles between manual waypoint mode and auto A* mode.
-## Clears the inactive mode's state when switching.
-func toggle_path_mode():
-	use_manual_path = not use_manual_path
-	if use_manual_path:
-		clear_goal()   # Switching to manual — drop the A* goal
-	else:
-		clear_path()   # Switching to auto — drop the waypoints
-
-func add_waypoint(hex):
-	path.append(hex)
-
-func clear_path():
-	path.clear()
 
 # ── Combat API ────────────────────────────────────────────────────────────────
 
@@ -138,13 +122,8 @@ func status() -> String:
 	var extras = ""
 	if target and is_instance_valid(target):
 		extras += " | Target: %s" % target.name
-		
-	# MISSING LOGIC ADDED HERE:
-	if use_manual_path:
-		extras += " | MANUAL PATH (%d waypoints)" % path.size()
-	elif goal:
-		extras += " | Auto → %s" % str(goal)
-		
+	if goal:
+		extras += " | Goal: %s" % str(goal)
 	return "Hex: %s | %s | HP: %d/%d%s" % [
 		get_hex(), name, get_resources(), get_max_resources(), extras
 	]
