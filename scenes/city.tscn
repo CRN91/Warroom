@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c66iqnvcjc5w1"]
 
-[ext_resource type="Script" uid="uid://tu4iqa2qaroa" path="res://scripts/City.gd" id="1_0r7ut"]
+[ext_resource type="Script" uid="uid://fkunv0fex18c" path="res://scripts/City.gd" id="1_0r7ut"]
 [ext_resource type="PackedScene" uid="uid://dagna7awd0a82" path="res://scenes/movement_comp.tscn" id="2_ykowy"]
 [ext_resource type="PackedScene" uid="uid://byma8yx68e66i" path="res://scenes/resources_comp.tscn" id="3_5aspk"]
 [ext_resource type="Texture2D" uid="uid://x3g5djhymwp1" path="res://assets/cityg.png" id="4_v51tb"]

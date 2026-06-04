@@ -25,7 +25,9 @@ func setup_route(new_route: Array, id: int, game: Node):
 	if has_node("Sprite2D"):
 		$Sprite2D.flip_h = false
 
-func move_to(new_hex, old_hex, grid):
+func move_to(new_hex, grid):
+	var old_hex = get_hex()
+	
 	if frozen: return grid
 
 	if old_hex == null:
@@ -140,7 +142,7 @@ func _exchange_supplies(grid):
 		var city = grid.get_piece(hex)
 
 		if city == null or not (city is City): continue
-		if city.is_allied() != allied: continue
+		if city.team != team: continue
 
 		# Terminus A is strictly for Loading
 		if current_idx == 0:

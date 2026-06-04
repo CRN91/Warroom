@@ -55,33 +55,33 @@ var city_buy_btns: Dictionary = {}
 
 func test_setup():
 	var p1 = INFANTRY.instantiate(); add_child(p1, true)
-	grid = p1.move_to(Vector2i(2, 1), null, grid); units.append(p1)
+	p1.move_to(Vector2i(2, 1), grid); units.append(p1)
 
 	var p2 = INFANTRY.instantiate(); add_child(p2, true)
 	p2.set_enemy()
-	grid = p2.move_to(Vector2i(1, -3), null, grid); units.append(p2)
+	p2.move_to(Vector2i(1, -3), grid); units.append(p2)
 
 	var arty = ARTILLERY.instantiate(); add_child(arty, true)
 	arty.set_enemy()
-	grid = arty.move_to(Vector2i(2, -3), null, grid); units.append(arty)
+	arty.move_to(Vector2i(2, -3), grid); units.append(arty)
 
 	var p3 = INFANTRY.instantiate(); add_child(p3, true)
-	grid = p3.move_to(Vector2i(-1, 2), null, grid); units.append(p3)
+	p3.move_to(Vector2i(-1, 2), grid); units.append(p3)
 
 	var city = CITY.instantiate(); add_child(city, true)
 	city.set_neutral()
-	grid = city.set_hex(Vector2i(0, 0), grid); cities.append(city)
+	city.set_hex(Vector2i(0, 0), grid); cities.append(city)
 
 	var city2 = CITY.instantiate(); add_child(city2, true)
 	city2.set_enemy(); city2.is_hq = true
-	grid = city2.set_hex(Vector2i(0, -3), grid); cities.append(city2)
+	city2.set_hex(Vector2i(0, -3), grid); cities.append(city2)
 
 	var city3 = CITY.instantiate(); add_child(city3, true)
 	city3.is_hq = true
-	grid = city3.set_hex(Vector2i(0, 3), grid); cities.append(city3)
+	city3.set_hex(Vector2i(0, 3), grid); cities.append(city3)
 
 	var logi = LOGI.instantiate(); add_child(logi, true)
-	grid = logi.move_to(Vector2i(-1, -1), null, grid); units.append(logi)
+	logi.move_to(Vector2i(-1, -1), grid); units.append(logi)
 
 	_unfreeze_all()
 
@@ -126,7 +126,7 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 			add_child(unit, true)
 			if city.team == 2: unit.set_enemy()
 			# Initial placement — unit is NOT frozen (no action cost)
-			grid = unit.move_to(adj, null, grid)
+			unit.move_to(adj, grid)
 			units.append(unit)
 			fow_manager.update_fow()
 			return true

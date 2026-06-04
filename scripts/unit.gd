@@ -4,24 +4,19 @@ class_name Unit
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
-# Team: 1 = Player, 2 = Enemy, 0 = Neutral
-var team: int = 1
-var allied: bool:
-	get: return team == 1
-	set(value): team = 1 if value else 2
+@onready var movement_comp = $Movement
+@onready var resource_comp = $Resources
+@onready var resource_bar = get_node_or_null("ResourceBar")
+@onready var attack_comp   = get_node_or_null("Attack")
+@onready var resupply_comp = get_node_or_null("Resupply")
 
+var team: int = 1 # Team: 1 = Player, 2 = Enemy, 0 = Neutral
 var frozen: bool = false
 var supplier: int = 0
 var supplier_reserve: int = 0
 var path: Array = []
 var use_manual_path: bool = false
 var _bar_setup_done: bool = false
-
-@onready var movement_comp = $Movement
-@onready var resource_comp = $Resources
-@onready var resource_bar = get_node_or_null("ResourceBar")
-@onready var attack_comp   = get_node_or_null("Attack")
-@onready var resupply_comp = get_node_or_null("Resupply")
 
 # ── Targeting ─────────────────────────────────────────────────────────────────
 var target: Node2D = null
@@ -33,7 +28,6 @@ var pending_attack: Node2D = null
 var goal = null  # Vector2i destination, or null if idle
 
 # ── Identity ──────────────────────────────────────────────────────────────────
-func is_allied(): return team == 1
 func combatant(): return false
 func is_frozen(): return frozen
 func unfreeze(): frozen = false
@@ -184,7 +178,7 @@ func process_movement(game):
 	if path.size() > 0:
 		var next_hex = path[0]
 		if grid.get_piece(next_hex) == null:
-			move_to(next_hex, current_hex, grid)
+			move_to(next_hex, grid)
 			path.pop_front()
 	# Auto pathing check
 	elif goal != null:
@@ -213,7 +207,7 @@ func process_movement(game):
 			if goal_piece: grid.disable_hex(goal)
 
 			if astar_path.size() > 1:
-				move_to(astar_path[1], current_hex, grid)
+				move_to(astar_path[1], grid)
 
 ## Move one step to new_hex from old_hex.
 ##
@@ -224,7 +218,8 @@ func process_movement(game):
 ##   Consumes the unit's action (frozen = true). new_hex must be adjacent.
 ##   If new_hex is occupied the action is returned (frozen = false) and
 ##   old_hex is re-disabled so A* stays consistent.
-func move_to(new_hex, old_hex, grid):
+func move_to(new_hex, grid):
+	var old_hex = get_hex()
 	# ── Initial placement — free action, no adjacency check ──────────────────
 	if not old_hex:
 		grid.disable_hex(new_hex)

@@ -37,7 +37,7 @@ func unfreeze():
 func is_frozen():
 	return false
  
-func move_to(_hex, _old_hex, grid):
+func move_to(_hex, grid):
 	return grid
 	
 func capture(new_team: int, game: Node):
