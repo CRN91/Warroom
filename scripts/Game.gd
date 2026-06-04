@@ -164,9 +164,9 @@ func _resolve_all_combat():
 	# 1. Ask every combatant who they want to attack
 	for unit in units:
 		if not unit.combatant(): continue
-		var t = unit.get_attack_target(grid)
-		if t:
-			attacks.append({ "attacker": unit, "target": t })
+		var target = unit.get_attack_target(grid)
+		if target:
+			attacks.append({ "attacker": unit, "target": target })
 
 	# 2. Execute the attacks
 	for pair in attacks:
@@ -190,8 +190,8 @@ func _resolve_all_combat():
 	# 3. Clean up the dead (Keep _die() in Game.gd so it can clear the arrays and grid)
 	for dead in to_die:
 		for unit in units:
-			if is_instance_valid(unit) and unit.target == dead:
-				unit.target = null
+			if is_instance_valid(unit) and unit.attack_comp and unit.get_attack_target() == dead:
+				unit.set_attack_target = null
 		_die(dead)
 
 # ── Movement ──────────────────────────────────────────────────────────────────
@@ -266,7 +266,7 @@ func _play_selected(hex, p_hex_to_move):
 
 	if active_unit.team != selected.team:
 		if active_unit.combatant() and dist <= active_unit.get_attack_range():
-			active_unit.set_target(selected)
+			active_unit.set_attack_target(selected)
 			ui.show_stats(active_unit)
 	elif dist == 1:
 		active_unit.interact_with_ally(selected)

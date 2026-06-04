@@ -112,8 +112,9 @@ func show_stats(piece):
 		path_text = " | Goal: %s" % str(piece.goal)
 
 	if piece.combatant():
-		if piece.target and is_instance_valid(piece.target):
-			lbl_mode.text = "Target: %s  (F to clear)" % piece.target.name
+		var target = piece.attack_comp.target
+		if target and is_instance_valid(target):
+			lbl_mode.text = "Target: %s  (F to clear)" % target.name
 		else:
 			lbl_mode.text = "Range: %d | Click enemy to target" % piece.get_attack_range()
 		lbl_mode.text += path_text
