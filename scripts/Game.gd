@@ -95,9 +95,11 @@ func test_setup():
 
 func _ready():
 	card_manager.setup(self)
-	rail_network.setup(self)
+	rail_network.setup(grid)
+	rail_network.train_created.connect(_on_train_created)
 	enemy_ai.setup(self)
 	fow_manager.setup(self)
+	
 	
 	ui.setup(COST)
 	ui.next_day_requested.connect(self.clock_increment)
@@ -105,6 +107,10 @@ func _ready():
 	ui.card_choice_made.connect(card_manager.resolve_choice)
 	test_setup()
 	fow_manager.update_fow()
+
+func _on_train_created(train: Node2D):
+	trains.append(train)
+	units.append(train)
 
 func _on_city_buy_requested(item_type: String, city: Node2D):
 	if city.team != 1: return

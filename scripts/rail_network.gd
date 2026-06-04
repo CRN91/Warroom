@@ -1,6 +1,8 @@
 extends Node
 class_name RailNetwork
 
+signal train_created(train: Node2D)
+
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 const RAIL = preload("res://scenes/rail.tscn")
@@ -14,10 +16,14 @@ var rail_nodes_building: Dictionary = {}
 var player_rail_stock: int  = 0
 var player_train_stock: int = 0
 
-var game: Node2D # Reference to Game.gd to access grid, stocks, and unit arrays
+var grid: Node
 
-func setup(_game: Node2D):
-	game = _game
+# ── Setup ─────────────────────────────────────────────────────────────────────
+
+func setup(_grid: Node):
+	grid = _grid
+
+# ── Rail Building ─────────────────────────────────────────────────────────────
 
 func toggle_rail(hex):
 	if hex in building_route:
@@ -26,6 +32,7 @@ func toggle_rail(hex):
 		if is_back or is_front:
 			if is_back: building_route.pop_back()
 			else:       building_route.pop_front()
+			
 			if rail_nodes_building.has(hex):
 				rail_nodes_building[hex].queue_free()
 				rail_nodes_building.erase(hex)
@@ -35,7 +42,7 @@ func toggle_rail(hex):
 		return
 
 	if rail_hexes.has(hex): return
-	if game.get_piece(hex) is City: return
+	if grid.get_piece(hex) is City: return
 
 	if player_rail_stock < 1:
 		print("Not enough rail stock"); return
@@ -49,7 +56,7 @@ func toggle_rail(hex):
 	var rail_node = RAIL.instantiate()
 	add_child(rail_node)
 	rail_node.hex_pos  = hex
-	rail_node.position = game.grid.hex_to_pos(hex)
+	rail_node.position = grid.get_hex_pos(hex)
 	rail_node.modulate = Color(0.6, 0.6, 1.0)
 
 	if building_route.size() > 0 and hex in HEX.axial_neighbours(building_route.back()):
@@ -76,8 +83,10 @@ func commit_rail_route():
 
 	var train = TRAIN.instantiate()
 	add_child(train, true)
-	train.setup_route(rail_routes[id], id, game.grid, self)
-	game.trains.append(train); game.units.append(train)
+	train.setup_route(rail_routes[id], id, grid, self)
+	
+	train_created.emit(train)
+	
 	player_train_stock -= 1
 	building_route.clear()
 	rail_nodes_building.clear()
