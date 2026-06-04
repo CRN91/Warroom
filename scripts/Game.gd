@@ -1,8 +1,16 @@
 extends Node2D
+class_name Game
 
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
+
 @onready var grid = %Grid
+@onready var ui = $UI
+@onready var path_line = $PathLine
+@onready var card_manager = $CardManager
+@onready var enemy_ai = $EnemyAI
+@onready var rail_network = $RailNetwork
+@onready var fow_manager = $FowManager
 
 const INFANTRY  = preload("res://scenes/infantry.tscn")
 const ARTILLERY = preload("res://scenes/artillery.tscn")
@@ -19,32 +27,20 @@ const COST = {
 	"train":     800,
 }
 
-@onready var ui = $UI
-@onready var path_line = $PathLine
-@onready var card_manager = $CardManager
-@onready var enemy_ai = $EnemyAI
-@onready var rail_network = $RailNetwork
-@onready var fow_manager = $FowManager
-
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
 var pending_cards: Array    = []
 var pending_restores: Array = []
-var _ghosted_hexes: Array = []
+var _ghosted_hexes: Array   = []
 var recent_death_hexes: Array = []
 
 var day: int = 0
-var hex_to_move
+var hex_to_move: Vector2i
 
 var cities: Array = []
 var units: Array  = []
 var trains: Array = []
 
-var rail_hexes: Dictionary          = {}
-var rail_routes: Dictionary         = {}
-var next_route_id: int              = 0
-var building_route: Array           = []
-var rail_nodes_building: Dictionary = {}
-
+# UI state variables
 var city_menu: Panel = null
 var city_menu_city: Node2D = null
 var city_title_lbl: Label
@@ -52,6 +48,22 @@ var city_stock_lbl: Label
 var city_buy_btns: Dictionary = {}
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
+
+func _ready():
+	card_manager.setup(self)
+	enemy_ai.setup(self)
+	fow_manager.setup(grid, rail_network, cities, units)
+	
+	rail_network.setup(grid)
+	rail_network.train_created.connect(_on_train_created)
+	
+	ui.setup(COST)
+	ui.next_day_requested.connect(clock_increment)
+	ui.buy_requested.connect(_on_city_buy_requested)
+	ui.card_choice_made.connect(card_manager.resolve_choice)
+	
+	test_setup()
+	fow_manager.update_fow()
 
 func test_setup():
 	var p1 = INFANTRY.instantiate(); add_child(p1, true)
@@ -93,20 +105,7 @@ func test_setup():
 
 	_unfreeze_all()
 
-func _ready():
-	card_manager.setup(self)
-	rail_network.setup(grid)
-	rail_network.train_created.connect(_on_train_created)
-	enemy_ai.setup(self)
-	fow_manager.setup(self)
-	
-	
-	ui.setup(COST)
-	ui.next_day_requested.connect(self.clock_increment)
-	ui.buy_requested.connect(self._on_city_buy_requested)
-	ui.card_choice_made.connect(card_manager.resolve_choice)
-	test_setup()
-	fow_manager.update_fow()
+# ── Spawning & Purchasing ─────────────────────────────────────────────────────
 
 func _on_train_created(train: Node2D):
 	trains.append(train)
@@ -119,9 +118,11 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 
 	var purchased = false
 	if item_type == "rail":
-		rail_network.player_rail_stock += 1; purchased = true
+		rail_network.player_rail_stock += 1
+		purchased = true
 	elif item_type == "train":
-		rail_network.player_train_stock += 1; purchased = true
+		rail_network.player_train_stock += 1
+		purchased = true
 	else:
 		var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[item_type]
 		purchased = _spawn_unit_near_city(scene, city)
@@ -134,12 +135,14 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
 		
-		if get_piece(adj) == null and not rail_hexes.has(adj) and not adj in recent_death_hexes:
+		if get_piece(adj) == null and not rail_network.rail_hexes.has(adj) and not adj in recent_death_hexes:
 			var unit = scene.instantiate()
 			unit.setup(grid)
 			add_child(unit, true)
-			if city.team == 2: unit.set_enemy()
-			# Initial placement — unit is NOT frozen (no action cost)
+			
+			if city.team == 2: 
+				unit.set_enemy()
+				
 			unit.move_to(adj)
 			units.append(unit)
 			fow_manager.update_fow()
@@ -163,7 +166,7 @@ func _select_piece(piece: Node2D, hex: Vector2i):
 
 func _deselect_piece():
 	path_line.clear_points()
-	hex_to_move = null
+	hex_to_move = Vector2i()
 	grid.deselect()
 	ui.hide_panels()
 
@@ -173,33 +176,27 @@ func _resolve_all_combat():
 	var attacks: Array = []
 	var to_die: Array = []
 	
-	# 1. Ask every combatant who they want to attack
 	for unit in units:
 		if not unit.is_combatant(): continue
 		var target = unit.get_attack_target()
 		if target:
 			attacks.append({ "attacker": unit, "target": target })
 
-	# 2. Execute the attacks
 	for pair in attacks:
 		var attacker = pair["attacker"]
 		var target   = pair["target"]
 		
-		# Skip if someone else already blew them up this loop
 		if not is_instance_valid(attacker) or not is_instance_valid(target): continue
 		
-		# attacker.attack() returns true if the target's HP hit 0
 		if attacker.attack(target):
 			if target is City:
 				target.capture(attacker.team, self)
 			elif target not in to_die:
 				to_die.append(target)
 				
-		# Did the attacker starve/die from attack costs?
 		if attacker.get_resources() <= 0 and attacker not in to_die:
 			to_die.append(attacker)
 
-	# 3. Clean up the dead (Keep _die() in Game.gd so it can clear the arrays and grid)
 	for dead in to_die:
 		for unit in units:
 			if is_instance_valid(unit) and unit.attack_comp and unit.get_attack_target() == dead:
@@ -213,7 +210,6 @@ func _resolve_all_movement() -> Array:
 	for unit in units:
 		if unit is City: continue
 
-		# Delegate to the unit
 		if unit.has_method("process_movement"):
 			unit.process_movement()
 
@@ -222,15 +218,13 @@ func _resolve_all_movement() -> Array:
 
 	return starved
 
-# ── Play selected ─────────────────────────────────────────────────────────────
-
 func _handle_movement_command(unit, target_hex):
 	if unit.use_manual_path:
 		var start_hex = unit.movement_comp.path.back() if unit.movement_comp.path.size() > 0 else unit.get_hex()
 		
-		_ghost_grid(start_hex) # Turn units into ghosts
+		_ghost_grid(start_hex) 
 		var route = grid.get_map_path(start_hex, target_hex)
-		_unghost_grid() # Make them solid again instantly
+		_unghost_grid() 
 		
 		for i in range(1, route.size()):
 			unit.movement_comp.add_waypoint(route[i])
@@ -242,11 +236,10 @@ func _ghost_grid(start_hex):
 	for h in grid.Grid:
 		var p = get_piece(h)
 		if p:
-			if p is City: continue # Cities are permanent walls, don't ghost them!
+			if p is City: continue 
 			grid.enable_hex(h)
 			_ghosted_hexes.append(h)
 			
-	# Make sure the start hex is open so A* can escape
 	if not start_hex in _ghosted_hexes:
 		grid.enable_hex(start_hex)
 		_ghosted_hexes.append(start_hex)
@@ -261,7 +254,6 @@ func _play_selected(hex, p_hex_to_move):
 	var active_unit = get_piece(p_hex_to_move)
 	if not active_unit: return
 
-	# NEW: Manual Pathing overrides EVERYTHING (except clicking a city)
 	if active_unit.use_manual_path:
 		if not selected is City:
 			_handle_movement_command(active_unit, hex)
@@ -281,7 +273,15 @@ func _play_selected(hex, p_hex_to_move):
 			active_unit.set_attack_target(selected)
 			ui.show_stats(active_unit)
 	elif dist == 1:
-		active_unit.receive_from(selected)
+		var active_is_supplier = not active_unit.is_combatant()
+		var selected_is_supplier = not selected.is_combatant()
+
+		if active_is_supplier and not selected_is_supplier:
+			selected.receive_from(active_unit)    
+		elif selected_is_supplier and not active_is_supplier:
+			active_unit.receive_from(selected)
+		elif active_is_supplier and selected_is_supplier:
+			active_unit.receive_from(selected)
 
 # ── Death ─────────────────────────────────────────────────────────────────────
 
@@ -290,13 +290,13 @@ func _die(dead_piece):
 	if dead_hex and grid.Grid.has(dead_hex):
 		grid.Grid[dead_hex]["Piece"] = null
 		
-		# NEW: Log this hex so a city can't instantly spawn here
 		if not dead_hex in recent_death_hexes:
 			recent_death_hexes.append(dead_hex)
 
 	if dead_piece in cities:
 		cities.erase(dead_piece)
-		if dead_piece.is_hq: _game_over(dead_piece.team == 1)
+		if dead_piece.is_hq: 
+			_game_over(dead_piece.team == 1)
 	else:
 		units.erase(dead_piece)
 		trains.erase(dead_piece)
@@ -308,20 +308,26 @@ func _game_over(player_lost: bool):
 	ui.show_game_over(player_lost)
 	get_tree().paused = true
 
-func get_piece(hex): return grid.get_piece(hex)
-func set_piece(hex, piece=null): grid.set_piece(hex, piece)
+func get_piece(hex): 
+	return grid.get_piece(hex)
+	
+func set_piece(hex, piece=null): 
+	grid.set_piece(hex, piece)
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 
 func _unhandled_input(event):
 	if (event is InputEventMouse or event is InputEventMouseButton) and ui.is_mouse_over_ui():
 		return
+		
 	if event.is_action_pressed("select"):
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
+		
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
 			var selected = get_piece(hex)
+			
 			if selected:
 				if hex_to_move:
 					_play_selected(hex, hex_to_move)
@@ -331,14 +337,11 @@ func _unhandled_input(event):
 			elif hex_to_move:
 				var piece_to_move = get_piece(hex_to_move)
 				if piece_to_move:
-					# ROUTE THROUGH OUR UPDATED LOGIC INSTEAD OF HARDCODING set_goal
 					_play_selected(hex, hex_to_move) 
 					
-					# If building a manual path, refresh the UI but KEEP the unit selected!
 					if piece_to_move.use_manual_path:
 						ui.show_stats(piece_to_move)
 					else:
-						# If auto-pathing, standard behavior is to finish and deselect
 						_deselect_piece()
 
 	elif event.is_action_pressed("deselect"):
@@ -348,49 +351,48 @@ func _unhandled_input(event):
 		if hex_to_move:
 			var oddr_hex   = grid.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
+			
 			if target_hex in grid.Grid.keys():
 				var piece = get_piece(hex_to_move)
 				if piece:
 					if piece.use_manual_path:
 						path_line.default_color = Color(1.0, 0.8, 0.2)
-						# Draw fixed waypoints
 						var points = PackedVector2Array()
 						var prev = piece.get_hex()
+						
 						points.append(grid.get_hex_pos(prev))
 						for p in piece.movement_comp.path:
 							points.append(grid.get_hex_pos(p))
 							prev = p
 						
-						# Ghost the grid before drawing the line to the mouse!
 						_ghost_grid(prev)
 						var mouse_points = grid.get_hex_path(prev, target_hex)
 						_unghost_grid()
 						
-						# Skip the first point so it doesn't overlap
 						for i in range(1, mouse_points.size()):
 							points.append(mouse_points[i])
 						path_line.points = points
 					else:
-						# THIS WAS MISSING: Standard Auto-Pathing line
-						path_line.default_color = Color(0.5, 1, 0.2)
+						path_line.default_color = Color(0.5, 1.0, 0.2)
 						grid.enable_hex(hex_to_move)
 						path_line.points = grid.get_hex_path(hex_to_move, target_hex)
 						grid.disable_hex(hex_to_move)
-				else:
-					path_line.clear_points()
 			else:
 				path_line.clear_points()
+		else:
+			path_line.clear_points()
 
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var oddr_hex = grid.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
+		
 		match event.keycode:
 			KEY_M:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece and piece.has_method("toggle_path_mode"):
 						piece.toggle_path_mode()
-						ui.show_stats(piece) # Refresh UI instantly
+						ui.show_stats(piece)
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
@@ -421,7 +423,6 @@ func clock_increment():
 
 	_unfreeze_all()
 	card_manager.check_pending(day)
-	
 	enemy_ai.run_turn() 
 
 	var starved = _resolve_all_movement()
@@ -433,17 +434,20 @@ func clock_increment():
 		unit.process_resupply()
 
 	var card_to_play = card_manager.draw_daily_card(day)
-	if card_to_play: ui.card_ui.display_card(card_to_play)
-	else: ui.card_ui.hide()
+	if card_to_play: 
+		ui.card_ui.display_card(card_to_play)
+	else: 
+		ui.card_ui.hide()
 
 	for city in cities:
 		city.next_day()
 
 	for dead in starved:
-		print("%s starved." % dead.name); _die(dead)
+		print("%s starved." % dead.name)
+		_die(dead)
 
 	_unfreeze_all()
-	fow_manager.update_fow() # Delegate to FOW
+	fow_manager.update_fow()
 
 	if ui.city_menu.visible: 
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
@@ -453,4 +457,3 @@ func clock_increment():
 
 func _next_day_button():
 	clock_increment()
-	

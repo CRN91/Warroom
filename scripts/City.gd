@@ -19,7 +19,8 @@ func next_day() -> bool:
 	else:
 		return super()
 
-# ── Disabling Movement and Freezing ───────────────────────────────────────────────────────────────────
+# ── Disabling Movement and Freezing ─────────────────────────────────────
+
 func unfreeze(): pass
 func is_frozen(): return false
 func move_to(_hex): return # Cities can't move
@@ -27,7 +28,8 @@ func set_hex(hex):
 	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
 
-# ── Team ───────────────────────────────────────────────────────────────────
+# ── Team ───────────────────────────────────────────────────────────────
+
 func set_enemy():
 	if has_node("Sprite2D"):
 		$Sprite2D.texture = load("res://assets/cityr.png")
@@ -44,7 +46,8 @@ func set_player():
 	if has_node("Sprite2D") and original_texture:
 		$Sprite2D.texture = original_texture
 
-# ── Capturing ───────────────────────────────────────────────────────────────────
+# ── Capturing ─────────────────────────────────────────────────────────────
+
 func capture(new_team: int, game: Node):
 	if is_hq:
 		game._game_over(team == 1)

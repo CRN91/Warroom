@@ -4,26 +4,15 @@ class_name Deck
 
 @onready var queue: Array = []
 
-func len():
-	return len(queue)
+func len(): return len(queue)
+func pop(): return queue.pop_front()
+func size(): return queue.size()
+func is_empty(): return queue.is_empty()
+func push(x): queue.push_back(x)
+func _to_string(): return str(queue)
 
-func pop():
-	return queue.pop_front()
-
-func size():
-	return queue.size()
-
-func is_empty():
-	return queue.is_empty()
-
-func push(x):
-	queue.push_back(x)
-
-func _to_string():
-	return str(queue)
-
-# Loading decks from JSON file
 func load():
+	"""Loading decks from JSON"""
 	var file = FileAccess.open("res://res/deck.json", FileAccess.READ)
 	if file:
 		var json_string = file.get_as_text()

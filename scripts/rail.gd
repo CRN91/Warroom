@@ -3,7 +3,6 @@ class_name Rail
 
 ## Visual marker that sits on a hex to show rail is present.
 ## The actual data (which route, broken status) lives in Game.rail_hexes.
-## This node is instantiated by Game._place_rail() for the scene tree.
 
 var hex_pos: Vector2i  # Axial coords of this rail hex
 var broken: bool = false

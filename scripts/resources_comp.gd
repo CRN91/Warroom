@@ -22,14 +22,14 @@ func deplete(x) -> bool:
 func replenish(x):
 	resources = min(resources + x, MAX_RESC)
 
-## Called once per game day. Returns true if the unit starved (resources <= 0).
 func clock_cycle() -> bool:
+	"""Called once per day, returns true if unit starved"""
 	if replenish_rate > 0:
 		replenish(replenish_rate)
 		return false
 	else:
 		return deplete(deplete_rate)
 
-## Drain without the daily replenish — used when siege suppresses city income.
 func clock_cycle_depleting_only() -> bool:
+	"""Used when city under siege"""
 	return deplete(deplete_rate)

@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://bf4vjq43i3wbr"]
 
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="1_1bh05"]
-[ext_resource type="Script" uid="uid://dh2mulp47wvfd" path="res://scripts/infantry.gd" id="1_1qsph"]
+[ext_resource type="Script" uid="uid://s7jda25me72i" path="res://scripts/infantry.gd" id="1_1qsph"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="2_3dir1"]
-[ext_resource type="Texture2D" uid="uid://cujmcbsgxkrr1" path="res://assets/troopsg.png" id="3_68dwf"]
-[ext_resource type="Script" uid="uid://d0io42jtcsf2r" path="res://scripts/attack_comp.gd" id="5_doxku"]
-[ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="6_q00lq"]
+[ext_resource type="Texture2D" uid="uid://drqvnavbykv8d" path="res://assets/troopsg.png" id="3_68dwf"]
+[ext_resource type="Script" uid="uid://edb360op18cc" path="res://scripts/attack_comp.gd" id="5_doxku"]
+[ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="6_q00lq"]
 
 [node name="Infantry" type="Node2D" unique_id=2061186961]
 script = ExtResource("1_1qsph")
@@ -15,13 +15,14 @@ script = ExtResource("1_1bh05")
 
 [node name="Resources" type="Node2D" parent="." unique_id=1302726788]
 script = ExtResource("2_3dir1")
-daily_deplete = 1
+deplete_rate = 1
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=194678195]
 texture = ExtResource("3_68dwf")
 
 [node name="Attack" type="Node2D" parent="." unique_id=1796694160]
 script = ExtResource("5_doxku")
+damage = 75
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]
 script = ExtResource("6_q00lq")

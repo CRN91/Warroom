@@ -35,11 +35,20 @@ func attack(enemy, damage_override = null):
 
 	return destroyed
 
-func get_damage():
-	return damage
+func get_damage(): return damage
+func get_range(): return attack_range
 
-func get_range():
-	return attack_range
+# ── Targeting ─────────────────────────────────────────────────────
+
+func set_target(enemy: Node2D):
+	if piece.frozen: return
+	piece.frozen = true
+	pending_attack = enemy
+	target = enemy
+
+func clear_target():
+	target        = null
+	pending_attack = null
 
 func get_target(grid = null) -> Node2D:
 	# 1. Clean up dead targets to avoid crashes
@@ -81,13 +90,3 @@ func _find_enemy_in_range(grid) -> Node2D:
 	for t in possible:
 		if t is Logistics: return t
 	return possible[0]
-
-func set_target(enemy: Node2D):
-	if piece.frozen: return
-	piece.frozen = true
-	pending_attack = enemy
-	target = enemy
-
-func clear_target():
-	target        = null
-	pending_attack = null
