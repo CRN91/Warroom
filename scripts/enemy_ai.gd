@@ -42,11 +42,11 @@ func run_turn():
 						best_dist = d
 						best_city = city
 			if best_city:
-				unit.set_goal(best_city.get_hex())
+				unit.movement_comp.set_goal(best_city.get_hex())
 			continue # Skip the attack logic so they focus on running home
 
 		# If they aren't starving, and already have a goal, let them keep marching
-		if unit.goal != null: continue
+		if unit.movement_comp.goal != null: continue
 
 		# OFFENSE: Find the nearest player unit or city to attack
 		var best_target = null
@@ -68,4 +68,4 @@ func run_turn():
 					
 		# Charge the target!
 		if best_target:
-			unit.set_goal(best_target.get_hex())
+			unit.movement_comp.set_goal(best_target.get_hex())

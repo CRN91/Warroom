@@ -66,9 +66,9 @@ func move_to(new_hex, grid):
 	# NEW: Unload immediately when arriving manually
 	_exchange_supplies(grid) 
 
-	return grid
+	return frozen
 
-func process_movement(game: Node):
+func process_movement(game):
 	if route.is_empty():
 		return
 

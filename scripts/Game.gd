@@ -214,16 +214,16 @@ func _resolve_all_movement() -> Array:
 
 func _handle_movement_command(unit, target_hex):
 	if unit.use_manual_path:
-		var start_hex = unit.path.back() if unit.path.size() > 0 else unit.get_hex()
+		var start_hex = unit.movement_comp.path.back() if unit.movement_comp.path.size() > 0 else unit.get_hex()
 		
 		_ghost_grid(start_hex) # Turn units into ghosts
 		var route = grid.get_map_path(start_hex, target_hex)
 		_unghost_grid() # Make them solid again instantly
 		
 		for i in range(1, route.size()):
-			unit.add_waypoint(route[i])
+			unit.movement_comp.add_waypoint(route[i])
 	else:
-		unit.set_goal(target_hex)
+		unit.movement_comp.set_goal(target_hex)
 		
 func _ghost_grid(start_hex):
 	_ghosted_hexes.clear()
@@ -345,7 +345,7 @@ func _unhandled_input(event):
 						var points = PackedVector2Array()
 						var prev = piece.get_hex()
 						points.append(grid.map_to_local(HEX.axial_to_oddr(prev)))
-						for p in piece.path:
+						for p in piece.movement_comp.path:
 							points.append(grid.map_to_local(HEX.axial_to_oddr(p)))
 							prev = p
 						

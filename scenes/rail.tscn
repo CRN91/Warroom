@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://ct2dx1enacgo5"]
 
-[ext_resource type="Script" uid="uid://067gckdnkaqg" path="res://scripts/rail.gd" id="1_qb0h2"]
+[ext_resource type="Script" uid="uid://bx5f5a4uths1g" path="res://scripts/rail.gd" id="1_qb0h2"]
 [ext_resource type="Texture2D" uid="uid://b7xwfibch1u3" path="res://assets/rail.png" id="2_42cls"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
-[ext_resource type="Script" uid="uid://p8qwvdf6r85j" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
+[ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
 
 [node name="Rail" type="Node2D" unique_id=669345778]
 z_index = -1

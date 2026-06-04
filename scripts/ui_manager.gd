@@ -107,7 +107,7 @@ func show_stats(piece):
 
 	var path_text = ""
 	if piece.get("use_manual_path"):
-		path_text = " | MANUAL PATH (%d waypoints)" % piece.path.size()
+		path_text = " | MANUAL PATH (%d waypoints)" % piece.movement_comp.path.size()
 	elif piece.get("goal"):
 		path_text = " | Goal: %s" % str(piece.goal)
 

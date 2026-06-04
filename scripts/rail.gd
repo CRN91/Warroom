@@ -8,9 +8,6 @@ class_name Rail
 var hex_pos: Vector2i  # Axial coords of this rail hex
 var broken: bool = false
 
-func _ready():
-	pass
-
 func break_rail():
 	broken  = true
 	modulate = Color(0.6, 0.15, 0.15)  # Red tint when sabotaged

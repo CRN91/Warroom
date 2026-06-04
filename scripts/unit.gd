@@ -14,18 +14,12 @@ var team: int = 1 # Team: 1 = Player, 2 = Enemy, 0 = Neutral
 var frozen: bool = false
 var supplier: int = 0
 var supplier_reserve: int = 0
-var path: Array = []
 var use_manual_path: bool = false
 var _bar_setup_done: bool = false
 
 # ── Targeting ─────────────────────────────────────────────────────────────────
 var target: Node2D = null
 var pending_attack: Node2D = null
-
-# ── Navigation ────────────────────────────────────────────────────────────────
-# Units store only a goal hex. A* is re-run each turn so obstacles are
-# avoided dynamically. No stale pre-calculated path arrays.
-var goal = null  # Vector2i destination, or null if idle
 
 # ── Identity ──────────────────────────────────────────────────────────────────
 func combatant(): return false
@@ -79,30 +73,15 @@ func restore(x):
 	resource_comp.resupply(x)
 	update_ui()
 
-# ── Navigation API ────────────────────────────────────────────────────────────
-
-## Set a multi-turn navigation destination.
-## A* is recalculated every turn so the route adapts to moving obstacles.
-func set_goal(hex):
-	goal = hex
-
-func clear_goal():
-	goal = null
-
-## Toggles between manual waypoint mode and auto A* mode.
-## Clears the inactive mode's state when switching.
 func toggle_path_mode():
 	use_manual_path = not use_manual_path
 	if use_manual_path:
-		clear_goal()   # Switching to manual — drop the A* goal
+		movement_comp.clear_goal()
 	else:
-		clear_path()   # Switching to auto — drop the waypoints
-
-func add_waypoint(hex):
-	path.append(hex)
-
-func clear_path():
-	path.clear()
+		movement_comp.clear_path()
+		
+func move_to(hex, grid):
+	movement_comp.move_to(hex, grid)
 
 # ── Combat API ────────────────────────────────────────────────────────────────
 
@@ -171,79 +150,8 @@ func resupply(supply_source: Node2D):
 
 func process_movement(game):
 	var grid = game.grid
-	var current_hex = get_hex()
-	if not current_hex or is_frozen(): return
-
-	# Manual pathing check
-	if path.size() > 0:
-		var next_hex = path[0]
-		if grid.get_piece(next_hex) == null:
-			move_to(next_hex, grid)
-			path.pop_front()
-	# Auto pathing check
-	elif goal != null:
-		if current_hex == goal:
-			clear_goal()
-		else:
-			var goal_piece = grid.get_piece(goal)
-			grid.enable_hex(current_hex)
-			if goal_piece: grid.enable_hex(goal)
-
-			# NEW: Temporarily enable hexes with invisible enemies so A* paths through the fog!
-			var hidden_hexes = []
-			for h in grid.Grid:
-				var p = grid.get_piece(h)
-				if p and not p.visible and p.team != team:
-					grid.enable_hex(h)
-					hidden_hexes.append(h)
-
-			var astar_path = grid.get_map_path(current_hex, goal)
-
-			# Re-disable the hidden enemies to restore the grid state
-			for h in hidden_hexes:
-				grid.disable_hex(h)
-
-			grid.disable_hex(current_hex)
-			if goal_piece: grid.disable_hex(goal)
-
-			if astar_path.size() > 1:
-				move_to(astar_path[1], grid)
-
-## Move one step to new_hex from old_hex.
-##
-## Initial placement (old_hex = null):
-##   Positions the unit without spending an action. Used when spawning.
-##
-## Normal move:
-##   Consumes the unit's action (frozen = true). new_hex must be adjacent.
-##   If new_hex is occupied the action is returned (frozen = false) and
-##   old_hex is re-disabled so A* stays consistent.
-func move_to(new_hex, grid):
-	var old_hex = get_hex()
-	# ── Initial placement — free action, no adjacency check ──────────────────
-	if not old_hex:
-		grid.disable_hex(new_hex)
-		return movement_comp.set_hex(new_hex, grid)
-
-	# ── Normal move — costs action ────────────────────────────────────────────
-	if not frozen:
-		frozen = true
-		grid.enable_hex(old_hex)  # Unit is leaving — open for pathfinding
-
-		if new_hex in HEX.axial_neighbours(old_hex):
-			if grid.get_piece(new_hex) == null:
-				grid.disable_hex(new_hex)
-				return movement_comp.set_hex(new_hex, grid)
-			else:
-				# Destination occupied — give back action and re-close old hex
-				frozen = false
-				grid.disable_hex(old_hex)  # Fix: unit didn't leave, re-block it
-		else:
-			# Non-adjacent target passed directly — shouldn't happen in goal system
-			frozen = false
-			grid.disable_hex(old_hex)
-
-	return grid
+	if not get_hex() or is_frozen(): return
+	movement_comp.process_movement(grid)
 
 func status() -> String:
 	var extras = ""
@@ -252,9 +160,9 @@ func status() -> String:
 		
 	# MISSING LOGIC ADDED HERE:
 	if use_manual_path:
-		extras += " | MANUAL PATH (%d waypoints)" % path.size()
-	elif goal:
-		extras += " | Auto → %s" % str(goal)
+		extras += " | MANUAL PATH (%d waypoints)" % movement_comp.path.size()
+	elif movement_comp.goal:
+		extras += " | Auto → %s" % str(movement_comp.goal)
 		
 	return "Hex: %s | %s | HP: %d/%d%s" % [
 		get_hex(), name, get_resources(), get_max_resources(), extras
