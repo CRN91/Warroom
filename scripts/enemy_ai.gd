@@ -34,24 +34,25 @@ func _command_units():
 	for unit in game.units:
 		if unit.team != 2 or unit is City or unit is Train: continue
 
-		if unit.has_method("is_combatant") and unit.is_combatant():
+		if unit.is_combatant():
 			_command_combatant(unit)
 		else:
 			_command_logistics(unit)
 
 func _command_combatant(unit):
+	unit.clear_destination()
 	var is_starving = unit.get_resources() <= (unit.get_max_resources() * 0.3)
 
 	if is_starving:
 		var city = _get_nearest_friendly_city(unit.get_hex())
-		if city: unit.movement_comp.set_goal(city.get_hex())
+		if city: unit.set_destination(city.get_hex())
 		return 
 
 	if unit.movement_comp.goal != null: return
 
 	var target = _get_nearest_enemy(unit.get_hex())
 	if target:
-		unit.movement_comp.set_goal(target.get_hex())
+		unit.set_destination(target.get_hex())
 
 func _command_logistics(unit):
 	var has_supplies = unit.get_resources() > (unit.get_max_resources() * 0.7)
@@ -59,11 +60,11 @@ func _command_logistics(unit):
 	if has_supplies:
 		var target = _get_nearest_friendly_combatant(unit.get_hex(), unit)
 		if target:
-			unit.movement_comp.set_goal(target.get_hex())
+			unit.set_destination(target.get_hex())
 	else:
 		var city = _get_nearest_friendly_city(unit.get_hex())
 		if city:
-			unit.movement_comp.set_goal(city.get_hex())
+			unit.set_destination(city.get_hex())
 
 # ── Targeting Helpers ─────────────────────────────────────────────────────
 

@@ -221,17 +221,17 @@ func _resolve_all_movement() -> Array:
 func _handle_movement_command(unit, target_hex):
 	if unit.use_manual_path:
 		var start_hex = unit.movement_comp.path.back() if unit.movement_comp.path.size() > 0 else unit.get_hex()
-		
-		_ghost_grid(start_hex) 
+
+		_ghost_grid() 
 		var route = grid.get_map_path(start_hex, target_hex)
 		_unghost_grid() 
-		
+
 		for i in range(1, route.size()):
-			unit.movement_comp.add_waypoint(route[i])
+			unit.add_waypoint(route[i])
 	else:
-		unit.movement_comp.set_goal(target_hex)
+		unit.set_destination(target_hex)
 		
-func _ghost_grid(start_hex):
+func _ghost_grid():
 	_ghosted_hexes.clear()
 	for h in grid.Grid:
 		var p = get_piece(h)
@@ -239,10 +239,6 @@ func _ghost_grid(start_hex):
 			if p is City: continue 
 			grid.enable_hex(h)
 			_ghosted_hexes.append(h)
-			
-	if not start_hex in _ghosted_hexes:
-		grid.enable_hex(start_hex)
-		_ghosted_hexes.append(start_hex)
 
 func _unghost_grid():
 	for h in _ghosted_hexes:
@@ -365,7 +361,7 @@ func _unhandled_input(event):
 							points.append(grid.get_hex_pos(p))
 							prev = p
 						
-						_ghost_grid(prev)
+						_ghost_grid()
 						var mouse_points = grid.get_hex_path(prev, target_hex)
 						_unghost_grid()
 						
@@ -390,14 +386,15 @@ func _unhandled_input(event):
 			KEY_M:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
-					if piece and piece.has_method("toggle_path_mode"):
+					if piece:
+						grid.enable_hex(hex_to_move)
 						piece.toggle_path_mode()
 						ui.show_stats(piece)
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece and piece.is_combatant():
-						piece.clear_target()
+						piece.clear_attack_target()
 						ui.show_stats(piece)
 			KEY_R:
 				if hex in grid.Grid.keys(): 

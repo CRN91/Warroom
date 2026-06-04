@@ -23,7 +23,7 @@ texture = ExtResource("4_for5n")
 
 [node name="Attack" type="Node2D" parent="." unique_id=1796694160]
 script = ExtResource("5_doxku")
-damage = 20
+damage = 45
 attack_range = 3
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]

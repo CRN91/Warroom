@@ -60,6 +60,7 @@ func move_to(new_hex, grid):
 	if not old_hex:
 		grid.disable_hex(new_hex)
 		set_hex(new_hex, grid)
+		return
 
 	var frozen = piece.frozen
 	if not frozen:

@@ -17,15 +17,19 @@ func freeze(): frozen = true
 
 @onready var movement_comp = $Movement
 func get_hex(): return movement_comp.get_hex()
+func set_destination(hex): movement_comp.set_goal(hex)
+func clear_destination(): movement_comp.clear_goal()
+func add_waypoint(hex): movement_comp.add_waypoint(hex)
 func move_to(hex): movement_comp.move_to(hex, grid)
 
 var use_manual_path: bool = false
 func toggle_path_mode():
-	use_manual_path = not use_manual_path
-	if use_manual_path:
-		movement_comp.clear_goal()
-	else:
-		movement_comp.clear_path()
+	if movement_comp:
+		use_manual_path = not use_manual_path
+		if use_manual_path:
+			movement_comp.clear_goal()
+		else:
+			movement_comp.clear_path()
 
 func process_movement():
 	if not get_hex() or is_frozen(): return
@@ -69,6 +73,7 @@ func is_combatant(): return false
 @onready var attack_comp = get_node_or_null("Attack")
 func set_attack_target(piece): return attack_comp.set_target(piece)
 func get_attack_target(): return attack_comp.get_target(grid)
+func clear_attack_target(): return attack_comp.clear_target()
 func get_attack_range(): return attack_comp.get_range()  if attack_comp else 1
 func get_damage(): return attack_comp.get_damage() if attack_comp else 0
 func attack(enemy): return attack_comp.attack(enemy) if attack_comp else false

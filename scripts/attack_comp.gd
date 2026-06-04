@@ -47,7 +47,7 @@ func set_target(enemy: Node2D):
 	target = enemy
 
 func clear_target():
-	target        = null
+	target = null
 	pending_attack = null
 
 func get_target(grid = null) -> Node2D:
