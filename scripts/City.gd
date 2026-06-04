@@ -10,10 +10,24 @@ func _ready():
 		original_texture = $Sprite2D.texture
 	update_ui()
 
+func next_day() -> bool:
+	var sieged := _is_sieged()
+	if sieged:
+		var starved = resource_comp.clock_cycle_depleting_only()
+		update_ui()
+		return starved
+	else:
+		return super()
+
+# ── Disabling Movement and Freezing ───────────────────────────────────────────────────────────────────
+func unfreeze(): pass
+func is_frozen(): return false
+func move_to(_hex): return # Cities can't move
 func set_hex(hex):
 	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
 
+# ── Team ───────────────────────────────────────────────────────────────────
 func set_enemy():
 	if has_node("Sprite2D"):
 		$Sprite2D.texture = load("res://assets/cityr.png")
@@ -30,14 +44,7 @@ func set_player():
 	if has_node("Sprite2D") and original_texture:
 		$Sprite2D.texture = original_texture
 
-func unfreeze():
-	pass
-
-func is_frozen():
-	return false
-
-# Cities can't move
-func move_to(_hex): return
+# ── Capturing ───────────────────────────────────────────────────────────────────
 
 func capture(new_team: int, game: Node):
 	if is_hq:
@@ -53,18 +60,6 @@ func capture(new_team: int, game: Node):
 		set_enemy()
 
 	print("%s captured by team %d" % [name, team])
-
-func next_day() -> bool:
-	var sieged := _is_sieged()
-
-	if sieged:
-		var starved = resource_comp.clock_cycle_depleting_only()
-		update_ui()
-		return starved
-	else:
-		return super()
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 func _is_sieged() -> bool:
 	if not grid:
