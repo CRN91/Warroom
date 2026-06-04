@@ -161,8 +161,6 @@ func _deselect_piece():
 	grid.deselect()
 	ui.hide_panels()
 
-func _hex_to_pos(hex): return grid.map_to_local(HEX.axial_to_oddr(hex))
-
 # ── Combat ────────────────────────────────────────────────────────────────────
 
 func _resolve_all_combat():
@@ -352,9 +350,9 @@ func _unhandled_input(event):
 						# Draw fixed waypoints
 						var points = PackedVector2Array()
 						var prev = piece.get_hex()
-						points.append(grid.map_to_local(HEX.axial_to_oddr(prev)))
+						points.append(grid.get_hex_pos(prev))
 						for p in piece.movement_comp.path:
-							points.append(grid.map_to_local(HEX.axial_to_oddr(p)))
+							points.append(grid.get_hex_pos(p))
 							prev = p
 						
 						# Ghost the grid before drawing the line to the mouse!

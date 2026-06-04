@@ -34,7 +34,7 @@ func move_to(new_hex):
 	if old_hex == null:
 		frozen = true
 		grid.disable_hex(new_hex)
-		return movement_comp.force_hex(new_hex, grid)
+		movement_comp.force_hex(new_hex, grid)
 
 	var old_idx = route.find(old_hex)
 	var new_idx = route.find(new_hex)
@@ -62,7 +62,7 @@ func move_to(new_hex):
 
 	grid.enable_hex(old_hex)
 	grid.disable_hex(new_hex)
-	grid = movement_comp.force_hex(new_hex, grid)
+	movement_comp.force_hex(new_hex, grid)
 
 	_exchange_supplies()
 

@@ -49,7 +49,7 @@ func toggle_rail(hex):
 	var rail_node = RAIL.instantiate()
 	add_child(rail_node)
 	rail_node.hex_pos  = hex
-	rail_node.position = game._hex_to_pos(hex)
+	rail_node.position = game.grid.hex_to_pos(hex)
 	rail_node.modulate = Color(0.6, 0.6, 1.0)
 
 	if building_route.size() > 0 and hex in HEX.axial_neighbours(building_route.back()):

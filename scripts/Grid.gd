@@ -4,21 +4,39 @@ const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
 var Grid = {}
-var highlights = []
-var selected
-# A*
+func get_piece(hex): return Grid[hex]["Piece"]
+func set_piece(hex, piece=null): Grid[hex]["Piece"] = piece
+func get_hex_pos(hex): return map_to_local(HEX.axial_to_oddr(hex))
+
+# A* algorithm auto pathing
 var astar = AStar2D.new()
 var hex_to_id = {}
 var id_to_hex = {}
 var next_id = 0
+func _add_hex_to_astar(hex, oddr):
+	"""Adds the hex to the A* grid"""
+	hex_to_id[hex] = next_id
+	id_to_hex[next_id] = hex
+	astar.add_point(next_id, map_to_local(oddr))
+	next_id += 1
 
-func get_piece(hex): return Grid[hex]["Piece"]
-func set_piece(hex, piece=null): Grid[hex]["Piece"] = piece
+func _connect_all_astar_points():
+	"""Connects all the points in the A* graph"""
+	for hex in Grid.keys():
+		var id = hex_to_id[hex]
+		for adj in HEX.axial_neighbours(hex):
+			if adj in Grid.keys():
+				astar.connect_points(id, hex_to_id[adj])
 
-func make_grid_axial():
-	var shortest_width = 4
-	var grid_list = HEX.cube_spiral(Vector3i(0,0,0), 4)
+# Grid creation
 
+func make_grid_axial(shortest_width = 4):
+	"""Creates the a grid where the tiles are hexagons"""
+	
+	# Gets all the cube coordiantes for the grid
+	var grid_list = HEX.cube_spiral(Vector3i(0,0,0), shortest_width)
+
+	# Assigns the axial coordinate as the key for referencing the grid and sets its position on the screen
 	for i in grid_list:
 		var oddr = HEX.axial_to_oddr(i)
 		var hex = Vector2i(i.x, i.y)
@@ -28,19 +46,9 @@ func make_grid_axial():
 			}
 		set_cell(0, oddr, 0, Vector2i(0,0), 0)
 
-		# A*
-		hex_to_id[hex] = next_id
-		id_to_hex[next_id] = hex
-		astar.add_point(next_id, map_to_local(oddr))
-		next_id += 1
-
-		# connect neighbours
-		for hex_i in Grid.keys():
-			var id = hex_to_id[hex_i]
-			for adj in HEX.axial_neighbours(hex_i):
-				if adj in Grid.keys():
-					astar.connect_points(id, hex_to_id[adj], false)
-
+		_add_hex_to_astar(hex,oddr)
+	_connect_all_astar_points()
+	
 func _update_grid(hex, disable=true):
 	var id = hex_to_id[hex]
 	astar.set_point_disabled(id, disable)
@@ -75,15 +83,13 @@ func get_map_path(start_hex: Vector2i, end_hex: Vector2i) -> Array[Vector2i]:
 		
 	return hex_path
 
-# Removes the previous highlighted hexes the mouse went over
 func erase_highlight(highlights):
 	for i in highlights:
 		erase_cell(1, i)
 	return []
-
-# Called when the node enters the scene tree for the first time.
-func _ready():
-	make_grid_axial()
+# ── Selection ──────────────────────────────────────────────────────────────────
+var highlights = []
+var selected
 
 func select_hex(oddr_hex):
 	deselect()
@@ -108,3 +114,6 @@ func _process(delta):
 
 	if selected:
 		set_cell(1, selected, 2, Vector2i(0,0), 0)
+
+func _ready():
+	make_grid_axial()

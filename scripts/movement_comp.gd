@@ -7,14 +7,12 @@ var HEX = HEXGRID.new()
 
 var piece: Node2D
 var hex: Vector2i
-var goal
-var path: Array = []
-
 func get_hex(): return hex
-func set_goal(hex): goal = hex
-func clear_goal(): goal = null
-func add_waypoint(hex): path.append(hex)
-func clear_path(): path.clear()
+
+func _ready():
+	piece = get_parent()
+
+# ── Moving Hex ───────────────────────────────────────────────────────────
 
 func valid_hex(check_hex, grid):
 	""" Checks the hex exists, is adjacent and is not occupied """
@@ -34,17 +32,9 @@ func set_hex(new_hex, grid):
 	""" Sets the position of the object on the grid.
 	Assumes the tile coords are given in axial or cube.
 	'old_loc' is used when the piece is already set and being moved. """
-	
-	var pos
-
-	# Checks if Vector3 (cube)
-	if typeof(new_hex) == 7:
-		new_hex = Vector2i(new_hex.x, new_hex.y) # Converts to axial
-
-	# Moves to new position if a valid hex
 	if valid_hex(new_hex, grid):
 		# Gets the centered position of the hex
-		pos = grid.map_to_local(HEX.axial_to_oddr(new_hex))
+		var pos = grid.get_hex_pos(new_hex)
 
 		# Sets a reference to the parent node in the grid
 		grid.set_piece(new_hex, piece)
@@ -56,29 +46,60 @@ func set_hex(new_hex, grid):
 		hex = new_hex
 		piece.position = pos
 
-## Bypasses adjacency and occupancy checks.
-## Used by Train which manages its own route validation.
 func force_hex(new_hex, grid):
-	if typeof(new_hex) == 7:
-		new_hex = Vector2i(new_hex.x, new_hex.y)
+	"""Sets Hex but bypasses adjacency checks"""
 	if hex:
 		grid.set_piece(hex)
 	hex = new_hex
 	grid.set_piece(new_hex, piece)
-	piece.position = grid.map_to_local(HEX.axial_to_oddr(new_hex))
-	return grid
-	
+	piece.position = grid.get_hex_pos(new_hex)
+
+func move_to(new_hex, grid):
+	var old_hex = get_hex()
+	# Inital placement does not freeze
+	if not old_hex:
+		grid.disable_hex(new_hex)
+		set_hex(new_hex, grid)
+
+	var frozen = piece.frozen
+	if not frozen:
+		frozen = true
+		grid.enable_hex(old_hex)
+
+		# Adjacency check
+		if new_hex in HEX.axial_neighbours(old_hex):
+			if grid.get_piece(new_hex) == null:
+				grid.disable_hex(new_hex)
+				set_hex(new_hex, grid)
+				piece.frozen = frozen
+				return
+			else:
+				# Hex occupied
+				frozen = false
+				grid.disable_hex(old_hex)
+		else:
+			frozen = false
+			grid.disable_hex(old_hex)
+	piece.frozen = frozen
+
+# ── Pathing ───────────────────────────────────────────────────────────
+
+# Auto
+var goal
+func set_goal(hex): goal = hex
+func clear_goal(): goal = null
+
+# Manual
+var path: Array = []
+func add_waypoint(hex): path.append(hex)
+func clear_path(): path.clear()
+
 func process_movement(grid):
+	"""Decides pathing type used"""
 	if path.size() > 0:
 		_manual_pathing(grid)
 	elif goal:
 		_auto_pathing(grid)
-
-func _manual_pathing(grid):
-	var next_hex = path[0]
-	if grid.get_piece(next_hex) == null:
-		move_to(next_hex, grid)
-		path.pop_front()
 
 func _auto_pathing(grid):
 	var current_hex = get_hex()
@@ -108,35 +129,8 @@ func _auto_pathing(grid):
 		if astar_path.size() > 1:
 			move_to(astar_path[1], grid)
 
-func move_to(new_hex, grid):
-	var old_hex = get_hex()
-	# ── Initial placement — free action, no adjacency check ──────────────────
-	if not old_hex:
-		grid.disable_hex(new_hex)
-		set_hex(new_hex, grid)
-
-	# ── Normal move — costs action ────────────────────────────────────────────
-	var frozen = piece.frozen
-	if not frozen:
-		frozen = true
-		grid.enable_hex(old_hex)  # Unit is leaving — open for pathfinding
-
-		if new_hex in HEX.axial_neighbours(old_hex):
-			if grid.get_piece(new_hex) == null:
-				grid.disable_hex(new_hex)
-				set_hex(new_hex, grid)
-				piece.frozen = frozen
-				return
-			else:
-				# Destination occupied — give back action and re-close old hex
-				frozen = false
-				grid.disable_hex(old_hex)  # Fix: unit didn't leave, re-block it
-		else:
-			# Non-adjacent target passed directly — shouldn't happen in goal system
-			frozen = false
-			grid.disable_hex(old_hex)
-
-	piece.frozen = frozen
-
-func _ready():
-	piece = get_parent()
+func _manual_pathing(grid):
+	var next_hex = path[0]
+	if grid.get_piece(next_hex) == null:
+		move_to(next_hex, grid)
+		path.pop_front()
