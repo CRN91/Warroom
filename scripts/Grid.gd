@@ -3,32 +3,12 @@ extends TileMap
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
+# ── Setup ───────────────────────────────────────────────────────────
+
 var Grid = {}
-func get_piece(hex): return Grid[hex]["Piece"]
-func set_piece(hex, piece=null): Grid[hex]["Piece"] = piece
-func get_hex_pos(hex): return map_to_local(HEX.axial_to_oddr(hex))
 
-# A* algorithm auto pathing
-var astar = AStar2D.new()
-var hex_to_id = {}
-var id_to_hex = {}
-var next_id = 0
-func _add_hex_to_astar(hex, oddr):
-	"""Adds the hex to the A* grid"""
-	hex_to_id[hex] = next_id
-	id_to_hex[next_id] = hex
-	astar.add_point(next_id, map_to_local(oddr))
-	next_id += 1
-
-func _connect_all_astar_points():
-	"""Connects all the points in the A* graph"""
-	for hex in Grid.keys():
-		var id = hex_to_id[hex]
-		for adj in HEX.axial_neighbours(hex):
-			if adj in Grid.keys():
-				astar.connect_points(id, hex_to_id[adj])
-
-# Grid creation
+func _ready():
+	make_grid_axial()
 
 func make_grid_axial(shortest_width = 4):
 	"""Creates the a grid where the tiles are hexagons"""
@@ -49,6 +29,12 @@ func make_grid_axial(shortest_width = 4):
 		_add_hex_to_astar(hex,oddr)
 	_connect_all_astar_points()
 	
+# ── Grid Updating ───────────────────────────────────────────────────────────
+
+func get_piece(hex): return Grid[hex]["Piece"]
+func set_piece(hex, piece=null): Grid[hex]["Piece"] = piece
+func get_hex_pos(hex): return map_to_local(HEX.axial_to_oddr(hex))
+
 func _update_grid(hex, disable=true):
 	var id = hex_to_id[hex]
 	astar.set_point_disabled(id, disable)
@@ -83,13 +69,37 @@ func get_map_path(start_hex: Vector2i, end_hex: Vector2i) -> Array[Vector2i]:
 		
 	return hex_path
 
+# ── A* Algorithm Auto Pathing ────────────────────────────────────────────
+
+var astar = AStar2D.new()
+var hex_to_id = {}
+var id_to_hex = {}
+var next_id = 0
+
+func _add_hex_to_astar(hex, oddr):
+	"""Adds the hex to the A* grid"""
+	hex_to_id[hex] = next_id
+	id_to_hex[next_id] = hex
+	astar.add_point(next_id, map_to_local(oddr))
+	next_id += 1
+
+func _connect_all_astar_points():
+	"""Connects all the points in the A* graph"""
+	for hex in Grid.keys():
+		var id = hex_to_id[hex]
+		for adj in HEX.axial_neighbours(hex):
+			if adj in Grid.keys():
+				astar.connect_points(id, hex_to_id[adj])
+
+# ── Selection ─────────────────────────────────────────────────────────────────
+
+var highlights = []
+var selected
+
 func erase_highlight(highlights):
 	for i in highlights:
 		erase_cell(1, i)
 	return []
-# ── Selection ──────────────────────────────────────────────────────────────────
-var highlights = []
-var selected
 
 func select_hex(oddr_hex):
 	deselect()
@@ -114,6 +124,3 @@ func _process(delta):
 
 	if selected:
 		set_cell(1, selected, 2, Vector2i(0,0), 0)
-
-func _ready():
-	make_grid_axial()

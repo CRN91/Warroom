@@ -45,7 +45,6 @@ func set_player():
 		$Sprite2D.texture = original_texture
 
 # ── Capturing ───────────────────────────────────────────────────────────────────
-
 func capture(new_team: int, game: Node):
 	if is_hq:
 		game._game_over(team == 1)
