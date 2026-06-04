@@ -24,7 +24,7 @@ func attack(enemy, damage_override = null):
 
 	var destroyed := false
 
-	if enemy.combatant():
+	if enemy.is_combatant():
 		if ally.team != enemy.team:
 			destroyed = enemy.deplete(dmg)
 	else:
@@ -77,7 +77,7 @@ func _find_enemy_in_range(grid) -> Node2D:
 	
 	# Priority targeting: Combatants > Logistics > Anything else (Cities)
 	for t in possible:
-		if t.combatant(): return t
+		if t.is_combatant(): return t
 	for t in possible:
 		if t is Logistics: return t
 	return possible[0]

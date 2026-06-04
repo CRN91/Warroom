@@ -55,33 +55,41 @@ var city_buy_btns: Dictionary = {}
 
 func test_setup():
 	var p1 = INFANTRY.instantiate(); add_child(p1, true)
-	p1.move_to(Vector2i(2, 1), grid); units.append(p1)
+	p1.setup(grid)
+	p1.move_to(Vector2i(2, 1)); units.append(p1)
 
 	var p2 = INFANTRY.instantiate(); add_child(p2, true)
+	p2.setup(grid)
 	p2.set_enemy()
-	p2.move_to(Vector2i(1, -3), grid); units.append(p2)
+	p2.move_to(Vector2i(1, -3)); units.append(p2)
 
 	var arty = ARTILLERY.instantiate(); add_child(arty, true)
+	arty.setup(grid)
 	arty.set_enemy()
-	arty.move_to(Vector2i(2, -3), grid); units.append(arty)
+	arty.move_to(Vector2i(2, -3)); units.append(arty)
 
 	var p3 = INFANTRY.instantiate(); add_child(p3, true)
-	p3.move_to(Vector2i(-1, 2), grid); units.append(p3)
+	p3.setup(grid)
+	p3.move_to(Vector2i(-1, 2)); units.append(p3)
 
 	var city = CITY.instantiate(); add_child(city, true)
+	city.setup(grid)
 	city.set_neutral()
-	city.set_hex(Vector2i(0, 0), grid); cities.append(city)
+	city.set_hex(Vector2i(0, 0)); cities.append(city)
 
 	var city2 = CITY.instantiate(); add_child(city2, true)
+	city2.setup(grid)
 	city2.set_enemy(); city2.is_hq = true
-	city2.set_hex(Vector2i(0, -3), grid); cities.append(city2)
+	city2.set_hex(Vector2i(0, -3)); cities.append(city2)
 
 	var city3 = CITY.instantiate(); add_child(city3, true)
+	city3.setup(grid)
 	city3.is_hq = true
-	city3.set_hex(Vector2i(0, 3), grid); cities.append(city3)
+	city3.set_hex(Vector2i(0, 3)); cities.append(city3)
 
 	var logi = LOGI.instantiate(); add_child(logi, true)
-	logi.move_to(Vector2i(-1, -1), grid); units.append(logi)
+	logi.setup(grid)
+	logi.move_to(Vector2i(-1, -1)); units.append(logi)
 
 	_unfreeze_all()
 
@@ -120,13 +128,13 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
 		
-		# NEW: Added 'and not adj in recent_death_hexes' to the checks!
 		if get_piece(adj) == null and not rail_hexes.has(adj) and not adj in recent_death_hexes:
 			var unit = scene.instantiate()
+			unit.setup(grid)
 			add_child(unit, true)
 			if city.team == 2: unit.set_enemy()
 			# Initial placement — unit is NOT frozen (no action cost)
-			unit.move_to(adj, grid)
+			unit.move_to(adj)
 			units.append(unit)
 			fow_manager.update_fow()
 			return true
@@ -163,8 +171,8 @@ func _resolve_all_combat():
 	
 	# 1. Ask every combatant who they want to attack
 	for unit in units:
-		if not unit.combatant(): continue
-		var target = unit.get_attack_target(grid)
+		if not unit.is_combatant(): continue
+		var target = unit.get_attack_target()
 		if target:
 			attacks.append({ "attacker": unit, "target": target })
 
@@ -191,7 +199,7 @@ func _resolve_all_combat():
 	for dead in to_die:
 		for unit in units:
 			if is_instance_valid(unit) and unit.attack_comp and unit.get_attack_target() == dead:
-				unit.set_attack_target = null
+				unit.set_attack_target(null)
 		_die(dead)
 
 # ── Movement ──────────────────────────────────────────────────────────────────
@@ -203,7 +211,7 @@ func _resolve_all_movement() -> Array:
 
 		# Delegate to the unit
 		if unit.has_method("process_movement"):
-			unit.process_movement(self)
+			unit.process_movement()
 
 		if unit.next_day():
 			starved.append(unit)
@@ -265,11 +273,11 @@ func _play_selected(hex, p_hex_to_move):
 	var dist = HEX.axial_distance(p_hex_to_move, hex)
 
 	if active_unit.team != selected.team:
-		if active_unit.combatant() and dist <= active_unit.get_attack_range():
+		if active_unit.is_combatant() and dist <= active_unit.get_attack_range():
 			active_unit.set_attack_target(selected)
 			ui.show_stats(active_unit)
 	elif dist == 1:
-		active_unit.interact_with_ally(selected)
+		active_unit.receive_from(selected)
 
 # ── Death ─────────────────────────────────────────────────────────────────────
 
@@ -296,7 +304,7 @@ func _game_over(player_lost: bool):
 	ui.show_game_over(player_lost)
 	get_tree().paused = true
 
-func get_piece(hex):            return grid.get_piece(hex)
+func get_piece(hex): return grid.get_piece(hex)
 func set_piece(hex, piece=null): grid.set_piece(hex, piece)
 
 # ── Input ─────────────────────────────────────────────────────────────────────
@@ -382,7 +390,7 @@ func _unhandled_input(event):
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
-					if piece and piece.combatant():
+					if piece and piece.is_combatant():
 						piece.clear_target()
 						ui.show_stats(piece)
 			KEY_R:
@@ -410,27 +418,22 @@ func clock_increment():
 	_unfreeze_all()
 	card_manager.check_pending(day)
 	
-	# NEW: Delegate to the AI Manager
 	enemy_ai.run_turn() 
 
 	var starved = _resolve_all_movement()
 	
-	# NEW: Grace period is over! Clear the graveyard so cities can spawn here again.
 	recent_death_hexes.clear() 
-
-	_resolve_all_combat() # New deaths happen here, repopulating the graveyard for tomorrow
+	_resolve_all_combat()
 
 	for unit in units:
-		if unit.resupply_comp:
-			unit.resupply_comp.process_resupply(grid)
+		unit.process_resupply()
 
 	var card_to_play = card_manager.draw_daily_card(day)
 	if card_to_play: ui.card_ui.display_card(card_to_play)
 	else: ui.card_ui.hide()
 
-	# The City sieging logic is GONE! We just tell the cities to tick.
 	for city in cities:
-		city.next_day(grid)
+		city.next_day()
 
 	for dead in starved:
 		print("%s starved." % dead.name); _die(dead)

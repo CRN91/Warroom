@@ -1,20 +1,19 @@
 extends Unit
 class_name City
- 
+
 @export var hex_tile: Vector2i
 var is_hq: bool = false
 var original_texture: Texture2D
- 
+
 func _ready():
-	supplier = 2
 	if has_node("Sprite2D"):
 		original_texture = $Sprite2D.texture
 	update_ui()
- 
-func set_hex(hex, grid):
+
+func set_hex(hex):
 	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
- 
+
 func set_enemy():
 	if has_node("Sprite2D"):
 		$Sprite2D.texture = load("res://assets/cityr.png")
@@ -23,23 +22,23 @@ func set_enemy():
 
 func set_neutral():
 	team = 0
-	modulate = Color(0.6, 0.6, 0.6) # Tints it gray for neutral
+	modulate = Color(0.6, 0.6, 0.6)
 
 func set_player():
 	team = 1
 	modulate = Color(1, 1, 1)
 	if has_node("Sprite2D") and original_texture:
 		$Sprite2D.texture = original_texture
- 
+
 func unfreeze():
 	pass
- 
+
 func is_frozen():
 	return false
- 
-func move_to(_hex, grid):
-	return grid
-	
+
+# Cities can't move
+func move_to(_hex): return
+
 func capture(new_team: int, game: Node):
 	if is_hq:
 		game._game_over(team == 1)
@@ -48,28 +47,32 @@ func capture(new_team: int, game: Node):
 	team = new_team
 	resource_comp.resources = 500
 
-	if team == 1: 
+	if team == 1:
 		set_player()
-	elif team == 2: 
+	elif team == 2:
 		set_enemy()
-		
+
 	print("%s captured by team %d" % [name, team])
-	
-func next_day(grid = null) -> bool:
-	var sieged = false
-	if grid:
-		for adj in HEX.axial_neighbours(get_hex()):
-			if not grid.Grid.has(adj): continue
-			var p = grid.get_piece(adj)
-			if p and p.team != team and p.combatant():
-				sieged = true
-				break
-	
+
+func next_day() -> bool:
+	var sieged := _is_sieged()
+
 	if sieged:
-		var original_rate = resource_comp.resupply_rate
-		resource_comp.resupply_rate = 0
-		var starved = super() # FIX: Removed 'grid' from inside the brackets!
-		resource_comp.resupply_rate = original_rate # Puts it back
+		var starved = resource_comp.clock_cycle_depleting_only()
+		update_ui()
 		return starved
 	else:
 		return super()
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+func _is_sieged() -> bool:
+	if not grid:
+		return false
+	for adj in HEX.axial_neighbours(get_hex()):
+		if not grid.Grid.has(adj):
+			continue
+		var p = grid.get_piece(adj)
+		if p and p.team != team and p.is_combatant():
+			return true
+	return false

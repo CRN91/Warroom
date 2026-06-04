@@ -76,7 +76,7 @@ func commit_rail_route():
 
 	var train = TRAIN.instantiate()
 	add_child(train, true)
-	train.setup_route(rail_routes[id], id, game)
+	train.setup_route(rail_routes[id], id, game.grid, self)
 	game.trains.append(train); game.units.append(train)
 	player_train_stock -= 1
 	building_route.clear()

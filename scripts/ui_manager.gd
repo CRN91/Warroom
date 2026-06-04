@@ -111,7 +111,7 @@ func show_stats(piece):
 	elif piece.get("goal"):
 		path_text = " | Goal: %s" % str(piece.goal)
 
-	if piece.combatant():
+	if piece.is_combatant():
 		var target = piece.attack_comp.target
 		if target and is_instance_valid(target):
 			lbl_mode.text = "Target: %s  (F to clear)" % target.name
