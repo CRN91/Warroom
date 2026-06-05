@@ -24,13 +24,20 @@ var city_title_lbl: Label
 var city_stock_lbl: Label
 var city_buy_btns: Dictionary = {}
 var costs: Dictionary = {}
+var debug_lbl: Label = null
 
 func setup(game_costs: Dictionary):
 	costs = game_costs
 	_build_city_menu()
+	_build_debug_overlay()
 	panel.hide()
 	card_ui.hide()
 	nextdaybutton.pressed.connect(func(): next_day_requested.emit())
+
+	# Make sure the card's button signal reaches us, whether or not it was wired
+	# in the editor. Guarded so we never double-connect (which would double effects).
+	if not card_ui.card_chosen.is_connected(_on_card_ui_choice_made):
+		card_ui.card_chosen.connect(_on_card_ui_choice_made)
 
 func update_day(day: int):
 	daycounter.text = "DAY " + str(day)
@@ -97,6 +104,34 @@ func _on_buy_pressed(item_type: String):
 	if city_menu_city:
 		# Tell Game.gd we want to buy something!
 		buy_requested.emit(item_type, city_menu_city)
+
+# ── Debug Overlay (active modifiers + weather) ────────────────────────────────
+# A throwaway helper so you can SEE what the cards are doing while testing.
+# Delete it once you have proper UI.
+
+func _build_debug_overlay():
+	debug_lbl = Label.new()
+	debug_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	debug_lbl.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	debug_lbl.offset_left = -300
+	debug_lbl.offset_top = 10
+	debug_lbl.offset_right = -10
+	debug_lbl.offset_bottom = 420
+	debug_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	debug_lbl.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
+	debug_lbl.add_theme_font_size_override("font_size", 13)
+	add_child(debug_lbl)
+
+func update_debug(modifiers, game_state: Dictionary):
+	if not debug_lbl:
+		return
+	var lines: Array = ["WEATHER: %s" % str(game_state.get("weather", "clear")), "── active modifiers ──"]
+	var desc: Array = modifiers.describe() if modifiers else []
+	if desc.is_empty():
+		lines.append("(none)")
+	else:
+		lines.append_array(desc)
+	debug_lbl.text = "\n".join(lines)
 
 # ── Stats Panel ───────────────────────────────────────────────────────────────
 

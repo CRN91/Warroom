@@ -11,6 +11,7 @@ var HEX = HEXGRID.new()
 @onready var enemy_ai = $EnemyAI
 @onready var rail_network = $RailNetwork
 @onready var fow_manager = $FowManager
+@onready var modifiers: ModifierManager = $ModifierManager
 
 const INFANTRY  = preload("res://scenes/infantry.tscn")
 const ARTILLERY = preload("res://scenes/artillery.tscn")
@@ -27,7 +28,7 @@ const COST = {
 	"train":     800,
 }
 
-var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0 }
+var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0, "weather": "clear" }
 var pending_cards: Array    = []
 var pending_restores: Array = []
 var _ghosted_hexes: Array   = []
@@ -50,6 +51,7 @@ var city_buy_btns: Dictionary = {}
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 func _ready():
+	modifiers.setup(self)
 	card_manager.setup(self)
 	enemy_ai.setup(self)
 	fow_manager.setup(grid, rail_network, cities, units)
@@ -63,6 +65,13 @@ func _ready():
 	ui.card_choice_made.connect(card_manager.resolve_choice)
 	
 	test_setup()
+
+	# Give every starting piece a back-reference so modifiers/cards can reach them.
+	for u in units:
+		if is_instance_valid(u): u.game = self
+	for c in cities:
+		if is_instance_valid(c): c.game = self
+
 	fow_manager.update_fow()
 
 func test_setup():
@@ -108,6 +117,7 @@ func test_setup():
 # ── Spawning & Purchasing ─────────────────────────────────────────────────────
 
 func _on_train_created(train: Node2D):
+	train.game = self
 	trains.append(train)
 	units.append(train)
 
@@ -125,13 +135,13 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 		purchased = true
 	else:
 		var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[item_type]
-		purchased = _spawn_unit_near_city(scene, city)
+		purchased = _spawn_unit_near_city(scene, city, item_type)
 
 	if purchased:
 		city.deplete(cost)
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
 		
-func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
+func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String = "") -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
 		
@@ -139,6 +149,8 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 			var unit = scene.instantiate()
 			unit.setup(grid)
 			add_child(unit, true)
+			unit.game = self
+			if unit_type != "": unit.unit_type = unit_type
 			
 			if city.team == 2: 
 				unit.set_enemy()
@@ -150,6 +162,117 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 		
 	print("No free hex adjacent to %s" % city.name)
 	return false
+
+# ── Card-driven board changes ─────────────────────────────────────────────────
+# These are called by CardResolver / CardScripts. They are deliberately generic
+# so new cards rarely need new engine code.
+
+func spawn_unit(effect: Dictionary) -> Node2D:
+	var type: String = effect.get("unit", "infantry")
+	var team: int    = int(effect.get("team", 1))
+	var scene: PackedScene = {
+		"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI
+	}.get(type, INFANTRY)
+
+	var hex = _resolve_spawn_hex(effect.get("near", "player_hq"))
+	if hex == null:
+		print("spawn_unit: no free hex for %s" % type)
+		return null
+
+	var unit = scene.instantiate()
+	unit.setup(grid)
+	add_child(unit, true)
+	unit.game = self
+	unit.unit_type = effect.get("unit_type", type)
+	if team == 2: unit.set_enemy()
+
+	# Optional custom overrides for "spawn a special unit" cards.
+	if effect.has("name"):           unit.name = effect["name"]
+	if effect.has("tags"):           unit.tags = effect["tags"].duplicate()
+	if effect.has("max_resources"):  unit.resource_comp.set_max_resources(int(effect["max_resources"]))
+	if effect.get("fill", false):    unit.replenish(unit.get_max_resources())
+
+	unit.move_to(hex)
+	units.append(unit)
+
+	# Per-unit modifiers (e.g. a permanent attack buff on this one unit).
+	for m in effect.get("modifiers", []):
+		var mm: Dictionary = m.duplicate(true)
+		mm["scope"] = "unit:%d" % unit.get_instance_id()
+		modifiers.add_modifier(mm)
+
+	fow_manager.update_fow()
+	return unit
+
+func transform_units(effect: Dictionary) -> void:
+	# Changes existing pieces in place: stats, type, name, attached modifiers.
+	# Defaults to a single piece ("transform A unit"); set "count" to do more.
+	var scope: String = effect.get("scope", "player")
+	var pieces: Array = modifiers.select_pieces(self, scope)
+	if effect.get("combatants_only", false):
+		pieces = pieces.filter(func(p): return p.has_method("is_combatant") and p.is_combatant())
+	var count: int = int(effect.get("count", 1))
+
+	var done := 0
+	for p in pieces:
+		if done >= count: break
+		if effect.has("unit_type"):     p.unit_type = effect["unit_type"]
+		if effect.has("rename"):        p.name = effect["rename"]
+		if effect.has("add_tags"):      p.tags.append_array(effect["add_tags"])
+		if effect.has("max_resources"): p.resource_comp.set_max_resources(int(effect["max_resources"]))
+		if effect.has("set_resources"): p.resource_comp.resources = int(effect["set_resources"])
+		if effect.has("replenish"):     p.replenish(int(effect["replenish"]))
+		for m in effect.get("modifiers", []):
+			var mm: Dictionary = m.duplicate(true)
+			mm["scope"] = "unit:%d" % p.get_instance_id()
+			modifiers.add_modifier(mm)
+		p.update_ui()
+		done += 1
+
+# ── Spawn-location helpers ────────────────────────────────────────────────────
+
+func _resolve_spawn_hex(near):
+	# Accepts: "player_hq" / "enemy_hq" / a city name / [q, r] coords.
+	var center
+	if near is Array and near.size() == 2:
+		center = Vector2i(int(near[0]), int(near[1]))
+		if get_piece(center) == null and grid.Grid.has(center):
+			return center
+	elif near == "player_hq":
+		var hq = player_hq()
+		center = hq.get_hex() if hq else null
+	elif near == "enemy_hq":
+		var hq = enemy_hq()
+		center = hq.get_hex() if hq else null
+	else:
+		var c = find_city_by_name(str(near))
+		center = c.get_hex() if c else null
+
+	if center == null:
+		return null
+	return _free_hex_near(center)
+
+func _free_hex_near(center: Vector2i):
+	for adj in HEX.axial_neighbours(center):
+		if not grid.Grid.has(adj): continue
+		if get_piece(adj) == null and not rail_network.rail_hexes.has(adj) and not adj in recent_death_hexes:
+			return adj
+	return null
+
+func find_city_by_name(n: String) -> Node2D:
+	for c in cities:
+		if c.name == n: return c
+	return null
+
+func player_hq() -> Node2D:
+	for c in cities:
+		if c.is_hq and c.team == 1: return c
+	return null
+
+func enemy_hq() -> Node2D:
+	for c in cities:
+		if c.is_hq and c.team == 2: return c
+	return null
 
 # ── Selection ─────────────────────────────────────────────────────────────────
 
@@ -215,7 +338,10 @@ func _resolve_all_movement() -> Array:
 	for unit in units:
 		if unit is City: continue
 
-		if unit.has_method("process_movement"):
+		# Weather / mud / etc. can freeze a unit's movement for the day. Resource
+		# ticks still happen (next_day below), only the actual move is skipped.
+		var blocked := modifiers != null and modifiers.is_movement_blocked(unit)
+		if unit.has_method("process_movement") and not blocked:
 			unit.process_movement()
 
 		if unit.next_day():
@@ -455,7 +581,8 @@ func clock_increment():
 		unit.process_resupply()
 
 	var card_to_play = card_manager.draw_daily_card(day)
-	if card_to_play: 
+	if card_to_play:
+		card_manager.resolve_drawn(card_to_play)   # intel/event apply on draw
 		ui.card_ui.display_card(card_to_play)
 	else: 
 		ui.card_ui.hide()
@@ -469,6 +596,7 @@ func clock_increment():
 
 	_unfreeze_all()
 	fow_manager.update_fow()
+	ui.update_debug(modifiers, game_state)
 
 	if ui.city_menu.visible: 
 		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)

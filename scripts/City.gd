@@ -16,8 +16,22 @@ func next_day() -> bool:
 		var starved = resource_comp.clock_cycle_depleting_only()
 		update_ui()
 		return starved
+
+	# Normal income, but routed through the modifier system so cards can boost or
+	# cut a city's output (permanently, temporarily, player-only, this city only…).
+	var base_rate: int = resource_comp.replenish_rate
+	var rate: int = base_rate
+	if game and game.modifiers:
+		rate = int(round(game.modifiers.get_value("city_income", float(base_rate), self)))
+
+	if rate > 0:
+		resource_comp.replenish(rate)
+		update_ui()
+		return false
 	else:
-		return super()
+		var starved = resource_comp.deplete(resource_comp.deplete_rate)
+		update_ui()
+		return starved
 
 # ── Disabling Movement and Freezing ─────────────────────────────────────
 

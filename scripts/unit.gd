@@ -6,6 +6,15 @@ var HEX = HEXGRID.new()
 var grid: Node 
 func setup(p_grid: Node): grid = p_grid
 
+# Back-reference to the Game node, set right after spawn. Gives units (and cards
+# that target them) access to game.modifiers etc. Null-safe everywhere it's used.
+var game: Node = null
+
+# Used by modifier scopes like "type:infantry" and "tag:elite". Set this per unit
+# scene (e.g. "infantry", "artillery", "logistics") or via a spawn/transform card.
+@export var unit_type: String = ""
+var tags: Array = []
+
 # ── Action ────────────────────────────────────────────────────────────────────
 
 var frozen: bool = false
@@ -75,7 +84,12 @@ func set_attack_target(piece): return attack_comp.set_target(piece)
 func get_attack_target(): return attack_comp.get_target(grid)
 func clear_attack_target(): return attack_comp.clear_target()
 func get_attack_range(): return attack_comp.get_range()  if attack_comp else 1
-func get_damage(): return attack_comp.get_damage() if attack_comp else 0
+func get_damage():
+	var base = attack_comp.get_damage() if attack_comp else 0
+	# Apply any "attack" modifiers scoped to this unit (buffs, weather, debuffs).
+	if game and game.modifiers:
+		return int(round(game.modifiers.get_value("attack", float(base), self)))
+	return base
 func attack(enemy): return attack_comp.attack(enemy) if attack_comp else false
 
 # ── Team ──────────────────────────────────────────────────────────────────────

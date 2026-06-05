@@ -22,6 +22,13 @@ func attack(enemy, damage_override = null):
 	if damage_override:
 		dmg = damage_override
 
+	# Card/modifier effects on outgoing damage (buffs, debuffs, morale_collapse, etc.)
+	# "attack" modifiers scoped to this attacker are applied here. No modifiers = no change.
+	if ally and ally.game and ally.game.modifiers:
+		dmg = int(round(ally.game.modifiers.get_value("attack", float(dmg), ally)))
+		if dmg < 0:
+			dmg = 0
+
 	var destroyed := false
 
 	if enemy.is_combatant():

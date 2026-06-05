@@ -1,9 +1,10 @@
 [gd_scene format=3 uid="uid://d0e2bseexpwq3"]
 
-[ext_resource type="Script" uid="uid://clvc6pcgt73kj" path="res://scripts/card_manager.gd" id="1_6qhmb"]
+[ext_resource type="Script" uid="uid://btlrqd0k3s7ch" path="res://scripts/card_manager.gd" id="1_6qhmb"]
 [ext_resource type="PackedScene" uid="uid://s6wstpymebwh" path="res://scenes/CardLibrary.tscn" id="1_untj4"]
 [ext_resource type="Script" uid="uid://bjxd6ucecovds" path="res://scripts/deck.gd" id="2_6qhmb"]
 [ext_resource type="PackedScene" uid="uid://dfgjo4mp6cpud" path="res://scenes/CardResolver.tscn" id="3_hsxh1"]
+[ext_resource type="Script" uid="uid://c236x8j7mwkwo" path="res://scripts/card_scripts.gd" id="5_hyv48"]
 
 [node name="CardManager" type="Node" unique_id=4359198]
 script = ExtResource("1_6qhmb")
@@ -14,3 +15,6 @@ script = ExtResource("1_6qhmb")
 script = ExtResource("2_6qhmb")
 
 [node name="CardResolver" parent="." unique_id=657464377 instance=ExtResource("3_hsxh1")]
+
+[node name="CardScripts" type="Node" parent="." unique_id=1179709926]
+script = ExtResource("5_hyv48")
