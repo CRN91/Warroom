@@ -58,11 +58,13 @@ func _build_city_menu():
 	vbox.add_child(HSeparator.new())
 
 	for item in [
-		["infantry",  "Infantry",     costs["infantry"]],
-		["artillery", "Artillery",    costs["artillery"]],
-		["logistics", "Logistics",    costs["logistics"]],
-		["rail",      "Rail Segment", costs["rail"]],
-		["train",     "Train",        costs["train"]],
+		["infantry",  "Infantry",        costs["infantry"]],
+		["artillery", "Artillery",       costs["artillery"]],
+		["logistics", "Logistics",       costs["logistics"]],
+		["rail",      "Rail Segment",    costs["rail"]],
+		["train",     "Train",           costs["train"]],
+		["bridge",    "Bridge",          costs["bridge"]], 
+		["tunnel",    "Mountain Tunnel", costs["tunnel"]] 
 	]:
 		var btn = Button.new()
 		btn.text = "%s  (%d)" % [item[1], item[2]]
@@ -79,16 +81,16 @@ func _build_city_menu():
 	add_child(city_menu)
 	city_menu.hide()
 
-func open_city_menu(city: Node2D, rail_stock: int, train_stock: int):
+func open_city_menu(city: Node2D, rail_stock: int, train_stock: int, bridge_stock: int, tunnel_stock: int):
 	city_menu_city = city
-	refresh_city_menu(rail_stock, train_stock)
+	refresh_city_menu(rail_stock, train_stock, bridge_stock, tunnel_stock)
 	city_menu.show()
 
 func close_city_menu():
 	city_menu.hide()
 	city_menu_city = null
 
-func refresh_city_menu(rail_stock: int, train_stock: int):
+func refresh_city_menu(rail_stock: int, train_stock: int, bridge_stock: int, tunnel_stock: int):
 	if not city_menu_city: return
 	city_title_lbl.text = "%s\n%d / %d resources" % [
 		city_menu_city.name,
@@ -98,7 +100,8 @@ func refresh_city_menu(rail_stock: int, train_stock: int):
 	var res = city_menu_city.get_resources()
 	for key in city_buy_btns:
 		city_buy_btns[key].disabled = res < costs[key]
-	city_stock_lbl.text = "Stock: %d rail   %d trains" % [rail_stock, train_stock]
+		
+	city_stock_lbl.text = "Stock: %d rail | %d trains\n%d bridges | %d tunnels" % [rail_stock, train_stock, bridge_stock, tunnel_stock]
 
 func _on_buy_pressed(item_type: String):
 	if city_menu_city:
@@ -117,7 +120,7 @@ func _build_debug_overlay():
 	debug_lbl.offset_top = 10
 	debug_lbl.offset_right = -10
 	debug_lbl.offset_bottom = 420
-	debug_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	debug_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT 
 	debug_lbl.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
 	debug_lbl.add_theme_font_size_override("font_size", 13)
 	add_child(debug_lbl)

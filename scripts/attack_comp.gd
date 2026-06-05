@@ -85,6 +85,10 @@ func _find_enemy_in_range(grid) -> Node2D:
 	var possible: Array = []
 	for hex in HEX.axial_radius(piece.get_hex(), piece.get_attack_range()):
 		if not grid.Grid.has(hex): continue
+
+		if ally.game.terrain_manager.blocks_line_of_fire(piece.get_hex(), hex):
+			continue
+			
 		var temp_piece = grid.get_piece(hex)
 		if temp_piece and temp_piece.team != piece.team:
 			possible.append(temp_piece)

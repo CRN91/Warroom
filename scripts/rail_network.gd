@@ -22,11 +22,12 @@ var player_rail_stock: int  = 0
 var player_train_stock: int = 0
 
 var grid: Node
-
+var terrain: Node2D
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
-func setup(_grid: Node):
+func setup(_grid: Node, _terrain: Node2D):
 	grid = _grid
+	terrain = _terrain
 
 # ── Rail Building ─────────────────────────────────────────────────────────────
 
@@ -48,6 +49,10 @@ func toggle_rail(hex):
 
 	if rail_hexes.has(hex): return
 	if grid.get_piece(hex) is City: return
+
+	if terrain.is_mountain(hex) and not terrain.has_tunnel(hex):
+		print("Cannot build rail on a mountain without a tunnel!")
+		return
 
 	if player_rail_stock < 1:
 		print("Not enough rail stock"); return

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bkpjdilsaiovo"]
 
 [ext_resource type="PackedScene" uid="uid://c1ftkj5wviygk" path="res://scenes/card.tscn" id="1_dj8aq"]
-[ext_resource type="Script" uid="uid://prici1mcwagc" path="res://scripts/ui_manager.gd" id="1_ro3t7"]
+[ext_resource type="Script" uid="uid://dk2phs8782m7i" path="res://scripts/ui_manager.gd" id="1_ro3t7"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_snlk1"]
 
@@ -31,8 +31,8 @@ layout_mode = 2
 
 [node name="CardUI" parent="." unique_id=1997218907 instance=ExtResource("1_dj8aq")]
 offset_left = 600.0
-offset_right = 1100.0
-offset_bottom = 100.0
+offset_right = 930.0
+offset_bottom = 430.0
 
 [node name="NextDay" type="Button" parent="." unique_id=7034990]
 material = SubResource("CanvasItemMaterial_snlk1")

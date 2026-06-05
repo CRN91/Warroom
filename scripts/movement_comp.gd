@@ -16,17 +16,15 @@ func _ready():
 
 func valid_hex(check_hex, grid):
 	""" Checks the hex exists, is adjacent and is not occupied """
-	# Hex exists in grid
-	if HEX.axial_to_oddr(check_hex) in grid.get_used_cells_by_id(0, 0, Vector2i(0, 0)):
-		# Hex is a neighbour of the current hex
+	
+	if grid.Grid.has(check_hex):
 		if hex:
 			if check_hex in HEX.axial_neighbours(hex):
-				# Hex occupied status
-				return not grid.get_piece(check_hex)
+				return grid.get_piece(check_hex) == null
 		else:
-			return not grid.get_piece(check_hex)
-	else:
-		return false
+			return grid.get_piece(check_hex) == null
+
+	return false
 		
 func set_hex(new_hex, grid):
 	""" Sets the position of the object on the grid.

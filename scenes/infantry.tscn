@@ -30,5 +30,5 @@ script = ExtResource("6_q00lq")
 [node name="ResourceBar" type="ProgressBar" parent="." unique_id=1539453042]
 offset_top = -200.0
 offset_right = 300.0
-offset_bottom = -100.0
+offset_bottom = -115.0
 show_percentage = false

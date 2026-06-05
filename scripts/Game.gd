@@ -12,6 +12,7 @@ var HEX = HEXGRID.new()
 @onready var rail_network = $RailNetwork
 @onready var fow_manager = $FowManager
 @onready var modifiers: ModifierManager = $ModifierManager
+@onready var terrain_manager = $TerrainManager
 
 const INFANTRY  = preload("res://scenes/infantry.tscn")
 const ARTILLERY = preload("res://scenes/artillery.tscn")
@@ -26,7 +27,12 @@ const COST = {
 	"logistics": 800,
 	"rail":      100,
 	"train":     800,
+	"bridge":    400,
+	"tunnel":    800 
 }
+
+var player_bridge_stock: int = 0
+var player_tunnel_stock: int = 0 
 
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0, "weather": "clear" }
 var pending_cards: Array    = []
@@ -56,7 +62,15 @@ func _ready():
 	enemy_ai.setup(self)
 	fow_manager.setup(grid, rail_network, cities, units)
 	
-	rail_network.setup(grid)
+	terrain_manager.setup(grid)
+	var terrain_options = {
+		"hq_hexes": [Vector2i(0, 3), Vector2i(0, -3)],
+		"city_hexes": [Vector2i(0, 0)], 
+		"occupied": [Vector2i(2, 1), Vector2i(1, -3), Vector2i(2, -3), Vector2i(-1, 2), Vector2i(-1, -1)]
+	}
+	terrain_manager.generate(terrain_options)
+	
+	rail_network.setup(grid, terrain_manager)
 	rail_network.train_created.connect(_on_train_created)
 	
 	ui.setup(COST)
@@ -66,7 +80,6 @@ func _ready():
 	
 	test_setup()
 
-	# Give every starting piece a back-reference so modifiers/cards can reach them.
 	for u in units:
 		if is_instance_valid(u): u.game = self
 	for c in cities:
@@ -133,19 +146,27 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 	elif item_type == "train":
 		rail_network.player_train_stock += 1
 		purchased = true
+	elif item_type == "bridge":
+		player_bridge_stock += 1
+		purchased = true
+	elif item_type == "tunnel": 
+		player_tunnel_stock += 1
+		purchased = true
 	else:
 		var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[item_type]
 		purchased = _spawn_unit_near_city(scene, city, item_type)
 
 	if purchased:
 		city.deplete(cost)
-		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
 		
 func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String = "") -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
 		if not grid.Grid.has(adj): continue
 		
 		if get_piece(adj) == null and not rail_network.rail_hexes.has(adj) and not adj in recent_death_hexes:
+			if terrain_manager.is_mountain(adj): continue # Prevents spawning units inside mountains
+			
 			var unit = scene.instantiate()
 			unit.setup(grid)
 			add_child(unit, true)
@@ -164,8 +185,6 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String =
 	return false
 
 # ── Card-driven board changes ─────────────────────────────────────────────────
-# These are called by CardResolver / CardScripts. They are deliberately generic
-# so new cards rarely need new engine code.
 
 func spawn_unit(effect: Dictionary) -> Node2D:
 	var type: String = effect.get("unit", "infantry")
@@ -186,7 +205,6 @@ func spawn_unit(effect: Dictionary) -> Node2D:
 	unit.unit_type = effect.get("unit_type", type)
 	if team == 2: unit.set_enemy()
 
-	# Optional custom overrides for "spawn a special unit" cards.
 	if effect.has("name"):           unit.name = effect["name"]
 	if effect.has("tags"):           unit.tags = effect["tags"].duplicate()
 	if effect.has("max_resources"):  unit.resource_comp.set_max_resources(int(effect["max_resources"]))
@@ -195,7 +213,6 @@ func spawn_unit(effect: Dictionary) -> Node2D:
 	unit.move_to(hex)
 	units.append(unit)
 
-	# Per-unit modifiers (e.g. a permanent attack buff on this one unit).
 	for m in effect.get("modifiers", []):
 		var mm: Dictionary = m.duplicate(true)
 		mm["scope"] = "unit:%d" % unit.get_instance_id()
@@ -205,8 +222,6 @@ func spawn_unit(effect: Dictionary) -> Node2D:
 	return unit
 
 func transform_units(effect: Dictionary) -> void:
-	# Changes existing pieces in place: stats, type, name, attached modifiers.
-	# Defaults to a single piece ("transform A unit"); set "count" to do more.
 	var scope: String = effect.get("scope", "player")
 	var pieces: Array = modifiers.select_pieces(self, scope)
 	if effect.get("combatants_only", false):
@@ -232,7 +247,6 @@ func transform_units(effect: Dictionary) -> void:
 # ── Spawn-location helpers ────────────────────────────────────────────────────
 
 func _resolve_spawn_hex(near):
-	# Accepts: "player_hq" / "enemy_hq" / a city name / [q, r] coords.
 	var center
 	if near is Array and near.size() == 2:
 		center = Vector2i(int(near[0]), int(near[1]))
@@ -256,6 +270,7 @@ func _free_hex_near(center: Vector2i):
 	for adj in HEX.axial_neighbours(center):
 		if not grid.Grid.has(adj): continue
 		if get_piece(adj) == null and not rail_network.rail_hexes.has(adj) and not adj in recent_death_hexes:
+			if terrain_manager.is_mountain(adj): continue
 			return adj
 	return null
 
@@ -279,7 +294,7 @@ func enemy_hq() -> Node2D:
 func _select_piece(piece: Node2D, hex: Vector2i):
 	if piece is City:
 		if piece.team == 1:
-			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock)
+			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
 		else:
 			ui.show_stats(piece)
 	else:
@@ -317,7 +332,6 @@ func _resolve_all_combat():
 			elif target not in to_die:
 				to_die.append(target)
 
-		# If the target hex has a rail on it, the attack damages the line
 		var target_hex = target.get_hex()
 		if target_hex and rail_network.rail_hexes.has(target_hex):
 			rail_network.break_rail_at(target_hex)
@@ -326,20 +340,32 @@ func _resolve_all_combat():
 			to_die.append(attacker)
 
 	for dead in to_die:
-		for unit in units:
-			if is_instance_valid(unit) and unit.attack_comp and unit.get_attack_target() == dead:
-				unit.set_attack_target(null)
-		_die(dead)
+		if is_instance_valid(dead):
+			_die(dead)
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
 func _resolve_all_movement() -> Array:
 	var starved: Array = []
+	
+	var player_manual = []
+	var player_auto = []
+	var enemy_units = []
+
 	for unit in units:
 		if unit is City: continue
+		
+		if unit.team == 1:
+			if unit.get("use_manual_path"):
+				player_manual.append(unit)
+			else:
+				player_auto.append(unit)
+		else:
+			enemy_units.append(unit)
 
-		# Weather / mud / etc. can freeze a unit's movement for the day. Resource
-		# ticks still happen (next_day below), only the actual move is skipped.
+	var ordered_units = player_manual + player_auto + enemy_units
+
+	for unit in ordered_units:
 		var blocked := modifiers != null and modifiers.is_movement_blocked(unit)
 		if unit.has_method("process_movement") and not blocked:
 			unit.process_movement()
@@ -358,9 +384,9 @@ func _handle_movement_command(unit, target_hex):
 		_unghost_grid() 
 
 		for i in range(1, route.size()):
-			unit.add_waypoint(route[i])
+			unit.movement_comp.add_waypoint(route[i])
 	else:
-		unit.set_destination(target_hex)
+		unit.movement_comp.set_goal(target_hex)
 		
 func _ghost_grid():
 	_ghosted_hexes.clear()
@@ -368,6 +394,7 @@ func _ghost_grid():
 		var p = get_piece(h)
 		if p:
 			if p is City: continue 
+			if terrain_manager.is_mountain(h): continue 
 			grid.enable_hex(h)
 			_ghosted_hexes.append(h)
 
@@ -381,14 +408,34 @@ func _play_selected(hex, p_hex_to_move):
 	var active_unit = get_piece(p_hex_to_move)
 	if not active_unit: return
 
-	# ── Logistics repair action ───────────────────────────────────────────────
-	# Logistics clicking an adjacent broken rail hex spends 50 resources to fix it.
-	if active_unit is Logistics and not selected:
-		if rail_network.rail_hexes.has(hex) and rail_network.rail_hexes[hex]["broken"]:
-			var dist = HEX.axial_distance(p_hex_to_move, hex)
-			if dist <= 1:
+	# ── Logistics repair / build action ───────────────────────────────────────
+	if active_unit is Logistics:
+		var dist = HEX.axial_distance(p_hex_to_move, hex)
+		if dist == 1:
+			var acted = false
+			
+			# 1. Build Tunnel (Clicking a mountain without a tunnel)
+			if terrain_manager.is_mountain(hex) and not terrain_manager.has_tunnel(hex):
+				if player_tunnel_stock > 0:
+					terrain_manager.build_tunnel(hex)
+					player_tunnel_stock -= 1
+					acted = true
+					
+			# 2. Build Bridge (Clicking across a river edge)
+			elif terrain_manager.is_river_edge(p_hex_to_move, hex) and not terrain_manager.is_bridged(p_hex_to_move, hex):
+				if player_bridge_stock > 0:
+					terrain_manager.build_bridge(p_hex_to_move, hex)
+					player_bridge_stock -= 1
+					acted = true
+					
+			# 3. Repair broken rail (Clicking a broken rail hex)
+			elif not selected and rail_network.rail_hexes.has(hex) and rail_network.rail_hexes[hex]["broken"]:
 				rail_network.repair_rail_at(hex, active_unit)
-				ui.refresh_stats()
+				acted = true
+				
+			if acted:
+				if ui.city_menu.visible: 
+					ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
 				return
 
 	if active_unit.use_manual_path:
@@ -407,8 +454,12 @@ func _play_selected(hex, p_hex_to_move):
 
 	if active_unit.team != selected.team:
 		if active_unit.is_combatant() and dist <= active_unit.get_attack_range():
-			active_unit.set_attack_target(selected)
-			ui.show_stats(active_unit)
+			if dist > 1 and terrain_manager.blocks_line_of_fire(p_hex_to_move, hex):
+				print("Line of fire blocked by mountain!")
+			else:
+				active_unit.set_attack_target(selected)
+				ui.show_stats(active_unit)
+				
 	elif dist == 1:
 		var active_is_supplier   = not active_unit.is_combatant()
 		var selected_is_supplier = not selected.is_combatant()
@@ -420,9 +471,26 @@ func _play_selected(hex, p_hex_to_move):
 		elif active_is_supplier and selected_is_supplier:
 			active_unit.receive_from(selected)
 
+	_cull_dead_units()
+
 # ── Death ─────────────────────────────────────────────────────────────────────
 
+func _cull_dead_units():
+	var to_die = []
+	for unit in units:
+		if is_instance_valid(unit) and not (unit is City):
+			if unit.get_resources() <= 0:
+				to_die.append(unit)
+				
+	for dead in to_die:
+		if is_instance_valid(dead):
+			_die(dead)
+
 func _die(dead_piece):
+	for unit in units:
+		if is_instance_valid(unit) and unit.get("attack_comp") and unit.get_attack_target() == dead_piece:
+			unit.set_attack_target(null)
+
 	var dead_hex = dead_piece.get_hex()
 	if dead_hex and grid.Grid.has(dead_hex):
 		grid.Grid[dead_hex]["Piece"] = null
@@ -439,7 +507,7 @@ func _die(dead_piece):
 		trains.erase(dead_piece)
 
 	grid.enable_hex(dead_hex)
-	dead_piece.queue_free()   # train.gd's tree_exiting notifies rail_network automatically
+	dead_piece.queue_free()
 
 func _game_over(player_lost: bool):
 	ui.show_game_over(player_lost)
@@ -453,21 +521,18 @@ func set_piece(hex, piece=null):
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 
-func _unhandled_input(event):
+func _input(event):
 	if (event is InputEventMouse or event is InputEventMouseButton) and ui.is_mouse_over_ui():
 		return
 		
 	if event.is_action_pressed("select"):
-		var oddr_hex = grid.local_to_map(get_global_mouse_position())
+		var oddr_hex = grid.base_layer.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
 		
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
 			var selected = get_piece(hex)
 			
-			# ── Deploy train onto empty route ─────────────────────────────────
-			# If there is no piece on the hex but it has rail with no train,
-			# and the player has train stock, deploy one there.
 			if not selected and not hex_to_move:
 				if rail_network.can_deploy_train(hex) and rail_network.player_train_stock > 0:
 					if rail_network.deploy_train_from_stock(hex):
@@ -485,8 +550,11 @@ func _unhandled_input(event):
 				if piece_to_move:
 					_play_selected(hex, hex_to_move) 
 					
-					if piece_to_move.use_manual_path:
-						ui.show_stats(piece_to_move)
+					if is_instance_valid(piece_to_move):
+						if piece_to_move.use_manual_path:
+							ui.show_stats(piece_to_move)
+						else:
+							_deselect_piece()
 					else:
 						_deselect_piece()
 
@@ -495,7 +563,7 @@ func _unhandled_input(event):
 
 	elif event is InputEventMouseMotion:
 		if hex_to_move:
-			var oddr_hex   = grid.local_to_map(get_global_mouse_position())
+			var oddr_hex   = grid.base_layer.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
 			
 			if target_hex in grid.Grid.keys():
@@ -529,15 +597,14 @@ func _unhandled_input(event):
 			path_line.clear_points()
 
 	elif event is InputEventKey and event.pressed and not event.echo:
-		var oddr_hex = grid.local_to_map(get_global_mouse_position())
+		var oddr_hex = grid.base_layer.local_to_map(get_global_mouse_position())
 		var hex      = HEX.oddr_to_axial(oddr_hex)
-		
+
 		match event.keycode:
 			KEY_M:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece:
-						grid.enable_hex(hex_to_move)
 						piece.toggle_path_mode()
 						ui.show_stats(piece)
 			KEY_F:
@@ -578,28 +645,33 @@ func clock_increment():
 	_resolve_all_combat()
 
 	for unit in units:
-		unit.process_resupply()
+		if is_instance_valid(unit):
+			unit.process_resupply()
 
 	var card_to_play = card_manager.draw_daily_card(day)
 	if card_to_play:
-		card_manager.resolve_drawn(card_to_play)   # intel/event apply on draw
+		card_manager.resolve_drawn(card_to_play)   
 		ui.card_ui.display_card(card_to_play)
 	else: 
 		ui.card_ui.hide()
 
 	for city in cities:
-		city.next_day()
+		if is_instance_valid(city):
+			city.next_day()
 
 	for dead in starved:
-		print("%s starved." % dead.name)
-		_die(dead)
+		if is_instance_valid(dead):
+			print("%s starved." % dead.name)
+			_die(dead)
+
+	_cull_dead_units()
 
 	_unfreeze_all()
 	fow_manager.update_fow()
 	ui.update_debug(modifiers, game_state)
 
 	if ui.city_menu.visible: 
-		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
 		
 	if ui.panel.visible:
 		ui.refresh_stats()
