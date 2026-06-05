@@ -11,9 +11,9 @@ var manual_override: bool = false
 
 func setup_route(new_route: Array, id: int, p_grid: Node, p_rail_network: Node):
 	setup(p_grid)
-	route = new_route
-	route_id = id
-	direction = 1
+	route      = new_route
+	route_id   = id
+	direction  = 1
 	manual_override = false
 
 	rail_network = p_rail_network
@@ -72,8 +72,8 @@ func process_movement():
 	if route.is_empty():
 		return
 
-	if not _route_intact(rail_network.rail_hexes):
-		print("%s halted — rail broken at %s" % [name, _first_broken(rail_network.rail_hexes)])
+	if not _route_intact():
+		print("%s halted — rail broken at %s" % [name, _first_broken()])
 		return
 
 	var current_hex = get_hex()
@@ -122,7 +122,7 @@ func process_movement():
 		grid.enable_hex(get_hex())
 		grid.set_piece(next_hex, self)
 		grid.disable_hex(next_hex)
-		movement_comp.force_hex(next_hex,grid)
+		movement_comp.force_hex(next_hex, grid)
 
 		_exchange_supplies()
 
@@ -140,12 +140,9 @@ func _exchange_supplies():
 		if city == null or not (city is City): continue
 		if city.team != team: continue
 
-		# Terminus A: load up from the city.
 		if current_idx == 0:
 			receive_from(city)
 			print("%s loaded supplies from %s at Terminus A" % [name, city.name])
-
-		# Any other position: drop off cargo to the city.
 		else:
 			var carry      = get_resources()
 			var cargo_space = city.get_max_resources() - city.get_resources()
@@ -158,24 +155,14 @@ func _exchange_supplies():
 
 # ── Rail integrity ────────────────────────────────────────────────────────────
 
-func _route_intact(rail_hexes: Dictionary) -> bool:
+func _route_intact() -> bool:
 	for hex in route:
-		if not rail_hexes.has(hex): return false
-		if rail_hexes[hex].get("broken", false): return false
+		if not rail_network.rail_hexes.has(hex): return false
+		if rail_network.rail_hexes[hex].get("broken", false): return false
 	return true
 
-func _first_broken(rail_hexes: Dictionary) -> Vector2i:
+func _first_broken() -> Vector2i:
 	for hex in route:
-		if not rail_hexes.has(hex) or rail_hexes[hex].get("broken", false):
+		if not rail_network.rail_hexes.has(hex) or rail_network.rail_hexes[hex].get("broken", false):
 			return hex
 	return Vector2i(-99, -99)
-
-func sabotage_at(hex: Vector2i, game: Node):
-	if game.rail_network.rail_hexes.has(hex):
-		game.rail_network.rail_hexes[hex]["broken"] = true
-		print("Rail sabotaged at %s — %s halted!" % [str(hex), name])
-
-func repair_at(hex: Vector2i, game: Node):
-	if game.rail_network.rail_hexes.has(hex):
-		game.rail_network.rail_hexes[hex]["broken"] = false
-		print("Rail repaired at %s" % str(hex))

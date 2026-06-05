@@ -147,7 +147,7 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D) -> bool:
 			units.append(unit)
 			fow_manager.update_fow()
 			return true
-			
+		
 	print("No free hex adjacent to %s" % city.name)
 	return false
 
@@ -193,7 +193,12 @@ func _resolve_all_combat():
 				target.capture(attacker.team, self)
 			elif target not in to_die:
 				to_die.append(target)
-				
+
+		# If the target hex has a rail on it, the attack damages the line
+		var target_hex = target.get_hex()
+		if target_hex and rail_network.rail_hexes.has(target_hex):
+			rail_network.break_rail_at(target_hex)
+			
 		if attacker.get_resources() <= 0 and attacker not in to_die:
 			to_die.append(attacker)
 
@@ -246,9 +251,19 @@ func _unghost_grid():
 	_ghosted_hexes.clear()
 
 func _play_selected(hex, p_hex_to_move):
-	var selected = get_piece(hex)
+	var selected    = get_piece(hex)
 	var active_unit = get_piece(p_hex_to_move)
 	if not active_unit: return
+
+	# ── Logistics repair action ───────────────────────────────────────────────
+	# Logistics clicking an adjacent broken rail hex spends 50 resources to fix it.
+	if active_unit is Logistics and not selected:
+		if rail_network.rail_hexes.has(hex) and rail_network.rail_hexes[hex]["broken"]:
+			var dist = HEX.axial_distance(p_hex_to_move, hex)
+			if dist <= 1:
+				rail_network.repair_rail_at(hex, active_unit)
+				ui.refresh_stats()
+				return
 
 	if active_unit.use_manual_path:
 		if not selected is City:
@@ -269,7 +284,7 @@ func _play_selected(hex, p_hex_to_move):
 			active_unit.set_attack_target(selected)
 			ui.show_stats(active_unit)
 	elif dist == 1:
-		var active_is_supplier = not active_unit.is_combatant()
+		var active_is_supplier   = not active_unit.is_combatant()
 		var selected_is_supplier = not selected.is_combatant()
 
 		if active_is_supplier and not selected_is_supplier:
@@ -298,7 +313,7 @@ func _die(dead_piece):
 		trains.erase(dead_piece)
 
 	grid.enable_hex(dead_hex)
-	dead_piece.queue_free()
+	dead_piece.queue_free()   # train.gd's tree_exiting notifies rail_network automatically
 
 func _game_over(player_lost: bool):
 	ui.show_game_over(player_lost)
@@ -323,6 +338,15 @@ func _unhandled_input(event):
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
 			var selected = get_piece(hex)
+			
+			# ── Deploy train onto empty route ─────────────────────────────────
+			# If there is no piece on the hex but it has rail with no train,
+			# and the player has train stock, deploy one there.
+			if not selected and not hex_to_move:
+				if rail_network.can_deploy_train(hex) and rail_network.player_train_stock > 0:
+					if rail_network.deploy_train_from_stock(hex):
+						ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
+					return
 			
 			if selected:
 				if hex_to_move:
