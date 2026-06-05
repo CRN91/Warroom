@@ -107,6 +107,17 @@ func _connect_all_astar_points():
 		for adj in HEX.axial_neighbours(hex):
 			if adj in Grid.keys():
 				astar.connect_points(id, hex_to_id[adj])
+				
+var terrain
+
+func sync_pathing(passable := []) -> void:
+	for hex in Grid.keys():
+		var blocked = get_piece(hex) != null
+		if terrain and terrain.is_mountain(hex):
+			blocked = true
+		if hex in passable:
+			blocked = false
+		astar.set_point_disabled(hex_to_id[hex], blocked)
 
 # ── Selection ─────────────────────────────────────────────────────────────────
 

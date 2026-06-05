@@ -29,6 +29,9 @@ const MOUNTAIN_TEX = preload("res://assets/mountain.png")
 # edge_key(String) -> { "a": Vector2i, "b": Vector2i, "bridge": bool, "broken": bool }
 var river: Dictionary = {}
 
+var bridge_stock: int = 0
+var tunnel_stock: int = 0
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 func setup(_grid: Node) -> void:

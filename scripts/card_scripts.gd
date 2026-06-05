@@ -79,7 +79,7 @@ func elite_commando(game: Node, _ctx: Dictionary) -> void:
 func relic_awakens(game: Node, _ctx: Dictionary) -> void:
 	# Story payoff: turns one of the player's combat units into an "anomaly" with
 	# a huge attack bonus, then schedules a follow-up card a week later.
-	var candidates: Array = game.modifiers.select_pieces(game, "player")
+	var candidates: Array = game.modifiers.select_pieces(game.units, game.cities, "player")
 	candidates = candidates.filter(func(p): return p.has_method("is_combatant") and p.is_combatant())
 	if candidates.is_empty():
 		print("[script] Relic awakens, but no combat unit to transform.")

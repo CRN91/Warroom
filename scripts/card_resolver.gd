@@ -100,4 +100,4 @@ func _resolve_one(effect: Dictionary, game: Node) -> void:
 
 func _select(game: Node, effect: Dictionary) -> Array:
 	var scope: String = effect.get("scope", effect.get("selector", "all"))
-	return game.modifiers.select_pieces(game, scope)
+	return game.modifiers.select_pieces(game.units, game.cities, scope)

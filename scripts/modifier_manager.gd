@@ -29,10 +29,6 @@ var mods: Array = []
 var current_day: int = 0
 var _next_auto: int = 0
 
-func setup(_game: Node) -> void:
-	# Currently nothing to wire, but kept so the call site reads consistently.
-	pass
-
 # ── Adding / removing ─────────────────────────────────────────────────────────
 
 func add_modifier(data: Dictionary) -> void:
@@ -131,12 +127,12 @@ func has_stat(stat: String, piece) -> bool:
 
 # ── Selection (used by spawn / transform / grant effects) ─────────────────────
 
-func select_pieces(game: Node, scope: String) -> Array:
+func select_pieces(units: Array, cities: Array, scope: String) -> Array:
 	var out: Array = []
-	for p in game.units:
+	for p in units:
 		if is_instance_valid(p) and _matches(scope, p):
 			out.append(p)
-	for c in game.cities:
+	for c in cities:
 		if is_instance_valid(c) and _matches(scope, c) and c not in out:
 			out.append(c)
 	return out

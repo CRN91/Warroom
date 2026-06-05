@@ -31,13 +31,9 @@ const COST = {
 	"tunnel":    800 
 }
 
-var player_bridge_stock: int = 0
-var player_tunnel_stock: int = 0 
-
 var game_state: Dictionary = { "move_cost": 1, "attack_modifier": 1.0, "weather": "clear" }
 var pending_cards: Array    = []
 var pending_restores: Array = []
-var _ghosted_hexes: Array   = []
 var recent_death_hexes: Array = []
 
 var day: int = 0
@@ -57,12 +53,12 @@ var city_buy_btns: Dictionary = {}
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 func _ready():
-	modifiers.setup(self)
 	card_manager.setup(self)
 	enemy_ai.setup(self)
 	fow_manager.setup(grid, rail_network, cities, units)
 	
 	terrain_manager.setup(grid)
+	grid.terrain = terrain_manager
 	var terrain_options = {
 		"hq_hexes": [Vector2i(0, 3), Vector2i(0, -3)],
 		"city_hexes": [Vector2i(0, 0)], 
@@ -147,10 +143,10 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 		rail_network.player_train_stock += 1
 		purchased = true
 	elif item_type == "bridge":
-		player_bridge_stock += 1
+		terrain_manager.bridge_stock += 1
 		purchased = true
 	elif item_type == "tunnel": 
-		player_tunnel_stock += 1
+		terrain_manager.tunnel_stock += 1
 		purchased = true
 	else:
 		var scene = {"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI}[item_type]
@@ -158,7 +154,7 @@ func _on_city_buy_requested(item_type: String, city: Node2D):
 
 	if purchased:
 		city.deplete(cost)
-		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
 		
 func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String = "") -> bool:
 	for adj in HEX.axial_neighbours(city.get_hex()):
@@ -223,7 +219,7 @@ func spawn_unit(effect: Dictionary) -> Node2D:
 
 func transform_units(effect: Dictionary) -> void:
 	var scope: String = effect.get("scope", "player")
-	var pieces: Array = modifiers.select_pieces(self, scope)
+	var pieces: Array = modifiers.select_pieces(units, cities, scope)
 	if effect.get("combatants_only", false):
 		pieces = pieces.filter(func(p): return p.has_method("is_combatant") and p.is_combatant())
 	var count: int = int(effect.get("count", 1))
@@ -294,7 +290,7 @@ func enemy_hq() -> Node2D:
 func _select_piece(piece: Node2D, hex: Vector2i):
 	if piece is City:
 		if piece.team == 1:
-			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
+			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
 		else:
 			ui.show_stats(piece)
 	else:
@@ -379,29 +375,14 @@ func _handle_movement_command(unit, target_hex):
 	if unit.use_manual_path:
 		var start_hex = unit.movement_comp.path.back() if unit.movement_comp.path.size() > 0 else unit.get_hex()
 
-		_ghost_grid() 
+		grid.sync_pathing(_occupied_hexes()) 
 		var route = grid.get_map_path(start_hex, target_hex)
-		_unghost_grid() 
+		grid.sync_pathing()   
 
 		for i in range(1, route.size()):
 			unit.movement_comp.add_waypoint(route[i])
 	else:
 		unit.movement_comp.set_goal(target_hex)
-		
-func _ghost_grid():
-	_ghosted_hexes.clear()
-	for h in grid.Grid:
-		var p = get_piece(h)
-		if p:
-			if p is City: continue 
-			if terrain_manager.is_mountain(h): continue 
-			grid.enable_hex(h)
-			_ghosted_hexes.append(h)
-
-func _unghost_grid():
-	for h in _ghosted_hexes:
-		grid.disable_hex(h)
-	_ghosted_hexes.clear()
 
 func _play_selected(hex, p_hex_to_move):
 	var selected    = get_piece(hex)
@@ -416,16 +397,16 @@ func _play_selected(hex, p_hex_to_move):
 			
 			# 1. Build Tunnel (Clicking a mountain without a tunnel)
 			if terrain_manager.is_mountain(hex) and not terrain_manager.has_tunnel(hex):
-				if player_tunnel_stock > 0:
+				if terrain_manager.tunnel_stock > 0:
 					terrain_manager.build_tunnel(hex)
-					player_tunnel_stock -= 1
+					terrain_manager.tunnel_stock -= 1
 					acted = true
 					
 			# 2. Build Bridge (Clicking across a river edge)
 			elif terrain_manager.is_river_edge(p_hex_to_move, hex) and not terrain_manager.is_bridged(p_hex_to_move, hex):
-				if player_bridge_stock > 0:
+				if terrain_manager.bridge_stock > 0:
 					terrain_manager.build_bridge(p_hex_to_move, hex)
-					player_bridge_stock -= 1
+					terrain_manager.bridge_stock -= 1
 					acted = true
 					
 			# 3. Repair broken rail (Clicking a broken rail hex)
@@ -435,7 +416,7 @@ func _play_selected(hex, p_hex_to_move):
 				
 			if acted:
 				if ui.city_menu.visible: 
-					ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
+					ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
 				return
 
 	if active_unit.use_manual_path:
@@ -447,7 +428,7 @@ func _play_selected(hex, p_hex_to_move):
 
 	if click_as_empty:
 		_handle_movement_command(active_unit, hex)
-		grid.enable_hex(p_hex_to_move) 
+		#grid.enable_hex(p_hex_to_move) 
 		return
 
 	var dist = HEX.axial_distance(p_hex_to_move, hex)
@@ -571,26 +552,26 @@ func _input(event):
 				if piece:
 					if piece.use_manual_path:
 						path_line.default_color = Color(1.0, 0.8, 0.2)
-						var points = PackedVector2Array()
+						var points = PackedVector2Array()        # pixel positions — for the line only
 						var prev = piece.get_hex()
-						
+
 						points.append(grid.get_hex_pos(prev))
 						for p in piece.movement_comp.path:
 							points.append(grid.get_hex_pos(p))
 							prev = p
-						
-						_ghost_grid()
+
+						grid.sync_pathing(_occupied_hexes())     # HEX coords, not pixels
 						var mouse_points = grid.get_hex_path(prev, target_hex)
-						_unghost_grid()
-						
+						grid.sync_pathing()                       # restore truth
+
 						for i in range(1, mouse_points.size()):
 							points.append(mouse_points[i])
 						path_line.points = points
 					else:
 						path_line.default_color = Color(0.5, 1.0, 0.2)
-						grid.enable_hex(hex_to_move)
+						grid.sync_pathing([hex_to_move])
 						path_line.points = grid.get_hex_path(hex_to_move, target_hex)
-						grid.disable_hex(hex_to_move)
+						grid.sync_pathing()
 			else:
 				path_line.clear_points()
 		else:
@@ -623,6 +604,14 @@ func _input(event):
 					rail_network.cancel_rail_build()
 				else: 
 					_deselect_piece()
+
+func _occupied_hexes() -> Array:
+	var out: Array = []
+	for h in grid.Grid:
+		var p = get_piece(h)
+		if p and not (p is City):
+			out.append(h)
+	return out
 
 # ── Day cycle ─────────────────────────────────────────────────────────────────
 
@@ -671,7 +660,7 @@ func clock_increment():
 	ui.update_debug(modifiers, game_state)
 
 	if ui.city_menu.visible: 
-		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, player_bridge_stock, player_tunnel_stock)
+		ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
 		
 	if ui.panel.visible:
 		ui.refresh_stats()

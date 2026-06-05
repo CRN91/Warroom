@@ -56,14 +56,14 @@ func move_to(new_hex, grid):
 	var old_hex = get_hex()
 	# Inital placement does not freeze
 	if not old_hex:
-		grid.disable_hex(new_hex)
+		#grid.disable_hex(new_hex)
 		set_hex(new_hex, grid)
 		return
 
 	var frozen = piece.frozen
 	if not frozen:
 		frozen = true
-		grid.enable_hex(old_hex)
+		#grid.enable_hex(old_hex)
 
 		# Adjacency check
 		if new_hex in HEX.axial_neighbours(old_hex):
@@ -75,10 +75,10 @@ func move_to(new_hex, grid):
 			else:
 				# Hex occupied
 				frozen = false
-				grid.disable_hex(old_hex)
+				#grid.disable_hex(old_hex)
 		else:
 			frozen = false
-			grid.disable_hex(old_hex)
+			#grid.disable_hex(old_hex)
 	piece.frozen = frozen
 
 # ── Pathing ───────────────────────────────────────────────────────────
@@ -101,32 +101,23 @@ func process_movement(grid):
 		_auto_pathing(grid)
 
 func _auto_pathing(grid):
-	var current_hex = get_hex()
-	if current_hex == goal:
+	var current = get_hex()
+	if current == goal:
 		clear_goal()
-	else:
-		var goal_piece = grid.get_piece(goal)
-		grid.enable_hex(current_hex)
-		if goal_piece: grid.enable_hex(goal)
+		return
 
-		var hidden_hexes = []
-		for hex in grid.Grid:
-			var temp_piece = grid.get_piece(hex)
-			if temp_piece and not temp_piece.visible and temp_piece.team != piece.team:
-				grid.enable_hex(hex)
-				hidden_hexes.append(hex)
+	var passable = [current, goal]
+	for h in grid.Grid:
+		var p = grid.get_piece(h)
+		if p and not p.visible and p.team != piece.team:
+			passable.append(h)
+	grid.sync_pathing(passable)
 
-		var astar_path = grid.get_map_path(current_hex, goal)
+	var astar_path = grid.get_map_path(current, goal)
+	grid.sync_pathing()
 
-		# Re-disable the hidden enemies to restore the grid state
-		for h in hidden_hexes:
-			grid.disable_hex(h)
-
-		grid.disable_hex(current_hex)
-		if goal_piece: grid.disable_hex(goal)
-
-		if astar_path.size() > 1:
-			move_to(astar_path[1], grid)
+	if astar_path.size() > 1:
+		move_to(astar_path[1], grid)
 
 func _manual_pathing(grid):
 	var next_hex = path[0]
