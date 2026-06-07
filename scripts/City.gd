@@ -2,7 +2,7 @@ extends Unit
 class_name City
 
 @export var hex_tile: Vector2i
-var is_hq: bool = false
+var is_capital: bool = false
 var original_texture: Texture2D
 
 func _ready():
@@ -63,10 +63,11 @@ func set_player():
 # ── Capturing ─────────────────────────────────────────────────────────────
 
 func capture(new_team: int, game: Node):
-	if is_hq:
+	if is_capital: 
 		game._game_over(team == 1)
 		return
 
+	var prev := team              
 	team = new_team
 	resource_comp.resources = 500
 
@@ -74,6 +75,10 @@ func capture(new_team: int, game: Node):
 		set_player()
 	elif team == 2:
 		set_enemy()
+
+	if game and game.card_manager and new_team == 1:
+		var ev := "enemy_city_captured" if prev == 2 else "neutral_city_captured"
+		game.card_manager.notify(ev, {"by": 1})
 
 	print("%s captured by team %d" % [name, team])
 

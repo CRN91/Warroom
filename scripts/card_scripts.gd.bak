@@ -53,20 +53,20 @@ func clear_skies(game: Node, _ctx: Dictionary) -> void:
 	print("[script] Skies clear, weather modifiers lifted.")
 
 func summon_reinforcements(game: Node, ctx: Dictionary) -> void:
-	# Spawns fresh infantry next to the player capital and tops up the capital city.
+	# Spawns fresh infantry next to the player HQ and tops up the HQ city.
 	var count: int = int(ctx.get("count", 1))
 	for i in range(count):
-		game.spawn_unit({ "unit": "infantry", "team": 1, "near": "player_capital" })
-	var capital = game.player_capital()
-	if capital:
-		capital.replenish(int(ctx.get("supplies", 300)))
-	print("[script] Reinforcements: %d infantry spawned at player capital." % count)
+		game.spawn_unit({ "unit": "infantry", "team": 1, "near": "player_hq" })
+	var hq = game.player_hq()
+	if hq:
+		hq.replenish(int(ctx.get("supplies", 300)))
+	print("[script] Reinforcements: %d infantry spawned at player HQ." % count)
 
 func elite_commando(game: Node, _ctx: Dictionary) -> void:
 	# Spawns a custom unit: an infantry chassis with a permanent attack buff and
 	# a bigger supply tank, tagged so other cards can target it later.
 	var u = game.spawn_unit({
-		"unit": "infantry", "team": 1, "near": "player_capital",
+		"unit": "infantry", "team": 1, "near": "player_hq",
 		"unit_type": "commando", "name": "Commando", "max_resources": 160, "fill": true,
 		"tags": ["elite"],
 		"modifiers": [
@@ -99,13 +99,13 @@ func relic_awakens(game: Node, _ctx: Dictionary) -> void:
 
 func enemy_offensive(game: Node, ctx: Dictionary) -> void:
 	# Asymmetric pressure: temporarily buffs every enemy combatant and drops a
-	# fresh enemy artillery piece at their capital.
+	# fresh enemy artillery piece at their HQ.
 	var days: int = int(ctx.get("days", 4))
 	game.modifiers.add_modifier({
 		"id": "enemy_push", "stat": "attack", "op": "mul", "value": 1.5,
 		"scope": "enemy", "duration_days": days, "source": "enemy_offensive"
 	})
-	game.spawn_unit({ "unit": "artillery", "team": 2, "near": "enemy_capital" })
+	game.spawn_unit({ "unit": "artillery", "team": 2, "near": "enemy_hq" })
 	print("[script] Enemy offensive for %d days + reinforcement spawned." % days)
 
 func sabotage_rail(game: Node, _ctx: Dictionary) -> void:

@@ -1,350 +1,591 @@
 {
   "sets": {
-    "western_front_intel": {
-      "label": "Western Front Intelligence",
-      "startable": true,
-      "cards": [
-        {
-          "id": "intel_wf_001",
-          "type": "intel",
-          "text": "ASSET NIGHTINGALE: 'The eagle extends its wings in 5 sunrises.'",
-          "protected": false,
-          "effects": []
-        },
-        {
-          "id": "intel_wf_002",
-          "type": "intel",
-          "text": "Intercepted radio traffic suggests a redeployment east. Source unverified.",
-          "protected": false,
-          "effects": []
-        },
-        {
-          "id": "intel_recon_weakness",
-          "type": "intel",
-          "text": "Recon spots a gap in the enemy line. For a few days their attacks will land softer.",
-          "protected": false,
-          "effects": [
-            { "type": "add_modifier", "id": "recon_weakness", "stat": "attack", "op": "mul", "value": 0.8, "scope": "enemy", "duration_days": 3, "source": "intel_recon_weakness" }
-          ]
-        }
-      ]
-    },
-
-    "weather_events": {
-      "label": "Weather & Terrain",
-      "startable": true,
-      "cards": [
-        {
-          "id": "event_snowstorm",
-          "type": "event",
-          "text": "A heavy snowstorm rolls across the front. Ground units bog down and supply slows.",
-          "protected": false,
-          "effects": [
-            { "type": "set_weather", "name": "snow", "modifiers": [
-              { "id": "snow_freeze", "stat": "move_block", "op": "set", "value": 1, "scope": "ground", "duration_days": 2 },
-              { "id": "snow_income", "stat": "city_income", "op": "mul", "value": 0.6, "scope": "all", "duration_days": 2 }
-            ] }
-          ]
-        },
-        {
-          "id": "event_mud",
-          "type": "event",
-          "text": "Spring rain turns the roads to mud. Trucks crawl; only the rails run clean.",
-          "protected": false,
-          "effects": [
-            { "type": "add_modifier", "id": "mud", "stat": "move_block", "op": "set", "value": 1, "scope": "supplier", "duration_days": 2, "tags": ["weather"], "source": "event_mud" }
-          ]
-        },
-        {
-          "id": "event_thaw",
-          "type": "event",
-          "text": "The weather breaks at last. The front thaws.",
-          "protected": false,
-          "effects": [
-            { "type": "script", "fn": "clear_skies" }
-          ]
-        }
-      ]
-    },
-
-    "command_decisions": {
-      "label": "Command Decisions",
-      "startable": true,
-      "cards": [
-        {
-          "id": "decision_general_family",
-          "type": "decision",
-          "text": "General Harwick requests leave to visit his family.",
-          "protected": false,
-          "choice_a": {
-            "label": "Grant Leave",
-            "effects": [
-              { "type": "add_modifier", "id": "harwick_distracted", "stat": "attack", "op": "mul", "value": 0.8, "scope": "player", "duration_days": 6, "source": "harwick_leave" },
-              { "type": "inject_cards", "ids": ["intel_harwick_grateful"], "position": "soon" }
-            ]
-          },
-          "choice_b": {
-            "label": "Deny Leave",
-            "effects": [
-              { "type": "delayed_card", "id": "event_mutiny", "after_days": 20 }
-            ]
-          }
-        },
-        {
-          "id": "intel_harwick_grateful",
-          "type": "intel",
-          "text": "Harwick returns rested and grateful. Morale among his staff is high.",
-          "protected": false,
-          "effects": []
-        },
-        {
-          "id": "event_mutiny",
-          "type": "event",
-          "text": "Resentment boils over. A unit downs tools — supplies bleed away overnight.",
-          "protected": false,
-          "effects": [
-            { "type": "drain_resources", "scope": "combatant", "amount": 40 }
-          ]
-        },
-        {
-          "id": "decision_reinforce",
-          "type": "decision",
-          "text": "Command offers either fresh troops now, or investment in your home economy.",
-          "protected": false,
-          "choice_a": {
-            "label": "Send troops",
-            "effects": [
-              { "type": "script", "fn": "summon_reinforcements", "count": 1, "supplies": 200 }
-            ]
-          },
-          "choice_b": {
-            "label": "Invest at home",
-            "effects": [
-              { "type": "add_modifier", "id": "war_economy", "stat": "city_income", "op": "mul", "value": 1.4, "scope": "player", "source": "war_economy" }
-            ]
-          }
-        },
-        {
-          "id": "decision_elite",
-          "type": "decision",
-          "text": "A decorated officer volunteers to lead a special detachment.",
-          "protected": false,
-          "choice_a": {
-            "label": "Form a commando unit",
-            "effects": [
-              { "type": "script", "fn": "elite_commando" }
-            ]
-          },
-          "choice_b": {
-            "label": "Spread the training",
-            "effects": [
-              { "type": "add_modifier", "id": "veteran_doctrine", "stat": "attack", "op": "mul", "value": 1.25, "scope": "combatant", "source": "veteran_doctrine" },
-              { "type": "drain_resources", "scope": "combatant", "amount": 30 }
-            ]
-          }
-        },
-        {
-          "id": "decision_excavate",
-          "type": "decision",
-          "text": "Engineers report odd readings beneath the eastern trench. Investigate?",
-          "protected": false,
-          "choice_a": {
-            "label": "Dig",
-            "effects": [
-              { "type": "add_set", "set": "relic_chain", "position": "soon" }
-            ]
-          },
-          "choice_b": {
-            "label": "Seal it and move on",
-            "effects": [
-              { "type": "grant_resources", "scope": "player", "amount": 50 }
-            ]
-          }
-        },
-        {
-          "id": "decision_winter_prep",
-          "type": "decision",
-          "text": "Forecasters warn of a brutal cold front in a week. Stockpile now?",
-          "protected": false,
-          "choice_a": {
-            "label": "Stockpile (costly)",
-            "effects": [
-              { "type": "drain_resources", "scope": "player", "amount": 60 },
-              { "type": "delayed_effect", "after_days": 7, "effect": { "type": "set_state", "key": "prepared_for_winter", "value": true } }
-            ]
-          },
-          "choice_b": {
-            "label": "Gamble on mild weather",
-            "effects": [
-              { "type": "delayed_effect", "after_days": 7, "effect": { "type": "script", "fn": "harsh_winter", "days": 3 } }
-            ]
-          }
-        },
-        {
-          "id": "decision_transform",
-          "type": "decision",
-          "text": "One company has fought through every engagement. Promote them to veterans?",
-          "protected": false,
-          "choice_a": {
-            "label": "Promote",
-            "effects": [
-              { "type": "transform_unit", "scope": "player", "combatants_only": true, "count": 1, "rename": "Veterans", "unit_type": "veteran", "max_resources": 160, "replenish": 60, "add_tags": ["veteran"], "modifiers": [ { "stat": "attack", "op": "mul", "value": 1.4 } ] }
-            ]
-          },
-          "choice_b": {
-            "label": "Rotate them out",
-            "effects": [
-              { "type": "grant_resources", "scope": "combatant", "amount": 30 }
-            ]
-          }
-        }
-      ]
-    },
-
-    "field_operations": {
-      "label": "Field Operations (test showcase)",
-      "startable": true,
-      "cards": [
-        {
-          "id": "intel_morale_report",
-          "type": "intel",
-          "text": "Morale report filed. Nothing actionable, but the men are holding.",
-          "protected": false,
-          "effects": []
-        },
-        {
-          "id": "event_supply_drop",
-          "type": "event",
-          "text": "An airdrop reaches the front lines. Supplies and a short logistics boost.",
-          "protected": false,
-          "effects": [
-            { "type": "grant_resources", "scope": "player", "amount": 80 },
-            { "type": "add_modifier", "id": "supply_surge", "stat": "city_income", "op": "add", "value": 5, "scope": "player", "duration_days": 4, "source": "event_supply_drop" }
-          ]
-        },
-        {
-          "id": "event_enemy_offensive",
-          "type": "event",
-          "text": "Enemy guns open up all along the line. Expect a hard few days.",
-          "protected": false,
-          "effects": [
-            { "type": "script", "fn": "enemy_offensive", "days": 4 }
-          ]
-        },
-        {
-          "id": "event_rail_sabotage",
-          "type": "event",
-          "text": "Partisans strike the rail network in the night.",
-          "protected": false,
-          "effects": [
-            { "type": "script", "fn": "sabotage_rail" }
-          ]
-        },
-        {
-          "id": "event_hard_winter",
-          "type": "event",
-          "text": "Winter arrives in force. The whole front grinds to a halt.",
-          "protected": false,
-          "effects": [
-            { "type": "script", "fn": "harsh_winter", "days": 3 }
-          ]
-        },
-        {
-          "id": "decision_field_promote",
-          "type": "decision",
-          "text": "Quartermaster asks whether to expand depots or hand supplies straight to the troops.",
-          "protected": false,
-          "choice_a": {
-            "label": "Expand depots (permanent)",
-            "effects": [
-              { "type": "add_modifier", "id": "depot_expansion", "stat": "city_income", "op": "add", "value": 8, "scope": "player", "source": "depot_expansion" }
-            ]
-          },
-          "choice_b": {
-            "label": "Resupply the front now",
-            "effects": [
-              { "type": "grant_resources", "scope": "combatant", "amount": 60 }
-            ]
-          }
-        }
-      ]
-    },
-
-    "relic_chain": {
-      "label": "The Buried Thing",
-      "startable": false,
-      "cards": [
-        {
-          "id": "event_trench_dig",
-          "type": "event",
-          "text": "While deepening a trench, your men uncover something buried. Something old.",
-          "protected": false,
-          "effects": [
-            { "type": "inject_cards", "ids": ["decision_relic_what_to_do"], "position": "soon" }
-          ]
-        },
-        {
-          "id": "decision_relic_what_to_do",
-          "type": "decision",
-          "text": "The object is unlike anything your engineers recognise.",
-          "protected": true,
-          "choice_a": {
-            "label": "Send it to command",
-            "effects": [
-              { "type": "inject_cards", "ids": ["intel_relic_provenance"], "position": "soon" }
-            ]
-          },
-          "choice_b": {
-            "label": "Keep it quiet",
-            "effects": [
-              { "type": "delayed_card", "id": "event_archaeologist_arrives", "after_days": 8 }
-            ]
-          }
-        },
-        {
-          "id": "intel_relic_provenance",
-          "type": "intel",
-          "text": "Command's reply is heavily redacted. One legible line: 'Do not attempt to activate it.'",
-          "protected": false,
-          "effects": [
-            { "type": "delayed_card", "id": "decision_relic_activate", "after_days": 4, "position": "soon" }
-          ]
-        },
-        {
-          "id": "decision_relic_activate",
-          "type": "decision",
-          "text": "Against orders, the engineers believe they can power the device. Give the word?",
-          "protected": true,
-          "choice_a": {
-            "label": "Activate it",
-            "effects": [
-              { "type": "script", "fn": "relic_awakens" }
-            ]
-          },
-          "choice_b": {
-            "label": "Bury it again",
-            "effects": [
-              { "type": "remove_set", "set": "relic_chain" }
-            ]
-          }
-        },
-        {
-          "id": "event_archaeologist_arrives",
-          "type": "event",
-          "text": "A civilian 'specialist' arrives unannounced, asking pointed questions about the dig.",
-          "protected": false,
-          "effects": [
-            { "type": "inject_cards", "ids": ["decision_relic_activate"], "position": "soon" }
-          ]
-        },
-        {
-          "id": "intel_anomaly_grows",
-          "type": "intel",
-          "text": "The transformed unit is changing further. The men have stopped writing home.",
-          "protected": false,
-          "effects": []
-        }
-      ]
-    }
+	"ambient": {
+	  "label": "Ambient (recurring texture)",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "intel_wf_001",
+		  "type": "intel",
+		  "text": "ASSET NIGHTINGALE: 'The eagle extends its wings in 5 sunrises.'",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "intel_wf_002",
+		  "type": "intel",
+		  "text": "Intercepted radio traffic suggests a redeployment east. Source unverified.",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "intel_recon_weakness",
+		  "type": "intel",
+		  "text": "Recon spots a gap in the enemy line. For a few days their attacks will land softer.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "add_modifier",
+			  "id": "recon_weakness",
+			  "stat": "attack",
+			  "op": "mul",
+			  "value": 0.8,
+			  "scope": "enemy",
+			  "duration_days": 3,
+			  "source": "intel_recon_weakness"
+			}
+		  ]
+		},
+		{
+		  "id": "intel_morale_report",
+		  "type": "intel",
+		  "text": "Morale report filed. Nothing actionable, but the men are holding.",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "event_snowstorm",
+		  "type": "event",
+		  "text": "A heavy snowstorm rolls across the front. Ground units bog down and supply slows.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "set_weather",
+			  "name": "snow",
+			  "modifiers": [
+				{
+				  "id": "snow_freeze",
+				  "stat": "move_block",
+				  "op": "set",
+				  "value": 1,
+				  "scope": "ground",
+				  "duration_days": 2
+				},
+				{
+				  "id": "snow_income",
+				  "stat": "city_income",
+				  "op": "mul",
+				  "value": 0.6,
+				  "scope": "all",
+				  "duration_days": 2
+				}
+			  ]
+			}
+		  ]
+		},
+		{
+		  "id": "event_mud",
+		  "type": "event",
+		  "text": "Spring rain turns the roads to mud. Trucks crawl; only the rails run clean.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "add_modifier",
+			  "id": "mud",
+			  "stat": "move_block",
+			  "op": "set",
+			  "value": 1,
+			  "scope": "supplier",
+			  "duration_days": 2,
+			  "tags": [
+                "weather"
+			  ],
+			  "source": "event_mud"
+			}
+		  ]
+		},
+		{
+		  "id": "event_thaw",
+		  "type": "event",
+		  "text": "The weather breaks at last. The front thaws.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "script",
+			  "fn": "clear_skies"
+			}
+		  ]
+		},
+		{
+		  "id": "event_supply_drop",
+		  "type": "event",
+		  "text": "An airdrop reaches the front lines. Supplies and a short logistics boost.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "grant_resources",
+			  "scope": "player",
+			  "amount": 80
+			},
+			{
+			  "type": "add_modifier",
+			  "id": "supply_surge",
+			  "stat": "city_income",
+			  "op": "add",
+			  "value": 5,
+			  "scope": "player",
+			  "duration_days": 4,
+			  "source": "event_supply_drop"
+			}
+		  ]
+		},
+		{
+		  "id": "event_enemy_offensive",
+		  "type": "event",
+		  "text": "Enemy guns open up all along the line. Expect a hard few days.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "script",
+			  "fn": "enemy_offensive",
+			  "days": 4
+			}
+		  ]
+		},
+		{
+		  "id": "event_rail_sabotage",
+		  "type": "event",
+		  "text": "Partisans strike the rail network in the night.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "script",
+			  "fn": "sabotage_rail"
+			}
+		  ]
+		},
+		{
+		  "id": "event_hard_winter",
+		  "type": "event",
+		  "text": "Winter arrives in force. The whole front grinds to a halt.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "script",
+			  "fn": "harsh_winter",
+			  "days": 3
+			}
+		  ]
+		},
+		{
+		  "id": "decision_field_promote",
+		  "type": "decision",
+		  "text": "Quartermaster asks whether to expand depots or hand supplies straight to the troops.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Expand depots (permanent)",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "depot_expansion",
+				"stat": "city_income",
+				"op": "add",
+				"value": 8,
+				"scope": "player",
+				"source": "depot_expansion"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Resupply the front now",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 60
+			  }
+			]
+		  }
+		}
+	  ]
+	},
+	"story_seeds": {
+	  "label": "Story Seeds (openers)",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "decision_general_family",
+		  "type": "decision",
+		  "text": "General Harwick requests leave to visit his family.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Grant Leave",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "harwick_distracted",
+				"stat": "attack",
+				"op": "mul",
+				"value": 0.8,
+				"scope": "player",
+				"duration_days": 6,
+				"source": "harwick_leave"
+			  },
+			  {
+				"type": "inject_cards",
+				"ids": [
+                  "intel_harwick_grateful"
+				],
+				"position": "soon"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Deny Leave",
+			"effects": [
+			  {
+				"type": "delayed_card",
+				"id": "event_mutiny",
+				"after_days": 20
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_excavate",
+		  "type": "decision",
+		  "text": "Engineers report odd readings beneath the eastern trench. Investigate?",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Dig",
+			"effects": [
+			  {
+				"type": "inject_cards",
+				"ids": [
+                  "decision_relic_what_to_do"
+				],
+				"position": "soon"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Seal it and move on",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "player",
+				"amount": 50
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_reinforce",
+		  "type": "decision",
+		  "text": "Command offers either fresh troops now, or investment in your home economy.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Send troops",
+			"effects": [
+			  {
+				"type": "script",
+				"fn": "summon_reinforcements",
+				"count": 1,
+				"supplies": 200
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Invest at home",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "war_economy",
+				"stat": "city_income",
+				"op": "mul",
+				"value": 1.4,
+				"scope": "player",
+				"source": "war_economy"
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_elite",
+		  "type": "decision",
+		  "text": "A decorated officer volunteers to lead a special detachment.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Form a commando unit",
+			"effects": [
+			  {
+				"type": "script",
+				"fn": "elite_commando"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Spread the training",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "veteran_doctrine",
+				"stat": "attack",
+				"op": "mul",
+				"value": 1.25,
+				"scope": "combatant",
+				"source": "veteran_doctrine"
+			  },
+			  {
+				"type": "drain_resources",
+				"scope": "combatant",
+				"amount": 30
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_winter_prep",
+		  "type": "decision",
+		  "text": "Forecasters warn of a brutal cold front in a week. Stockpile now?",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Stockpile (costly)",
+			"effects": [
+			  {
+				"type": "drain_resources",
+				"scope": "player",
+				"amount": 60
+			  },
+			  {
+				"type": "delayed_effect",
+				"after_days": 7,
+				"effect": {
+				  "type": "set_state",
+				  "key": "prepared_for_winter",
+				  "value": true
+				}
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Gamble on mild weather",
+			"effects": [
+			  {
+				"type": "delayed_effect",
+				"after_days": 7,
+				"effect": {
+				  "type": "script",
+				  "fn": "harsh_winter",
+				  "days": 3
+				}
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_transform",
+		  "type": "decision",
+		  "text": "One company has fought through every engagement. Promote them to veterans?",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Promote",
+			"effects": [
+			  {
+				"type": "transform_unit",
+				"scope": "player",
+				"combatants_only": true,
+				"count": 1,
+				"rename": "Veterans",
+				"unit_type": "veteran",
+				"max_resources": 160,
+				"replenish": 60,
+				"add_tags": [
+                  "veteran"
+				],
+				"modifiers": [
+				  {
+					"stat": "attack",
+					"op": "mul",
+					"value": 1.4
+				  }
+				]
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Rotate them out",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 30
+			  }
+			]
+		  }
+		}
+	  ]
+	},
+	"harwick_leave": {
+	  "label": "Story: Harwick's Leave",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "intel_harwick_grateful",
+		  "type": "intel",
+		  "text": "Harwick returns rested and grateful. Morale among his staff is high.",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "event_mutiny",
+		  "type": "event",
+		  "text": "Resentment boils over. A unit downs tools — supplies bleed away overnight.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "drain_resources",
+			  "scope": "combatant",
+			  "amount": 40
+			}
+		  ]
+		}
+	  ]
+	},
+	"the_buried_thing": {
+	  "label": "Story: The Buried Thing",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "decision_relic_what_to_do",
+		  "type": "decision",
+		  "text": "The object is unlike anything your engineers recognise.",
+		  "protected": true,
+		  "choice_a": {
+			"label": "Send it to command",
+			"effects": [
+			  {
+				"type": "inject_cards",
+				"ids": [
+                  "intel_relic_provenance"
+				],
+				"position": "soon"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Keep it quiet",
+			"effects": [
+			  {
+				"type": "delayed_card",
+				"id": "event_archaeologist_arrives",
+				"after_days": 8
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "intel_relic_provenance",
+		  "type": "intel",
+		  "text": "Command's reply is heavily redacted. One legible line: 'Do not attempt to activate it.'",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "delayed_card",
+			  "id": "decision_relic_activate",
+			  "after_days": 4,
+			  "position": "soon"
+			}
+		  ]
+		},
+		{
+		  "id": "decision_relic_activate",
+		  "type": "decision",
+		  "text": "Against orders, the engineers believe they can power the device. Give the word?",
+		  "protected": true,
+		  "choice_a": {
+			"label": "Activate it",
+			"effects": [
+			  {
+				"type": "script",
+				"fn": "relic_awakens"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Bury it again",
+			"effects": [
+			  {
+				"type": "remove_set",
+				"set": "the_buried_thing"
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "event_archaeologist_arrives",
+		  "type": "event",
+		  "text": "A civilian 'specialist' arrives unannounced, asking pointed questions about the dig.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "inject_cards",
+			  "ids": [
+                "decision_relic_activate"
+			  ],
+			  "position": "soon"
+			}
+		  ]
+		},
+		{
+		  "id": "intel_anomaly_grows",
+		  "type": "intel",
+		  "text": "The transformed unit is changing further. The men have stopped writing home.",
+		  "protected": false,
+		  "effects": []
+		}
+	  ]
+	},
+	"armoured_corps": {
+	  "label": "Story: Armoured Corps (board-triggered)",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "decision_armoured_train",
+		  "type": "decision",
+		  "text": "Engineers can up-armour a locomotive into a fighting train. Convert one?",
+		  "protected": true,
+		  "requires": {
+			"train_exists": true
+		  },
+		  "trigger": {
+			"event": "rail_established",
+			"once": true
+		  },
+		  "choice_a": {
+			"label": "Build the armoured train",
+			"effects": [
+			  {
+				"type": "transform_unit",
+				"scope": "train",
+				"count": 1,
+				"rename": "Armoured Train",
+				"unit_type": "armoured_train",
+				"add_tags": [
+                  "combatant"
+				],
+				"modifiers": [
+				  {
+					"stat": "attack",
+					"op": "set",
+					"value": 40
+				  }
+				]
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Keep it hauling supplies",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "player",
+				"amount": 40
+			  }
+			]
+		  }
+		}
+	  ]
+	}
   }
 }

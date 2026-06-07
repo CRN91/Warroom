@@ -25,12 +25,9 @@ var hex_size: float = 32.0
 
 # hex(Vector2i) -> { "tunnel": bool }
 var mountains: Dictionary = {}
+const MOUNTAIN_TEX = preload("res://assets/mountain.png")
 # edge_key(String) -> { "a": Vector2i, "b": Vector2i, "bridge": bool, "broken": bool }
 var river: Dictionary = {}
-
-const MOUNTAIN_TEX = preload("res://assets/mountain.png")
-const BRIDGE_TEX = preload("res://assets/bridge.png")
-const TUNNEL_TEX   = preload("res://assets/tunnel.png")
 
 var bridge_stock: int = 0
 var tunnel_stock: int = 0
@@ -51,7 +48,7 @@ func _compute_hex_size() -> void:
 # ── Generation ────────────────────────────────────────────────────────────────
 
 func generate(opts: Dictionary) -> void:
-	var capital_hexes: Array      = opts.get("capital_hexes", [])
+	var hq_hexes: Array      = opts.get("hq_hexes", [])
 	var city_hexes: Array    = opts.get("city_hexes", [])
 	var occupied: Array      = opts.get("occupied", [])
 	var mfraction: float     = opts.get("mountain_fraction", 0.10)
@@ -59,16 +56,16 @@ func generate(opts: Dictionary) -> void:
 	if opts.has("seed"):
 		seed(int(opts["seed"]))
 
-	_generate_river(capital_hexes, city_hexes, fords)
-	_generate_mountains(capital_hexes, city_hexes, occupied, mfraction)
+	_generate_river(hq_hexes, city_hexes, fords)
+	_generate_mountains(hq_hexes, city_hexes, occupied, mfraction)
 	queue_redraw()
 
-func _generate_river(capital_hexes: Array, city_hexes: Array, fords: int) -> void:
+func _generate_river(hq_hexes: Array, city_hexes: Array, fords: int) -> void:
 	var axis: int = 1               # 0 = q, 1 = r, 2 = s (= -q-r)
 	var threshold: float = 0.0
-	if capital_hexes.size() >= 2:
-		var a: Vector2i = capital_hexes[0]
-		var b: Vector2i = capital_hexes[1]
+	if hq_hexes.size() >= 2:
+		var a: Vector2i = hq_hexes[0]
+		var b: Vector2i = hq_hexes[1]
 		var dq: int = abs(a.x - b.x)
 		var dr: int = abs(a.y - b.y)
 		var ds: int = abs((-a.x - a.y) - (-b.x - b.y))
@@ -118,12 +115,12 @@ func _generate_river(capital_hexes: Array, city_hexes: Array, fords: int) -> voi
 		if not e["bridge"]: 
 			grid.disconnect_hexes(e["a"], e["b"])
 
-func _generate_mountains(capital_hexes: Array, city_hexes: Array, occupied: Array, mfraction: float) -> void:
+func _generate_mountains(hq_hexes: Array, city_hexes: Array, occupied: Array, mfraction: float) -> void:
 	var protected: Dictionary = {}
 	for h in city_hexes:
 		protected[h] = true
 		for nb in HEX.axial_neighbours(h): protected[nb] = true
-	for h in capital_hexes:
+	for h in hq_hexes:
 		protected[h] = true
 	for h in occupied:
 		protected[h] = true
@@ -142,9 +139,9 @@ func _generate_mountains(capital_hexes: Array, city_hexes: Array, occupied: Arra
 		_add_mountain(hex)
 		placed += 1
 
-	# Soft-lock guard: no city/capital may be fully ringed, and each capital must keep a
+	# Soft-lock guard: no city/HQ may be fully ringed, and each HQ must keep a
 	# decent reachable area on its own side. Pull mountains back if so.
-	_relieve_softlocks(city_hexes, capital_hexes)
+	_relieve_softlocks(city_hexes, hq_hexes)
 
 func _add_mountain(hex: Vector2i) -> void:
 	mountains[hex] = { "tunnel": false }
@@ -155,9 +152,9 @@ func _remove_mountain(hex: Vector2i) -> void:
 	mountains.erase(hex)
 	grid.enable_hex(hex)
 
-func _relieve_softlocks(city_hexes: Array, capital_hexes: Array) -> void:
-	# 1. Never fully ring a city/capital.
-	for h in city_hexes + capital_hexes:
+func _relieve_softlocks(city_hexes: Array, hq_hexes: Array) -> void:
+	# 1. Never fully ring a city/HQ.
+	for h in city_hexes + hq_hexes:
 		if not grid.Grid.has(h): continue
 		var open: bool = false
 		for nb in HEX.axial_neighbours(h):
@@ -168,12 +165,12 @@ func _relieve_softlocks(city_hexes: Array, capital_hexes: Array) -> void:
 				if mountains.has(nb):
 					_remove_mountain(nb); break
 
-	# 2. Each capital should reach a reasonable chunk of its own side.
+	# 2. Each HQ should reach a reasonable chunk of its own side.
 	var min_reach: int = max(4, int(grid.Grid.size() / 6.0))
-	for capital in capital_hexes:
-		if not grid.Grid.has(capital): continue
+	for hq in hq_hexes:
+		if not grid.Grid.has(hq): continue
 		var tries: int = 0
-		while _reachable_count(capital) < min_reach and mountains.size() > 0 and tries < 8:
+		while _reachable_count(hq) < min_reach and mountains.size() > 0 and tries < 8:
 			_remove_mountain(mountains.keys()[0])
 			tries += 1
 
@@ -314,28 +311,25 @@ func _cube_round(x: float, y: float, z: float) -> Vector2i:
 
 func _draw() -> void:
 	if grid == null: return
-	# Removing the old procedural color constant:
-	# var tunnel_col: Color   = Color(0.80, 0.76, 0.68) # NO LONGER NEEDED
+	var r: float = hex_size * 0.6
+	var tunnel_col: Color   = Color(0.80, 0.76, 0.68)
 
-	# Size multipliers for our images relative to the hex size
-	var mountain_draw_size_mult = 2.0
-	var tunnel_draw_size_mult   = 1.0  # Tunnels are smaller, inside the mountain hex.
+	# Decide how big the mountain image should be. 
+	# hex_size * 2 roughly covers the whole hex. Adjust this if it looks too big/small!
+	var draw_size = Vector2(hex_size * 2, hex_size * 2)
 
 	for hex in mountains.keys():
 		var c: Vector2 = grid.get_hex_pos(hex)
 		
-		# Draw the mountain background first
-		var m_draw_size = Vector2(hex_size * mountain_draw_size_mult, hex_size * mountain_draw_size_mult)
-		var m_top_left  = c - (m_draw_size / 2.0)
-		var m_rect      = Rect2(m_top_left, m_draw_size)
-		draw_texture_rect(MOUNTAIN_TEX, m_rect, false)
+		# Shift the starting point up and left by half the size so it centers perfectly
+		var top_left = c - (draw_size / 2.0)
+		var rect = Rect2(top_left, draw_size)
 		
-		# Draw the tunnel PNG on top if it exists
+		draw_texture_rect(MOUNTAIN_TEX, rect, false)
+		
+		# Draw the tunnel on top of the image if it has one
 		if mountains[hex]["tunnel"]:
-			var t_draw_size = Vector2(hex_size * tunnel_draw_size_mult, hex_size * tunnel_draw_size_mult)
-			var t_top_left  = c - (t_draw_size / 2.0) + Vector2(0,100)
-			var t_rect      = Rect2(t_top_left, t_draw_size)
-			draw_texture_rect(TUNNEL_TEX, t_rect, false)
+			draw_rect(Rect2(c.x - r * 0.32, c.y - r * 0.05, r * 0.64, r * 0.45), tunnel_col)
 
 	for k in river.keys():
 		var e: Dictionary = river[k]
@@ -348,30 +342,7 @@ func _draw() -> void:
 		var p2: Vector2 = mid - perp
 		
 		if e["bridge"] and not e["broken"]:
-			# Optional: Draw the blue river water *under* the bridge first 
-			# (so there isn't a gap if your PNG has transparency)
-			draw_line(p1, p2, Color(0.21, 0.54, 0.86), hex_size * 0.20)
-			
-			# 1. Calculate the angle connecting the two hex centers
-			var angle: float = (cb - ca).angle()
-			
-			# 2. Shift the drawing origin to the midpoint and rotate it
-			draw_set_transform(mid, angle, Vector2.ONE)
-			
-			# 3. Define the size of the bridge image (adjust these multipliers to fit!)
-			var bridge_width: float = hex_size * 1.5  # Spans across the gap
-			var bridge_height: float = hex_size * 0.8 # Thickness of the bridge
-			var bridge_size: Vector2 = Vector2(bridge_width, bridge_height)
-			
-			# 4. Center the rect over the new origin (0,0)
-			var bridge_rect: Rect2 = Rect2(-bridge_size / 2.0, -bridge_size)
-			
-			# 5. Draw the texture
-			draw_texture_rect(BRIDGE_TEX, bridge_rect, false)
-			
-			# 6. CRITICAL: Reset the transform so you don't rotate the rest of the map
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			
+			draw_line(p1, p2, Color(0.55, 0.33, 0.18), hex_size * 0.24)
 		elif e["bridge"] and e["broken"]:
 			draw_line(p1, p2, Color(0.80, 0.21, 0.21), hex_size * 0.14)
 		else:

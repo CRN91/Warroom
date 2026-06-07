@@ -39,6 +39,7 @@ var recent_death_hexes: Array = []
 var day: int = 0
 var hex_to_move: Vector2i
 
+
 var cities: Array = []
 var units: Array  = []
 var trains: Array = []
@@ -60,7 +61,7 @@ func _ready():
 	terrain_manager.setup(grid)
 	grid.terrain = terrain_manager
 	var terrain_options = {
-		"hq_hexes": [Vector2i(0, 3), Vector2i(0, -3)],
+		"capital_hexes": [Vector2i(0, 3), Vector2i(0, -3)],
 		"city_hexes": [Vector2i(0, 0)], 
 		"occupied": [Vector2i(2, 1), Vector2i(1, -3), Vector2i(2, -3), Vector2i(-1, 2), Vector2i(-1, -1)]
 	}
@@ -93,14 +94,14 @@ func test_setup():
 	p2.set_enemy()
 	p2.move_to(Vector2i(1, -3)); units.append(p2)
 
-	var arty = ARTILLERY.instantiate(); add_child(arty, true)
-	arty.setup(grid)
-	arty.set_enemy()
-	arty.move_to(Vector2i(2, -3)); units.append(arty)
+	#var arty = ARTILLERY.instantiate(); add_child(arty, true)
+	#arty.setup(grid)
+	#arty.set_enemy()
+	#arty.move_to(Vector2i(2, -3)); units.append(arty)
 
-	var p3 = INFANTRY.instantiate(); add_child(p3, true)
-	p3.setup(grid)
-	p3.move_to(Vector2i(-1, 2)); units.append(p3)
+	#var p3 = INFANTRY.instantiate(); add_child(p3, true)
+	#p3.setup(grid)
+	#p3.move_to(Vector2i(-1, 2)); units.append(p3)
 
 	var city = CITY.instantiate(); add_child(city, true)
 	city.setup(grid)
@@ -109,17 +110,17 @@ func test_setup():
 
 	var city2 = CITY.instantiate(); add_child(city2, true)
 	city2.setup(grid)
-	city2.set_enemy(); city2.is_hq = true
+	city2.set_enemy(); city2.is_capital = true
 	city2.set_hex(Vector2i(0, -3)); cities.append(city2)
 
 	var city3 = CITY.instantiate(); add_child(city3, true)
 	city3.setup(grid)
-	city3.is_hq = true
+	city3.is_capital = true
 	city3.set_hex(Vector2i(0, 3)); cities.append(city3)
 
-	var logi = LOGI.instantiate(); add_child(logi, true)
-	logi.setup(grid)
-	logi.move_to(Vector2i(-1, -1)); units.append(logi)
+	#var logi = LOGI.instantiate(); add_child(logi, true)
+	#logi.setup(grid)
+	#logi.move_to(Vector2i(-1, -1)); units.append(logi)
 
 	_unfreeze_all()
 
@@ -189,7 +190,7 @@ func spawn_unit(effect: Dictionary) -> Node2D:
 		"infantry": INFANTRY, "artillery": ARTILLERY, "logistics": LOGI
 	}.get(type, INFANTRY)
 
-	var hex = _resolve_spawn_hex(effect.get("near", "player_hq"))
+	var hex = _resolve_spawn_hex(effect.get("near", "player_capital"))
 	if hex == null:
 		print("spawn_unit: no free hex for %s" % type)
 		return null
@@ -248,12 +249,12 @@ func _resolve_spawn_hex(near):
 		center = Vector2i(int(near[0]), int(near[1]))
 		if get_piece(center) == null and grid.Grid.has(center):
 			return center
-	elif near == "player_hq":
-		var hq = player_hq()
-		center = hq.get_hex() if hq else null
-	elif near == "enemy_hq":
-		var hq = enemy_hq()
-		center = hq.get_hex() if hq else null
+	elif near == "player_capital":
+		var capital = player_capital()
+		center = capital.get_hex() if capital else null
+	elif near == "enemy_capital":
+		var capital = enemy_capital()
+		center = capital.get_hex() if capital else null
 	else:
 		var c = find_city_by_name(str(near))
 		center = c.get_hex() if c else null
@@ -275,14 +276,14 @@ func find_city_by_name(n: String) -> Node2D:
 		if c.name == n: return c
 	return null
 
-func player_hq() -> Node2D:
+func player_capital() -> Node2D:
 	for c in cities:
-		if c.is_hq and c.team == 1: return c
+		if c.is_capital and c.team == 1: return c
 	return null
 
-func enemy_hq() -> Node2D:
+func enemy_capital() -> Node2D:
 	for c in cities:
-		if c.is_hq and c.team == 2: return c
+		if c.is_capital and c.team == 2: return c
 	return null
 
 # ── Selection ─────────────────────────────────────────────────────────────────
@@ -481,7 +482,7 @@ func _die(dead_piece):
 
 	if dead_piece in cities:
 		cities.erase(dead_piece)
-		if dead_piece.is_hq: 
+		if dead_piece.is_capital: 
 			_game_over(dead_piece.team == 1)
 	else:
 		units.erase(dead_piece)

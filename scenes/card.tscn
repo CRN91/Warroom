@@ -26,9 +26,3 @@ autowrap_mode = 3
 
 [node name="ButtonContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=1019150003]
 layout_mode = 2
-
-[node name="BtnYes" type="Button" parent="VBoxContainer/ButtonContainer" unique_id=1906372061]
-layout_mode = 2
-
-[node name="BtnNo" type="Button" parent="VBoxContainer/ButtonContainer" unique_id=1701870645]
-layout_mode = 2
