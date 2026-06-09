@@ -779,6 +779,11 @@ func clock_increment():
 
 	_unfreeze_all()
 	fow_manager.update_fow()
+	
+	for unit in units:
+		if is_instance_valid(unit) and unit.has_method("refresh_intent"):
+			unit.refresh_intent()
+			
 	ui.update_debug(modifiers, game_state)
 
 	if ui.city_menu.visible: 
