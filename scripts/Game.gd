@@ -37,6 +37,7 @@ var pending_restores: Array = []
 var recent_death_hexes: Array = []
 
 var day: int = 0
+var start_doy: int = 0   # day-of-year the game starts on
 var hex_to_move: Vector2i
 
 
@@ -54,6 +55,7 @@ var city_buy_btns: Dictionary = {}
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 func _ready():
+	start_doy = randi_range(60, 151)  # Mar 1 .. May 31 — always a spring start
 	card_manager.setup(self)
 	enemy_ai.setup(self)
 	fow_manager.setup(grid, rail_network, cities, units)
@@ -123,6 +125,18 @@ func test_setup():
 
 	_unfreeze_all()
 
+# ── Time ─────────────────────────────────────────────────────
+
+func current_doy() -> int:
+	return (start_doy + day * 7) % 365       # each tick advances one week
+
+func current_season() -> String:
+	var doy := current_doy()
+	if doy < 152: return "spring"            # Mar–May
+	if doy < 244: return "summer"            # Jun–Aug
+	if doy < 335: return "autumn"            # Sep–Nov
+	return "winter"                          # Dec–Feb
+
 # ── Spawning & Purchasing ─────────────────────────────────────────────────────
 
 func _on_train_created(train: Node2D):
@@ -181,20 +195,50 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String =
 	return false
 	
 var purchase_city: Node2D = null
-var _pending_purchase = null
 
-func begin_purchase(cost: int, effects: Array) -> void:
-	_pending_purchase = { "cost": cost, "effects": effects }   # + a UI prompt
+func execute_purchase(city: Node2D, cost: int, effects: Array) -> void:
+	city.deplete(cost)
+	purchase_city = city
+	card_manager.resolver.resolve(effects, self)
+	purchase_city = null
 
-func _try_purchase_click(piece) -> bool:        # call at the top of your select handler
-	if _pending_purchase == null: return false
-	if piece is City and piece.team == 1 and piece.get_resources() >= _pending_purchase["cost"]:
-		piece.deplete(_pending_purchase["cost"])
-		purchase_city = piece
-		card_manager.resolver.resolve(_pending_purchase["effects"], self)
-		purchase_city = null
-		_pending_purchase = null
-	return true    
+func prompt_city_selection(eligible_cities: Array, cost: int, effects: Array) -> void:
+	# Dynamically create a popup panel centered on the screen
+	var overlay = PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_CENTER)
+	
+	# Give it a nice dark background
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
+	style.content_margin_left = 20
+	style.content_margin_right = 20
+	style.content_margin_top = 20
+	style.content_margin_bottom = 20
+	overlay.add_theme_stylebox_override("panel", style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 15)
+	overlay.add_child(vbox)
+	
+	var lbl = Label.new()
+	lbl.text = "Select a city to pay " + str(cost) + " resources:"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(lbl)
+	
+	# Generate a button for every eligible city
+	for c in eligible_cities:
+		var btn = Button.new()
+		btn.text = "%s (%d resources)" % [c.name, c.get_resources()]
+		
+		# Connect the button click to the execute function, then destroy the popup
+		btn.pressed.connect(func():
+			execute_purchase(c, cost, effects)
+			overlay.queue_free()
+		)
+		vbox.add_child(btn)
+		
+	# Attach the dynamic popup to your UI layer
+	ui.add_child(overlay)
 
 # ── Card-driven board changes ─────────────────────────────────────────────────
 
@@ -550,7 +594,7 @@ func _input(event):
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
 			var clicked_piece = get_piece(hex)
-			
+
 			if not hex_to_move:
 				if not clicked_piece:
 					if rail_network.can_deploy_train(hex) and rail_network.player_train_stock > 0:
@@ -713,8 +757,12 @@ func clock_increment():
 
 	var card_to_play = card_manager.draw_daily_card(day)
 	if card_to_play:
-		card_manager.resolve_drawn(card_to_play)   
-		ui.card_ui.display_card(card_to_play)
+		card_manager.resolve_drawn(card_to_play)
+		var funds := 0
+		for c in cities:
+			if c.team == 1:
+				funds = max(funds, c.get_resources())
+		ui.card_ui.display_card(card_to_play,funds)
 	else: 
 		ui.card_ui.hide()
 

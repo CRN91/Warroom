@@ -13,20 +13,19 @@ func run_turn():
 # ── Economy ───────────────────────────────────────────────────────────────
 
 func _purchase_units():
+	if game.day % 4 != 0: return                 # dial 1: only shop every other week
+	var bought := 0
 	for city in game.cities:
-		if city.team != 2: continue
+		if city.team != 2 or bought >= 1: continue   # dial 2: cap one buy per turn
 		var res = city.get_resources()
-		
-		if res >= game.COST["infantry"]:
+		if res >= game.COST["infantry"] + 600:       # dial 3: keep a surplus, don't self-drain
 			var choices = ["infantry"]
-			if res >= game.COST["artillery"]: choices.append("artillery")
-			if res >= game.COST["logistics"]: choices.append("logistics")
-			
+			if res >= game.COST["artillery"] + 600: choices.append("artillery")
+			if res >= game.COST["logistics"] + 600: choices.append("logistics")
 			var choice = choices[randi() % choices.size()]
 			var scene = {"infantry": game.INFANTRY, "artillery": game.ARTILLERY, "logistics": game.LOGI}[choice]
-			
 			if game._spawn_unit_near_city(scene, city):
-				city.deplete(game.COST[choice])
+				city.deplete(game.COST[choice]); bought += 1
 
 # ── Strategy ──────────────────────────────────────────────────────────────
 

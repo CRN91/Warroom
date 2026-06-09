@@ -31,19 +31,28 @@ var watchers: Array = []               # card ids in the library that carry a "t
 var fired: Dictionary = {}             # card_id -> true   (once-triggers already fired)
 var tally: Dictionary = {}             # card_id -> int    (running count toward trigger.count)
 
+# Paid shops: not in the starting deck — scheduled one at a time so they stay occasional.
+const SHOP_SET := "supply_offers"
+const SHOP_PITY := 8                    # guarantee a shop if none has appeared in N weeks
+const SHOP_GAP_MIN := 3                 # otherwise the next random shop lands in 3..6 weeks
+const SHOP_GAP_MAX := 6
+var weeks_since_shop := 0
+var _shop_ids: Array = []
+
 func setup(_game: Node2D):
 	game = _game
 	card_library.load_library()
 
 	var starting = card_library.build_starting_deck([
-		"ambient",         # recurring texture (weather, filler intel, supply)
-		"story_seeds",     # the per-run story openers
-		"supply_offers",   # the purchase shops
+		"ambient",        # recurring texture (weather, filler intel, supply)
+		"story_seeds",    # the per-run story openers
 	])
 	for card in starting:
 		deck.push(card)
 
 	_index_watchers()
+	_shop_ids = card_library.get_set_card_ids(SHOP_SET)
+	_schedule_next_shop()
 	print("CardManager: starting deck has %d cards, %d trigger-watchers." % [deck.size(), watchers.size()])
 
 func _index_watchers() -> void:
@@ -125,10 +134,15 @@ func _check_day_triggers(day: int) -> void:
 # ── Drawing ───────────────────────────────────────────────────────────────────
 
 func draw_daily_card(day: int):
+	# Pity: if it's been too long since a shop, make sure one is queued up front.
+	if weeks_since_shop >= SHOP_PITY:
+		_force_shop()
+
 	var order = ["intel", "event", "decision"]
 	var required: String = order[(day - 1) % 3] if day > 0 else "intel"
 	var world := _world()
 
+	var drawn = null
 	for i in range(deck.size()):
 		var card = deck.queue[i]
 		if card.get("type", "") != required:
@@ -137,9 +151,17 @@ func draw_daily_card(day: int):
 		if not _requires_met(card, world):
 			continue
 		deck.queue.remove_at(i)
-		return card
+		drawn = card
+		break
+	if drawn == null:
+		drawn = _filler_card(required)
 
-	return _filler_card(required)
+	# Pity bookkeeping: reset when a shop surfaces, otherwise count the week.
+	if _is_shop(drawn):
+		weeks_since_shop = 0
+	else:
+		weeks_since_shop += 1
+	return drawn
 
 func _filler_card(required: String) -> Dictionary:
 	match required:
@@ -164,14 +186,35 @@ func resolve_drawn(card: Dictionary) -> void:
 		resolver.resolve(card["effects"], game)
 
 func resolve_choice(card_data: Dictionary, choice: String):
+	# Accepts any choice_* key (yes/no and multi-choice). "ack"/anything else =
+	# a plain dismiss of an intel/event card.
 	if not (choice.begins_with("choice_") and card_data.has(choice)):
 		return
+		
 	var ch = card_data[choice]
 	var cost := int(ch.get("cost", 0))
+	var effects = ch.get("effects", [])
+	
 	if cost > 0 and ch.get("pay_from", "pick_city") == "pick_city":
-		game.begin_purchase(cost, ch.get("effects", []))   # waits for a city click
+		# Gather all cities that can actually afford this
+		var eligible_cities = []
+		for c in game.cities:
+			if c.team == 1 and c.get_resources() >= cost:
+				eligible_cities.append(c)
+				
+		# 1. Auto-purchase if only 1 city is eligible!
+		if eligible_cities.size() == 1:
+			game.execute_purchase(eligible_cities[0], cost, effects)
+			
+		# 2. Show UI overlay if multiple cities are eligible!
+		elif eligible_cities.size() > 1:
+			game.prompt_city_selection(eligible_cities, cost, effects)
 	else:
-		resolver.resolve(ch.get("effects", []), game)
+		resolver.resolve(effects, game)
+		
+	# Recycle a paid shop: queue the next random shop a few weeks out so they recur.
+	if _is_shop(card_data):
+		_schedule_next_shop()
 
 # ── Conditions / world snapshot ───────────────────────────────────────────────
 
@@ -186,6 +229,8 @@ func _world() -> Dictionary:
 	var tm = game.get("terrain_manager")
 	return {
 		"day": game.day,
+		"week": game.day,
+		"season": game.current_season() if game.has_method("current_season") else "spring",
 		"unit_count": game.units.size(),
 		"city_count": game.cities.size(),
 		"train_count": game.trains.size(),
@@ -225,6 +270,8 @@ func _one_requirement(key: String, want, world: Dictionary) -> bool:
 			return int(world["day"]) <= int(want)
 		"weather":
 			return str(world["weather"]) == str(want)
+		"season":
+			return str(world["season"]) == str(want)
 		_:
 			# Generic numeric fact (unit_count, rail_count, bridge_count, ...).
 			# want can be a bare number (treated as >=) or { ">=": n }, { "<": n }, etc.
@@ -255,3 +302,44 @@ func _chain_active(set_name: String) -> bool:
 			if c.get("id", "") == id:
 				return true
 	return false
+
+func _is_shop(card) -> bool:
+	return card != null and card.get("id", "") in _shop_ids
+
+func _schedule_next_shop() -> void:
+	# Queue one random paid shop a few weeks out (the "recycle").
+	if _shop_ids.is_empty():
+		return
+	var id: String = _shop_ids[randi() % _shop_ids.size()]
+	schedule_card(id, randi_range(SHOP_GAP_MIN, SHOP_GAP_MAX), "soon")
+
+func _force_shop() -> void:
+	# Pity backstop: drop a random shop in now if we've gone too long without one.
+	if _shop_ids.is_empty():
+		return
+	var id: String = _shop_ids[randi() % _shop_ids.size()]
+	if not deck.has_id(id):
+		deck.inject(card_library.get_card(id), "front")
+	weeks_since_shop = 0
+
+# ── Guaranteed weekly acquisition (Mini Metro style) ──────────────────────────
+# Built fresh each week so it's reliable and predictable, separate from the random
+# draw. Free, small picks — the steady drip that replaces the old always-open shop.
+# (Keep the paid `supply_offers` shops for bigger/rarer buys and their FTL tension.)
+func weekly_offer() -> Dictionary:
+	var pool := [
+		{ "label": "A new locomotive", "effects": [{ "type": "grant_train", "amount": 1 }] },
+		{ "label": "A new rail line (5 rails)", "effects": [{ "type": "grant_rails", "amount": 5 }] },
+		{ "label": "A prefab bridge", "effects": [{ "type": "grant_bridges", "amount": 1 }] },
+		{ "label": "Fresh infantry at the capital",
+		  "effects": [{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": "player_capital" }] },
+	]
+	pool.shuffle()
+	return {
+		"id": "weekly_requisition",
+		"type": "decision",
+		"text": "High command's weekly allocation has arrived. Choose one.",
+		"choice_a": pool[0],
+		"choice_b": pool[1],
+		"choice_c": { "label": "Hold it back this week", "effects": [] },
+	}

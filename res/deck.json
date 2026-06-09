@@ -71,7 +71,10 @@
 				}
 			  ]
 			}
-		  ]
+		  ],
+		  "requires": {
+			"season": "winter"
+		  }
 		},
 		{
 		  "id": "event_mud",
@@ -92,7 +95,10 @@
 			  ],
 			  "source": "event_mud"
 			}
-		  ]
+		  ],
+		  "requires": {
+			"season": "autumn"
+		  }
 		},
 		{
 		  "id": "event_thaw",
@@ -104,7 +110,10 @@
 			  "type": "script",
 			  "fn": "clear_skies"
 			}
-		  ]
+		  ],
+		  "requires": {
+			"season": "spring"
+		  }
 		},
 		{
 		  "id": "event_supply_drop",
@@ -165,7 +174,10 @@
 			  "fn": "harsh_winter",
 			  "days": 3
 			}
-		  ]
+		  ],
+		  "requires": {
+			"season": "winter"
+		  }
 		},
 		{
 		  "id": "decision_field_promote",
@@ -755,79 +767,6 @@
 		  },
 		  "choice_c": {
 			"label": "Leave",
-			"effects": []
-		  }
-		},
-		{
-		  "id": "shop_engineers",
-		  "type": "decision",
-		  "protected": false,
-		  "text": "Engineers can prefabricate crossings if a city funds them.",
-		  "choice_a": {
-			"label": "2 bridges (800)",
-			"cost": 800,
-			"pay_from": "pick_city",
-			"effects": [
-			  {
-				"type": "grant_bridges",
-				"amount": 2
-			  }
-			]
-		  },
-		  "choice_b": {
-			"label": "1 tunnel (800)",
-			"cost": 800,
-			"pay_from": "pick_city",
-			"effects": [
-			  {
-				"type": "grant_tunnels",
-				"amount": 1
-			  }
-			]
-		  },
-		  "choice_c": {
-			"label": "Decline",
-			"effects": []
-		  }
-		},
-		{
-		  "id": "shop_black_market",
-		  "type": "decision",
-		  "protected": false,
-		  "text": "A quartermaster offers off-the-books boosts. Buy a benefit instead of hardware?",
-		  "choice_a": {
-			"label": "Morale surge: +25% attack, 5 days (600)",
-			"cost": 600,
-			"pay_from": "pick_city",
-			"effects": [
-			  {
-				"type": "add_modifier",
-				"stat": "attack",
-				"op": "mul",
-				"value": 1.25,
-				"scope": "player",
-				"duration_days": 5,
-				"source": "black_market"
-			  }
-			]
-		  },
-		  "choice_b": {
-			"label": "War bonds: +6 city income (600)",
-			"cost": 600,
-			"pay_from": "pick_city",
-			"effects": [
-			  {
-				"type": "add_modifier",
-				"stat": "city_income",
-				"op": "add",
-				"value": 6,
-				"scope": "player",
-				"source": "war_bonds"
-			  }
-			]
-		  },
-		  "choice_c": {
-			"label": "Pass",
 			"effects": []
 		  }
 		}
