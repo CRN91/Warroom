@@ -44,6 +44,33 @@
 		  "effects": []
 		},
 		{
+		  "id": "intel_recon_sweep",
+		  "type": "intel",
+		  "text": "(live recon report)",
+		  "dynamic_text": "recon_report",
+		  "protected": false,
+		  "weight": 2,
+		  "effects": []
+		},
+		{
+		  "id": "intel_recon_sweep_2",
+		  "type": "intel",
+		  "text": "(live recon report)",
+		  "dynamic_text": "recon_report",
+		  "protected": false,
+		  "weight": 2,
+		  "effects": []
+		},
+		{
+		  "id": "intel_economy_estimate",
+		  "type": "intel",
+		  "text": "(live economy report)",
+		  "dynamic_text": "economy_report",
+		  "protected": false,
+		  "weight": 2,
+		  "effects": []
+		},
+		{
 		  "id": "event_snowstorm",
 		  "type": "event",
 		  "text": "A heavy snowstorm rolls across the front. Ground units bog down and supply slows.",
@@ -177,6 +204,142 @@
 		  ],
 		  "requires": {
 			"season": "winter"
+		  }
+		},
+		{
+		  "id": "decision_artillery_barrage",
+		  "type": "decision",
+		  "text": "The gunners have shells stockpiled for a coordinated barrage. It would shake the enemy's whole line — and burn through supplies.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Authorize the barrage",
+			"effects": [
+			  {
+				"type": "drain_resources",
+				"scope": "combatant",
+				"amount": 25
+			  },
+			  {
+				"type": "add_modifier",
+				"id": "barrage_shock",
+				"stat": "attack",
+				"op": "mul",
+				"value": 0.75,
+				"scope": "enemy",
+				"duration_days": 3,
+				"source": "decision_artillery_barrage"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Conserve the shells",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 10
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_refugees",
+		  "type": "decision",
+		  "text": "A column of refugees arrives at your lines, asking for shelter and work in the rear.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Take them in",
+			"cost": 100,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "refugee_labor",
+				"stat": "city_income",
+				"op": "add",
+				"value": 6,
+				"scope": "player",
+				"source": "decision_refugees"
+			  },
+			  {
+				"type": "inject_cards",
+				"ids": [
+				  "intel_refugees_grateful"
+				],
+				"position": "random"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Turn them away",
+			"effects": [
+			  {
+				"type": "delayed_card",
+				"id": "event_partisan_anger",
+				"after_days": 6
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_conscription",
+		  "type": "decision",
+		  "text": "The provinces can yield one more draft class — at a lasting cost to the workforce back home.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Call up the draft (permanent -15% city income)",
+			"effects": [
+			  {
+				"type": "spawn_unit",
+				"unit": "infantry",
+				"team": 1,
+				"near": "player_capital"
+			  },
+			  {
+				"type": "add_modifier",
+				"id": "draft_economy",
+				"stat": "city_income",
+				"op": "mul",
+				"value": 0.85,
+				"scope": "player",
+				"source": "decision_conscription"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Keep them in the factories",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "player",
+				"amount": 40
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_night_raid",
+		  "type": "decision",
+		  "text": "Scouts found a gap to the enemy's rear depots. A night raid could wreck their stores, but the men will pay for it in sleep and supplies.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Launch the raid",
+			"effects": [
+			  {
+				"type": "drain_resources",
+				"scope": "enemy",
+				"amount": 40
+			  },
+			  {
+				"type": "drain_resources",
+				"scope": "player",
+				"amount": 15
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Too risky — hold the line",
+			"effects": []
 		  }
 		},
 		{
@@ -678,6 +841,31 @@
 			  }
 			]
 		  }
+		}
+	  ]
+	},
+	"consequences": {
+	  "label": "Consequences (injected by decisions)",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "intel_refugees_grateful",
+		  "type": "intel",
+		  "text": "The refugees have settled in the rear towns. The workshops hum a little louder.",
+		  "protected": false,
+		  "effects": []
+		},
+		{
+		  "id": "event_partisan_anger",
+		  "type": "event",
+		  "text": "Word of the refugees turned away has spread. Sympathisers strike your rail in the night.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "script",
+			  "fn": "sabotage_rail"
+			}
+		  ]
 		}
 	  ]
 	},

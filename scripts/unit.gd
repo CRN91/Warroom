@@ -1,35 +1,58 @@
 extends Node2D
 class_name Unit
 
+## Base class for everything that sits on a hex: infantry, artillery,
+## logistics, trains and (via subclass) cities.
+##
+## Dependencies are injected by Board.register_unit — units never hold a
+## reference to Game. They receive exactly what they use:
+##   grid       — position / pathing
+##   modifiers  — stat queries (attack buffs etc.)
+##   terrain    — line-of-fire checks (used by the attack component)
+
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
-var grid: Node 
-func setup(p_grid: Node): grid = p_grid
 
-# Back-reference to the Game node, set right after spawn. Gives units (and cards
-# that target them) access to game.modifiers etc. Null-safe everywhere it's used.
-var game: Node = null
+var grid: Node
+var modifiers: ModifierManager = null
+var terrain: TerrainManager = null
 
-# Used by modifier scopes like "type:infantry" and "tag:elite". Set this per unit
+func setup(p_grid: Node):
+	grid = p_grid
+
+func inject(p_grid: Node, p_modifiers: ModifierManager, p_terrain: TerrainManager) -> void:
+	grid = p_grid
+	modifiers = p_modifiers
+	terrain = p_terrain
+
+# Used by modifier scopes like "type:infantry" and "tag:elite". Set per unit
 # scene (e.g. "infantry", "artillery", "logistics") or via a spawn/transform card.
 @export var unit_type: String = ""
 var tags: Array = []
 
-# ── Action ────────────────────────────────────────────────────────────────────
+# ── Action (1 per day) ────────────────────────────────────────────────────────
 
 var frozen: bool = false
+
 func is_frozen(): return frozen
-func unfreeze(): frozen = false
-func freeze(): frozen = true
-var _next_move_hex = null
-var _target_piece = null
-var _resupply_piece = null
+
+func freeze():
+	frozen = true
+	_update_frozen_visual()
+
+func unfreeze():
+	frozen = false
+	_update_frozen_visual()
+
+func _update_frozen_visual():
+	# Spent units dim so it's obvious who can still act this turn.
+	modulate = Color(0.55, 0.55, 0.55) if frozen else Color(1, 1, 1)
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
-@onready var movement_comp = $Movement
+@onready var movement_comp: Movement = $Movement
+
 func get_hex(): return movement_comp.get_hex()
-func clear_destination(): movement_comp.clear_movement()
 func move_to(hex): movement_comp.move_to(hex, grid)
 
 func clear_movement():
@@ -39,18 +62,18 @@ func clear_movement():
 func process_movement():
 	if not get_hex() or is_frozen(): return
 	movement_comp.process_movement(grid)
-	
-func set_destination(hex): 
+
+func set_destination(hex):
 	movement_comp.set_goal(hex)
 	refresh_intent()
-	
-func add_waypoint(hex): 
+
+func add_waypoint(hex):
 	movement_comp.add_waypoint(hex)
 	refresh_intent()
 
 # ── Resources ─────────────────────────────────────────────────────────────────
 
-@onready var resource_comp = $Resources
+@onready var resource_comp: Resources = $Resources
 
 func get_resources() -> int: return resource_comp.get_resources()
 func get_max_resources() -> int: return resource_comp.get_max_resources()
@@ -83,22 +106,29 @@ func supply_to(target: Node2D) -> void:
 # ── Attack ────────────────────────────────────────────────────────────────────
 
 func is_combatant(): return false
+
 @onready var attack_comp = get_node_or_null("Attack")
-func get_attack_target(): return attack_comp.get_target(grid)
-func get_attack_range(): return attack_comp.get_range()  if attack_comp else 1
+
+func get_attack_target():
+	return attack_comp.get_target(grid) if attack_comp else null
+
+func get_attack_range():
+	return attack_comp.get_range() if attack_comp else 1
+
 func get_damage():
 	var base = attack_comp.get_damage() if attack_comp else 0
-	# Apply any "attack" modifiers scoped to this unit (buffs, weather, debuffs).
-	if game and game.modifiers:
-		return int(round(game.modifiers.get_value("attack", float(base), self)))
+	if modifiers:
+		return int(round(modifiers.get_value("attack", float(base), self)))
 	return base
-func attack(enemy): return attack_comp.attack(enemy) if attack_comp else false
 
-func set_attack_target(piece): 
+func attack(enemy):
+	return attack_comp.attack(enemy) if attack_comp else false
+
+func set_attack_target(piece):
 	if attack_comp: attack_comp.set_target(piece)
 	refresh_intent()
-	
-func clear_attack_target(): 
+
+func clear_attack_target():
 	if attack_comp: attack_comp.clear_target()
 	refresh_intent()
 
@@ -144,7 +174,7 @@ func update_ui():
 func status() -> String:
 	var extras = ""
 	if attack_comp and attack_comp.target and is_instance_valid(attack_comp.target):
-		extras += " | Destination: %s" % attack_comp.target.name
+		extras += " | Target: %s" % attack_comp.target.name
 
 	if movement_comp.path.size() > 0:
 		extras += " | Manual Path (%d waypoints)" % movement_comp.path.size()
@@ -155,14 +185,37 @@ func status() -> String:
 		get_hex(), name, get_resources(), get_max_resources(), extras
 	]
 
+# ── Selection highlight ───────────────────────────────────────────────────────
+
+var is_selected: bool = false
+var _ring_radius: float = 0.0
+
+func set_selected(v: bool) -> void:
+	is_selected = v
+	queue_redraw()
+
+func _selection_radius() -> float:
+	if _ring_radius <= 0.0 and is_instance_valid(grid):
+		var hex = get_hex()
+		if hex != null:
+			for nb in HEX.axial_neighbours(hex):
+				if grid.Grid.has(nb):
+					_ring_radius = grid.get_hex_pos(hex).distance_to(grid.get_hex_pos(nb)) * 0.45
+					break
+	return _ring_radius if _ring_radius > 0.0 else 250.0
+
 # ── Visual Intent (Telegraphing) ──────────────────────────────────────────────
+
+var _next_move_hex = null
+var _target_piece = null
+var _resupply_piece = null
 
 func refresh_intent():
 	_next_move_hex = null
 	_target_piece = null
 	_resupply_piece = null
 
-	# 1. Check for Movement Intent
+	# 1. Movement intent
 	if movement_comp and movement_comp.path.size() > 0:
 		_next_move_hex = movement_comp.path[0]
 	elif movement_comp and movement_comp.goal != null:
@@ -177,78 +230,66 @@ func refresh_intent():
 		if apath.size() > 1:
 			_next_move_hex = apath[1]
 
-	# 2. If NOT moving, check for Attack Intent
+	# 2. If not moving: attack intent
 	if _next_move_hex == null and attack_comp:
-		_target_piece = get_attack_target()
+		_target_piece = attack_comp.target if is_instance_valid(attack_comp.target) else null
 
-	# 3. If NOT moving or attacking, check for Resupply Intent
+	# 3. If not moving or attacking: resupply tether
 	if _next_move_hex == null and _target_piece == null and resupply_comp and resupply_comp.can_receive:
-		var gap = get_max_resources() - get_resources()
-		if gap > 0:
-			var best_donor = null
-			var best_rank = -1
-			
-			for adj in HEX.axial_neighbours(get_hex()):
-				if not grid.Grid.has(adj): continue
-				var candidate = grid.get_piece(adj)
-				if candidate and candidate.team == team:
-					var donor_supply = candidate.get_node_or_null("Resupply")
-					if donor_supply and donor_supply.supplier_rank > resupply_comp.supplier_rank and donor_supply.supplier_rank > best_rank:
-						# Ensure the donor actually has spare supplies to give
-						if (candidate.get_resources() - donor_supply.supplier_reserve) > 0:
-							best_donor = candidate
-							best_rank = donor_supply.supplier_rank
-			
-			_resupply_piece = best_donor
+		_resupply_piece = _best_adjacent_donor()
 
 	queue_redraw()
+
+func _best_adjacent_donor() -> Node2D:
+	var best_donor: Node2D = null
+	var best_rank := -1
+	for adj in HEX.axial_neighbours(get_hex()):
+		if not grid.Grid.has(adj): continue
+		var candidate = grid.get_piece(adj)
+		if candidate == null or candidate.team != team: continue
+		var donor_supply = candidate.get_node_or_null("Resupply")
+		# Needs a higher-rank supplier with spare supplies to give
+		if donor_supply and donor_supply.supplier_rank > resupply_comp.supplier_rank and donor_supply.supplier_rank > best_rank:
+			if (candidate.get_resources() - donor_supply.supplier_reserve) > 0:
+				best_donor = candidate
+				best_rank = donor_supply.supplier_rank
+	return best_donor
 
 func _draw():
 	if not is_instance_valid(grid): return
 
-	var thickness = 30.0 # Makes the lines nice and chunky
+	var thickness = 30.0
 
-	# 1. Draw Movement Arrow (Thick Green)
+	if is_selected:
+		draw_arc(Vector2.ZERO, _selection_radius(), 0, TAU, 48, Color(1.0, 0.95, 0.4, 0.9), 14.0)
+
+	# 1. Movement arrow (green)
 	if _next_move_hex != null and grid.Grid.has(_next_move_hex):
 		var target_pos = grid.get_hex_pos(_next_move_hex) - position
-		var end_pos = target_pos * 0.75 # Point 3/4ths of the way to the next hex
-		draw_arrow(Vector2.ZERO, end_pos, Color(0.2, 0.9, 0.2, 0.9), thickness)
+		draw_arrow(Vector2.ZERO, target_pos * 0.75, Color(0.2, 0.9, 0.2, 0.9), thickness)
 
-	# 2. Draw Attack Crosshair & Arrow (Thick Red)
+	# 2. Attack crosshair & arrow (red)
 	elif _target_piece != null and is_instance_valid(_target_piece):
-		if _target_piece.visible: # Strictly respects Fog of War
+		if _target_piece.visible: # strictly respects fog of war
 			var target_pos = _target_piece.position - position
-			var end_pos = target_pos * 0.75 
 			var color = Color(0.9, 0.1, 0.1, 0.9)
-			
-			# Draw the arrow pointing at them
-			draw_arrow(Vector2.ZERO, end_pos, color, thickness)
-			
-			# Draw the crosshair ON them
+			draw_arrow(Vector2.ZERO, target_pos * 0.75, color, thickness)
 			draw_arc(target_pos, 22.0, 0, TAU, 16, color, thickness / 1.5)
 			draw_line(target_pos - Vector2(30, 0), target_pos + Vector2(30, 0), color, thickness / 1.5)
 			draw_line(target_pos - Vector2(0, 30), target_pos + Vector2(0, 30), color, thickness / 1.5)
 
-	# 3. Draw Resupply Arrow (Thick Blue)
+	# 3. Resupply arrow (blue, flowing from supplier to this unit)
 	elif _resupply_piece != null and is_instance_valid(_resupply_piece):
 		var target_pos = _resupply_piece.position - position
-		var end_pos = target_pos * 0.75
-		draw_arrow(Vector2.ZERO, end_pos, Color(0.1, 0.6, 1.0, 0.9), thickness)
+		draw_arrow(target_pos * 0.75, target_pos * 0.25, Color(0.1, 0.6, 1.0, 0.9), thickness)
 
-# Custom helper to draw directional arrows using polygons
 func draw_arrow(start: Vector2, end: Vector2, color: Color, thickness: float):
-	if start.distance_to(end) < 1.0: return # Prevent math errors
-	
-	# Draw the main line
-	draw_line(start, end*0.9, color, thickness)
-	
-	# Calculate the angle for the arrowhead
+	if start.distance_to(end) < 1.0: return
+
+	draw_line(start, end * 0.9, color, thickness)
+
 	var dir = (end - start).normalized()
 	var arrow_size = thickness * 4.0
-	
-	# Find the two back corners of the triangle
 	var p1 = end - dir * arrow_size + dir.orthogonal() * arrow_size * 0.6
 	var p2 = end - dir * arrow_size - dir.orthogonal() * arrow_size * 0.6
-	
-	# Draw the arrowhead triangle
 	draw_colored_polygon(PackedVector2Array([end, p1, p2]), color)

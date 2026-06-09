@@ -20,6 +20,10 @@ config/use_hidden_project_data_directory=false
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Events="*res://scripts/event_bus.gd"
+
 [editor]
 
 script/templates_search_path="res://scripts"

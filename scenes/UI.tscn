@@ -3,19 +3,27 @@
 [ext_resource type="PackedScene" uid="uid://c1ftkj5wviygk" path="res://scenes/card.tscn" id="1_dj8aq"]
 [ext_resource type="Script" uid="uid://dk2phs8782m7i" path="res://scripts/ui_manager.gd" id="1_ro3t7"]
 
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_snlk1"]
-
 [node name="CanvasLayer" type="CanvasLayer" unique_id=378857695]
 script = ExtResource("1_ro3t7")
 
 [node name="Panel" type="Panel" parent="." unique_id=2095565698]
-offset_right = 40.0
-offset_bottom = 40.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 292.0
+offset_bottom = 132.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel" unique_id=1311944449]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 2
 
 [node name="Name" type="Label" parent="Panel/VBoxContainer" unique_id=837704174]
 layout_mode = 2
@@ -28,23 +36,35 @@ layout_mode = 2
 
 [node name="Mode" type="Label" parent="Panel/VBoxContainer" unique_id=1141768126]
 layout_mode = 2
+autowrap_mode = 3
 
 [node name="CardUI" parent="." unique_id=1997218907 instance=ExtResource("1_dj8aq")]
-offset_left = 600.0
-offset_right = 930.0
-offset_bottom = 430.0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -372.0
+offset_top = 64.0
+offset_right = -16.0
+offset_bottom = 484.0
+grow_horizontal = 0
 
 [node name="NextDay" type="Button" parent="." unique_id=7034990]
-material = SubResource("CanvasItemMaterial_snlk1")
-anchors_preset = 2
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_top = -50.0
-offset_right = 100.0
+offset_left = -90.0
+offset_top = -58.0
+offset_right = 90.0
+offset_bottom = -16.0
+grow_horizontal = 2
 grow_vertical = 0
+theme_override_font_sizes/font_size = 18
 text = "End Turn"
 
 [node name="DayCount" type="Label" parent="." unique_id=233478593]
+visible = false
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0

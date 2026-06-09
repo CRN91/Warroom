@@ -7,12 +7,9 @@ class_name Deck
 
 var queue: Array = []
 
-func len():        return queue.size()
-func size():       return queue.size()
-func is_empty():   return queue.is_empty()
-func push(x):      queue.push_back(x)
-func pop():        return queue.pop_front()
-func _to_string(): return str(queue)
+func size() -> int:     return queue.size()
+func is_empty() -> bool: return queue.is_empty()
+func push(card) -> void: queue.push_back(card)
 
 # ── Editing the deck from cards ───────────────────────────────────────────────
 
@@ -28,8 +25,7 @@ func inject(card: Dictionary, position: String = "random") -> void:
 		"front":
 			queue.push_front(card)
 		"soon":
-			var idx: int = min(2, queue.size())
-			queue.insert(idx, card)
+			queue.insert(min(2, queue.size()), card)
 		"back":
 			queue.push_back(card)
 		_:  # "random"

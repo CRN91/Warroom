@@ -10,6 +10,10 @@
 [ext_resource type="Script" uid="uid://dmenykovq2onk" path="res://scripts/fow_manager.gd" id="11_kvuet"]
 [ext_resource type="Script" uid="uid://cqsmj54nmcwk2" path="res://scripts/modifier_manager.gd" id="12_dinhu"]
 [ext_resource type="Script" uid="uid://b8yeb4crcd2hh" path="res://scripts/terrain_manager.gd" id="13_kvuet"]
+[ext_resource type="Script" path="res://scripts/weather_manager.gd" id="14_weath"]
+[ext_resource type="Script" path="res://scripts/board.gd" id="15_board"]
+[ext_resource type="Script" path="res://scripts/turn_manager.gd" id="16_turnm"]
+[ext_resource type="Script" path="res://scripts/input_controller.gd" id="17_input"]
 
 [node name="Game" type="Node2D" unique_id=745179235]
 script = ExtResource("1_4d42g")
@@ -58,3 +62,15 @@ script = ExtResource("12_dinhu")
 [node name="TerrainManager" type="Node2D" parent="." unique_id=143743353]
 z_index = -1
 script = ExtResource("13_kvuet")
+
+[node name="WeatherManager" type="Node" parent="."]
+script = ExtResource("14_weath")
+
+[node name="Board" type="Node2D" parent="."]
+script = ExtResource("15_board")
+
+[node name="TurnManager" type="Node" parent="."]
+script = ExtResource("16_turnm")
+
+[node name="InputController" type="Node2D" parent="."]
+script = ExtResource("17_input")

@@ -1,47 +1,55 @@
 extends Node
 class_name CardManager
 
-# Owns the deck lifecycle: builds the starting deck, draws one card per day on the
-# intel -> event -> decision loop, holds the scheduler for "happens N days later"
-# effects, AND bridges the board to the story via triggers/conditions.
+# Owns the deck lifecycle: builds the starting deck, draws one card per day on
+# the intel -> event -> decision loop, holds the scheduler for "happens N days
+# later" effects, and bridges the board to the story via triggers/conditions.
 #
-# Two new mechanisms make the board and the card game one system:
+# Two mechanisms make the board and the card game one system:
 #
 #   trigger  — a card carries  "trigger": { "event": "...", <ctx matches>, ... }
-#              When game code calls  card_manager.notify("event", {ctx})  any card
-#              whose trigger matches (and whose `requires` hold) is injected.
+#              Board facts arrive via the Events bus (city_captured,
+#              rail_established, unit_died); any card whose trigger matches
+#              (and whose `requires` hold) is injected into the deck.
 #
 #   requires — a card carries  "requires": { <world condition>, ... }
-#              The card can only be drawn or triggered while the condition holds,
-#              e.g. an "armoured train" decision that only appears when a train
-#              actually exists on the board.
+#              The card can only be drawn or triggered while the condition
+#              holds, e.g. an "armoured train" decision that only appears when
+#              a train actually exists on the board.
 #
-# Effects themselves are still applied by CardResolver.
+# Effects themselves are applied by CardResolver.
 
-@onready var deck         = $Deck
-@onready var card_library = $CardLibrary
-@onready var resolver     = $CardResolver
+@onready var deck: Deck = $Deck
+@onready var card_library: CardLibrary = $CardLibrary
+@onready var resolver: CardResolver = $CardResolver
 @onready var card_scripts: CardScripts = $CardScripts
 
 var scheduled: Array = []              # [{ on_day:int, effect:Dictionary }]
-var game: Node2D
+var s: GameServices
 
 # Board -> story triggers
 var watchers: Array = []               # card ids in the library that carry a "trigger"
 var fired: Dictionary = {}             # card_id -> true   (once-triggers already fired)
 var tally: Dictionary = {}             # card_id -> int    (running count toward trigger.count)
 
-# Paid shops: not in the starting deck — scheduled one at a time so they stay occasional.
+# Paid shops: not in the starting deck — scheduled one at a time so they stay
+# rare (FTL-style: units are scarce, every acquisition chance matters).
 const SHOP_SET := "supply_offers"
-const SHOP_PITY := 8                    # guarantee a shop if none has appeared in N weeks
-const SHOP_GAP_MIN := 3                 # otherwise the next random shop lands in 3..6 weeks
-const SHOP_GAP_MAX := 6
+const SHOP_PITY := 12                   # guarantee a shop if none has appeared in N weeks
+const SHOP_GAP_MIN := 5                 # otherwise the next random shop lands in 5..9 weeks
+const SHOP_GAP_MAX := 9
 var weeks_since_shop := 0
 var _shop_ids: Array = []
 
-func setup(_game: Node2D):
-	game = _game
+# Free requisition offer (Mini Metro-style steady drip): replaces the decision
+# slot once every OFFER_INTERVAL weeks.
+const OFFER_INTERVAL := 6
+
+func setup(services: GameServices):
+	s = services
 	card_library.load_library()
+	resolver.setup(s)
+	card_scripts.setup(s)
 
 	var starting = card_library.build_starting_deck([
 		"ambient",        # recurring texture (weather, filler intel, supply)
@@ -53,7 +61,20 @@ func setup(_game: Node2D):
 	_index_watchers()
 	_shop_ids = card_library.get_set_card_ids(SHOP_SET)
 	_schedule_next_shop()
+
+	# Board facts -> story triggers
+	Events.city_captured.connect(_on_city_captured)
+	Events.rail_established.connect(func(_route_id): notify("rail_established"))
+	Events.unit_died.connect(func(unit): notify("unit_died", { "team": unit.team }))
+
 	print("CardManager: starting deck has %d cards, %d trigger-watchers." % [deck.size(), watchers.size()])
+
+func _on_city_captured(_city: Node2D, by_team: int, prev_team: int) -> void:
+	if by_team == 1:
+		var ev := "enemy_city_captured" if prev_team == 2 else "neutral_city_captured"
+		notify(ev, { "by": 1 })
+	else:
+		notify("city_lost", { "by": by_team })
 
 func _index_watchers() -> void:
 	watchers.clear()
@@ -64,25 +85,21 @@ func _index_watchers() -> void:
 # ── Scheduling ────────────────────────────────────────────────────────────────
 
 func schedule_effect(effect: Dictionary, after_days) -> void:
-	scheduled.append({ "on_day": game.day + int(after_days), "effect": effect })
+	scheduled.append({ "on_day": s.turn.day + int(after_days), "effect": effect })
 
 func schedule_card(id: String, after_days, position: String = "soon") -> void:
 	schedule_effect({ "type": "inject_cards", "ids": [id], "position": position }, after_days)
 
 func check_pending(day: int) -> void:
-	# Expire old modifiers, fire day-based triggers, then fire scheduled effects.
-	game.modifiers.tick(day)
 	_check_day_triggers(day)
 	for i in range(scheduled.size() - 1, -1, -1):
 		if scheduled[i]["on_day"] <= day:
-			resolver.resolve([scheduled[i]["effect"]], game)
+			resolver.resolve([scheduled[i]["effect"]])
 			scheduled.remove_at(i)
 
-# ── Board events (call card_manager.notify(...) from gameplay code) ───────────
+# ── Board events ──────────────────────────────────────────────────────────────
 
 func notify(event: String, ctx: Dictionary = {}) -> void:
-	if game == null:
-		return
 	var world := _world()
 	for id in watchers:
 		var card: Dictionary = card_library.all_cards[id]
@@ -140,8 +157,13 @@ func draw_daily_card(day: int):
 
 	var order = ["intel", "event", "decision"]
 	var required: String = order[(day - 1) % 3] if day > 0 else "intel"
-	var world := _world()
 
+	# Guaranteed free requisition: lands on the decision slot every OFFER_INTERVAL weeks.
+	if required == "decision" and day % OFFER_INTERVAL == 0:
+		weeks_since_shop += 1
+		return requisition_offer()
+
+	var world := _world()
 	var drawn = null
 	for i in range(deck.size()):
 		var card = deck.queue[i]
@@ -156,6 +178,11 @@ func draw_daily_card(day: int):
 	if drawn == null:
 		drawn = _filler_card(required)
 
+	# Intel cards can carry live reconnaissance instead of canned text.
+	if drawn.has("dynamic_text"):
+		drawn = drawn.duplicate(true)
+		drawn["text"] = IntelGenerator.generate(str(drawn["dynamic_text"]), s.board)
+
 	# Pity bookkeeping: reset when a shop surfaces, otherwise count the week.
 	if _is_shop(drawn):
 		weeks_since_shop = 0
@@ -166,11 +193,12 @@ func draw_daily_card(day: int):
 func _filler_card(required: String) -> Dictionary:
 	match required:
 		"intel":
+			# Quiet week at HQ -> recon still files a real report on the enemy.
 			return { "id": "filler_intel", "type": "intel",
-				"text": "The front is quiet. No new reports.", "effects": [] }
+				"text": IntelGenerator.generate("recon_report", s.board), "effects": [] }
 		"event":
 			return { "id": "filler_event", "type": "event",
-				"text": "An uneventful day passes on the line.", "effects": [] }
+				"text": "An uneventful week passes on the line.", "effects": [] }
 		_:
 			return { "id": "filler_decision", "type": "decision",
 				"text": "Routine paperwork crosses your desk. Sign it?",
@@ -183,35 +211,33 @@ func resolve_drawn(card: Dictionary) -> void:
 	if card.get("type", "") == "decision":
 		return
 	if card.has("effects"):
-		resolver.resolve(card["effects"], game)
+		resolver.resolve(card["effects"])
 
 func resolve_choice(card_data: Dictionary, choice: String):
-	# Accepts any choice_* key (yes/no and multi-choice). "ack"/anything else =
-	# a plain dismiss of an intel/event card.
+	# Accepts any choice_* key (yes/no and multi-choice).
 	if not (choice.begins_with("choice_") and card_data.has(choice)):
 		return
-		
+
 	var ch = card_data[choice]
 	var cost := int(ch.get("cost", 0))
 	var effects = ch.get("effects", [])
-	
+
 	if cost > 0 and ch.get("pay_from", "pick_city") == "pick_city":
-		# Gather all cities that can actually afford this
 		var eligible_cities = []
-		for c in game.cities:
+		for c in s.board.cities:
 			if c.team == 1 and c.get_resources() >= cost:
 				eligible_cities.append(c)
-				
-		# 1. Auto-purchase if only 1 city is eligible!
+
 		if eligible_cities.size() == 1:
-			game.execute_purchase(eligible_cities[0], cost, effects)
-			
-		# 2. Show UI overlay if multiple cities are eligible!
+			s.board.execute_purchase(eligible_cities[0], cost, effects)
 		elif eligible_cities.size() > 1:
-			game.prompt_city_selection(eligible_cities, cost, effects)
+			s.ui.show_city_picker(eligible_cities, cost,
+				func(city): s.board.execute_purchase(city, cost, effects))
+		else:
+			Events.notify("No city can afford that.")
 	else:
-		resolver.resolve(effects, game)
-		
+		resolver.resolve(effects)
+
 	# Recycle a paid shop: queue the next random shop a few weeks out so they recur.
 	if _is_shop(card_data):
 		_schedule_next_shop()
@@ -219,34 +245,25 @@ func resolve_choice(card_data: Dictionary, choice: String):
 # ── Conditions / world snapshot ───────────────────────────────────────────────
 
 func _world() -> Dictionary:
-	var by_type: Dictionary = {}
-	for u in game.units:
-		var t = u.get("unit_type")
-		if t != null and str(t) != "":
-			by_type[str(t)] = int(by_type.get(str(t), 0)) + 1
-
-	var rn = game.get("rail_network")
-	var tm = game.get("terrain_manager")
 	return {
-		"day": game.day,
-		"week": game.day,
-		"season": game.current_season() if game.has_method("current_season") else "spring",
-		"unit_count": game.units.size(),
-		"city_count": game.cities.size(),
-		"train_count": game.trains.size(),
-		"train_exists": game.trains.size() > 0,
-		"rail_count": rn.rail_hexes.size() if rn else 0,
-		"bridge_count": _bridge_count(tm),
-		"weather": game.game_state.get("weather", "clear"),
-		"by_type": by_type,
+		"day": s.turn.day,
+		"week": s.turn.day,
+		"season": s.weather.current_season(),
+		"unit_count": s.board.units.size(),
+		"city_count": s.board.cities.size(),
+		"train_count": s.board.trains.size(),
+		"train_exists": s.board.trains.size() > 0,
+		"rail_count": s.rail_network.rail_hexes.size(),
+		"bridge_count": _bridge_count(),
+		"weather": s.weather.weather_name,
+		"by_type": s.board.unit_counts_by_type(),
 	}
 
-func _bridge_count(tm) -> int:
+func _bridge_count() -> int:
 	var n := 0
-	if tm:
-		for k in tm.river.keys():
-			if tm.river[k].get("bridge", false):
-				n += 1
+	for k in s.terrain.river.keys():
+		if s.terrain.river[k].get("bridge", false):
+			n += 1
 	return n
 
 func _requires_met(card: Dictionary, world: Dictionary) -> bool:
@@ -303,6 +320,8 @@ func _chain_active(set_name: String) -> bool:
 				return true
 	return false
 
+# ── Shops & offers ────────────────────────────────────────────────────────────
+
 func _is_shop(card) -> bool:
 	return card != null and card.get("id", "") in _shop_ids
 
@@ -322,24 +341,24 @@ func _force_shop() -> void:
 		deck.inject(card_library.get_card(id), "front")
 	weeks_since_shop = 0
 
-# ── Guaranteed weekly acquisition (Mini Metro style) ──────────────────────────
-# Built fresh each week so it's reliable and predictable, separate from the random
-# draw. Free, small picks — the steady drip that replaces the old always-open shop.
-# (Keep the paid `supply_offers` shops for bigger/rarer buys and their FTL tension.)
-func weekly_offer() -> Dictionary:
+func requisition_offer() -> Dictionary:
+	## Guaranteed free pick (Mini Metro style): reliable, predictable, small —
+	## and infrastructure only. Units stay scarce: they come from rare paid
+	## shops and story cards, never for free.
 	var pool := [
 		{ "label": "A new locomotive", "effects": [{ "type": "grant_train", "amount": 1 }] },
 		{ "label": "A new rail line (5 rails)", "effects": [{ "type": "grant_rails", "amount": 5 }] },
 		{ "label": "A prefab bridge", "effects": [{ "type": "grant_bridges", "amount": 1 }] },
-		{ "label": "Fresh infantry at the capital",
-		  "effects": [{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": "player_capital" }] },
+		{ "label": "Tunnelling crews", "effects": [{ "type": "grant_tunnels", "amount": 1 }] },
+		{ "label": "A supply convoy (+60 to all units)",
+		  "effects": [{ "type": "grant_resources", "scope": "player", "amount": 60 }] },
 	]
 	pool.shuffle()
 	return {
 		"id": "weekly_requisition",
 		"type": "decision",
-		"text": "High command's weekly allocation has arrived. Choose one.",
+		"text": "High command's allocation has arrived. Choose one.",
 		"choice_a": pool[0],
 		"choice_b": pool[1],
-		"choice_c": { "label": "Hold it back this week", "effects": [] },
+		"choice_c": { "label": "Hold it back this time", "effects": [] },
 	}

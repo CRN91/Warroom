@@ -1,36 +1,42 @@
 extends Node
 class_name EnemyAI
 
-var game: Node2D 
+## The opposing commander. Works only through Board's public API — buying
+## units from its cities and giving its forces simple standing orders.
 
-func setup(_game: Node2D):
-	game = _game
+const HEXGRID = preload("res://Hexgrid/hex.gd")
+var HEX = HEXGRID.new()
+
+var s: GameServices
+
+func setup(services: GameServices):
+	s = services
 
 func run_turn():
 	_purchase_units()
 	_command_units()
 
-# ── Economy ───────────────────────────────────────────────────────────────
+# ── Economy ───────────────────────────────────────────────────────────────────
 
 func _purchase_units():
-	if game.day % 4 != 0: return                 # dial 1: only shop every other week
+	if s.turn.day % 4 != 0: return               # dial 1: only shop every 4th week
 	var bought := 0
-	for city in game.cities:
+	for city in s.board.cities:
 		if city.team != 2 or bought >= 1: continue   # dial 2: cap one buy per turn
 		var res = city.get_resources()
-		if res >= game.COST["infantry"] + 600:       # dial 3: keep a surplus, don't self-drain
+		if res >= Board.COST["infantry"] + 600:      # dial 3: keep a surplus, don't self-drain
 			var choices = ["infantry"]
-			if res >= game.COST["artillery"] + 600: choices.append("artillery")
-			if res >= game.COST["logistics"] + 600: choices.append("logistics")
+			if res >= Board.COST["artillery"] + 600: choices.append("artillery")
+			if res >= Board.COST["logistics"] + 600: choices.append("logistics")
 			var choice = choices[randi() % choices.size()]
-			var scene = {"infantry": game.INFANTRY, "artillery": game.ARTILLERY, "logistics": game.LOGI}[choice]
-			if game._spawn_unit_near_city(scene, city):
-				city.deplete(game.COST[choice]); bought += 1
+			if s.board.spawn_unit_near_city(choice, city) != null:
+				city.deplete(Board.COST[choice])
+				bought += 1
 
-# ── Strategy ──────────────────────────────────────────────────────────────
+# ── Strategy ──────────────────────────────────────────────────────────────────
 
 func _command_units():
-	for unit in game.units:
+	for unit in s.board.units:
 		if unit.team != 2 or unit is City or unit is Train: continue
 
 		if unit.is_combatant():
@@ -39,17 +45,17 @@ func _command_units():
 			_command_logistics(unit)
 
 func _command_combatant(unit):
-	unit.clear_destination()
+	unit.clear_movement()
 	var is_starving = unit.get_resources() <= (unit.get_max_resources() * 0.3)
 
 	if is_starving:
-		var city = _get_nearest_friendly_city(unit.get_hex())
+		var city = _nearest_own_city(unit.get_hex())
 		if city: unit.set_destination(city.get_hex())
-		return 
+		return
 
 	if unit.movement_comp.goal != null: return
 
-	var target = _get_nearest_enemy(unit.get_hex())
+	var target = _nearest_player_piece(unit.get_hex())
 	if target:
 		unit.set_destination(target.get_hex())
 
@@ -57,58 +63,45 @@ func _command_logistics(unit):
 	var has_supplies = unit.get_resources() > (unit.get_max_resources() * 0.7)
 
 	if has_supplies:
-		var target = _get_nearest_friendly_combatant(unit.get_hex(), unit)
+		var target = _nearest_own_combatant(unit.get_hex(), unit)
 		if target:
 			unit.set_destination(target.get_hex())
 	else:
-		var city = _get_nearest_friendly_city(unit.get_hex())
+		var city = _nearest_own_city(unit.get_hex())
 		if city:
 			unit.set_destination(city.get_hex())
 
-# ── Targeting Helpers ─────────────────────────────────────────────────────
+# ── Targeting helpers ─────────────────────────────────────────────────────────
 
-func _get_nearest_friendly_city(start_hex) -> Node2D:
-	var best_city = null
+func _nearest_own_city(start_hex) -> Node2D:
+	var best = null
 	var best_dist = 9999
-	
-	for city in game.cities:
+	for city in s.board.cities:
 		if city.team == 2:
-			var d = game.HEX.axial_distance(start_hex, city.get_hex())
+			var d = HEX.axial_distance(start_hex, city.get_hex())
 			if d < best_dist:
 				best_dist = d
-				best_city = city
-				
-	return best_city
+				best = city
+	return best
 
-func _get_nearest_enemy(start_hex) -> Node2D:
-	var best_target = null
-	var best_dist   = 9999
-	
-	for p_unit in game.units:
-		if p_unit.team == 1:
-			var d = game.HEX.axial_distance(start_hex, p_unit.get_hex())
+func _nearest_player_piece(start_hex) -> Node2D:
+	var best = null
+	var best_dist = 9999
+	for piece in s.board.units + s.board.cities:
+		if piece.team == 1:
+			var d = HEX.axial_distance(start_hex, piece.get_hex())
 			if d < best_dist:
 				best_dist = d
-				best_target = p_unit
-				
-	for city in game.cities:
-		if city.team == 1:
-			var d = game.HEX.axial_distance(start_hex, city.get_hex())
-			if d < best_dist:
-				best_dist = d
-				best_target = city
-				
-	return best_target
+				best = piece
+	return best
 
-func _get_nearest_friendly_combatant(start_hex, self_unit) -> Node2D:
-	var best_target = null
-	var best_dist   = 9999
-	
-	for f_unit in game.units:
-		if f_unit.team == 2 and f_unit != self_unit and f_unit.has_method("is_combatant") and f_unit.is_combatant():
-			var d = game.HEX.axial_distance(start_hex, f_unit.get_hex())
+func _nearest_own_combatant(start_hex, self_unit) -> Node2D:
+	var best = null
+	var best_dist = 9999
+	for unit in s.board.units:
+		if unit.team == 2 and unit != self_unit and unit.has_method("is_combatant") and unit.is_combatant():
+			var d = HEX.axial_distance(start_hex, unit.get_hex())
 			if d < best_dist:
 				best_dist = d
-				best_target = f_unit
-				
-	return best_target
+				best = unit
+	return best

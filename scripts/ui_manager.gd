@@ -1,153 +1,214 @@
 extends CanvasLayer
 class_name UIManager
 
-# ── Signals ───────────────────────────────────────────────────────────────────
-# These let the UI talk back to Game.gd without needing a hard reference to it
+## All HUD: top bar (date/season/weather), unit/city stats panel, card display,
+## stock readout, toasts, game-over screen, and the debug overlay (F3).
+## Talks back to gameplay only through signals — it never drives systems itself.
+
 signal next_day_requested
-signal buy_requested(item_type: String, city: Node2D)
 signal card_choice_made(card_data: Dictionary, choice: String)
 
-# ── UI References ─────────────────────────────────────────────────────────────
-@onready var daycounter    = $DayCount
-@onready var nextdaybutton = $NextDay
-@onready var panel         = $Panel
-@onready var lbl_name      = $Panel/VBoxContainer/Name
-@onready var lbl_res       = $Panel/VBoxContainer/Resources
-@onready var lbl_act       = $Panel/VBoxContainer/Action
-@onready var lbl_mode      = $Panel/VBoxContainer/Mode
-@onready var card_ui       = $CardUI
+# ── Scene references ──────────────────────────────────────────────────────────
+@onready var daycounter: Label = $DayCount
+@onready var nextdaybutton: Button = $NextDay
+@onready var panel: Panel = $Panel
+@onready var lbl_name: Label = $Panel/VBoxContainer/Name
+@onready var lbl_res: Label = $Panel/VBoxContainer/Resources
+@onready var lbl_act: Label = $Panel/VBoxContainer/Action
+@onready var lbl_mode: Label = $Panel/VBoxContainer/Mode
+@onready var card_ui: CardUI = $CardUI
+
+var s: GameServices
 
 var current_viewed_piece: Node2D = null
-var city_menu: Panel = null
-var city_menu_city: Node2D = null
-var city_title_lbl: Label
-var city_stock_lbl: Label
-var city_buy_btns: Dictionary = {}
-var costs: Dictionary = {}
+var decision_pending: bool = false
+
+# Built-in-code UI
+var top_bar_lbl: Label = null
+var stock_lbl: Label = null
+var toast_box: VBoxContainer = null
 var debug_lbl: Label = null
 
-func setup(game_costs: Dictionary):
-	costs = game_costs
-	_build_city_menu()
+func setup(services: GameServices):
+	s = services
+	_build_top_bar()
+	_build_stock_readout()
+	_build_toast_box()
 	_build_debug_overlay()
+	_style_stats_panel()
 	panel.hide()
 	card_ui.hide()
 	nextdaybutton.pressed.connect(func(): next_day_requested.emit())
 
-	# Make sure the card's button signal reaches us, whether or not it was wired
-	# in the editor. Guarded so we never double-connect (which would double effects).
 	if not card_ui.card_chosen.is_connected(_on_card_ui_choice_made):
 		card_ui.card_chosen.connect(_on_card_ui_choice_made)
 
-func update_day(day: int):
-	daycounter.text = "DAY " + str(day)
+	Events.day_advanced.connect(func(_d): _refresh_top_bar())
+	Events.weather_changed.connect(func(_w): _refresh_top_bar())
+	Events.toast.connect(show_toast)
+	Events.decision_pending.connect(set_decision_pending)
 
-# ── City Menu ─────────────────────────────────────────────────────────────────
+	_refresh_top_bar()
+	_refresh_stock()
 
-func _build_city_menu():
-	city_menu = Panel.new()
-	city_menu.custom_minimum_size = Vector2(200, 0)
-	city_menu.position = Vector2(10, 160)
+# ── Shared styling ────────────────────────────────────────────────────────────
+
+func _hud_style(alpha := 0.85) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.1, alpha)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	return style
+
+func _style_stats_panel():
+	panel.add_theme_stylebox_override("panel", _hud_style(0.92))
+
+# ── Top bar (date / season / weather) ─────────────────────────────────────────
+
+func _build_top_bar():
+	var bar := PanelContainer.new()
+	bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	bar.offset_top = 8
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("panel", _hud_style())
+
+	top_bar_lbl = Label.new()
+	top_bar_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_bar_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bar.add_child(top_bar_lbl)
+	add_child(bar)
+
+func _refresh_top_bar():
+	if top_bar_lbl == null or s == null: return
+	var weather := s.weather.weather_name
+	var weather_part := "" if weather == "clear" else "   •   %s" % weather.capitalize()
+	top_bar_lbl.text = "Week %d   •   %s (%s)%s" % [
+		s.turn.day, s.weather.date_string(), s.weather.current_season().capitalize(), weather_part
+	]
+
+# ── Stock readout (rails / trains / bridges / tunnels from cards) ─────────────
+
+func _build_stock_readout():
+	var box := PanelContainer.new()
+	box.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	box.offset_left = 12
+	box.offset_top = -44
+	box.offset_bottom = -12
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_stylebox_override("panel", _hud_style())
+
+	stock_lbl = Label.new()
+	stock_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stock_lbl.add_theme_font_size_override("font_size", 13)
+	box.add_child(stock_lbl)
+	add_child(box)
+
+func _refresh_stock():
+	if stock_lbl == null or s == null: return
+	stock_lbl.text = "Stock — rail: %d   trains: %d   bridges: %d   tunnels: %d" % [
+		s.rail_network.player_rail_stock, s.rail_network.player_train_stock,
+		s.terrain.bridge_stock, s.terrain.tunnel_stock
+	]
+
+func _process(_delta):
+	# Stocks change from many places (cards, building, planning); cheap to poll.
+	_refresh_stock()
+
+# ── Toasts ────────────────────────────────────────────────────────────────────
+
+func _build_toast_box():
+	toast_box = VBoxContainer.new()
+	toast_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	toast_box.offset_left = -250
+	toast_box.offset_right = 250
+	toast_box.offset_top = -200
+	toast_box.offset_bottom = -80
+	toast_box.alignment = BoxContainer.ALIGNMENT_END
+	toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast_box.add_theme_constant_override("separation", 4)
+	add_child(toast_box)
+
+func show_toast(message: String):
+	var lbl := Label.new()
+	lbl.text = message
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	lbl.add_theme_stylebox_override("normal", _hud_style(0.9))
+	toast_box.add_child(lbl)
+
+	# Cap the stack so a noisy turn doesn't flood the screen
+	while toast_box.get_child_count() > 4:
+		toast_box.get_child(0).queue_free()
+
+	var tween := lbl.create_tween()
+	tween.tween_interval(2.6)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.6)
+	tween.tween_callback(lbl.queue_free)
+
+# ── Decision flow control ─────────────────────────────────────────────────────
+
+func set_decision_pending(pending: bool):
+	decision_pending = pending
+	nextdaybutton.disabled = pending
+	nextdaybutton.text = "Decision required" if pending else "End Turn"
+
+# ── City picker (decision-card purchases) ─────────────────────────────────────
+
+func show_city_picker(eligible_cities: Array, cost: int, on_pick: Callable):
+	set_decision_pending(true)   # still mid-decision until a city is chosen
+
+	var overlay = PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_CENTER)
+	overlay.add_theme_stylebox_override("panel", _hud_style(0.96))
 
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
-	city_menu.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 12)
+	overlay.add_child(vbox)
 
-	city_title_lbl = Label.new()
-	vbox.add_child(city_title_lbl)
-	vbox.add_child(HSeparator.new())
+	var lbl = Label.new()
+	lbl.text = "Select a city to pay %d resources:" % cost
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(lbl)
 
-	for item in [
-		["infantry",  "Infantry",        costs["infantry"]],
-		["artillery", "Artillery",       costs["artillery"]],
-		["logistics", "Logistics",       costs["logistics"]],
-		["rail",      "Rail Segment",    costs["rail"]],
-		["train",     "Train",           costs["train"]],
-		["bridge",    "Bridge",          costs["bridge"]], 
-		["tunnel",    "Mountain Tunnel", costs["tunnel"]] 
-	]:
+	for c in eligible_cities:
 		var btn = Button.new()
-		btn.text = "%s  (%d)" % [item[1], item[2]]
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.text = "%s (%d resources)" % [c.name, c.get_resources()]
+		btn.pressed.connect(func():
+			on_pick.call(c)
+			set_decision_pending(false)
+			overlay.queue_free()
+		)
 		vbox.add_child(btn)
-		city_buy_btns[item[0]] = btn
-		# Bind the item type, so the signal knows what we clicked
-		btn.pressed.connect(_on_buy_pressed.bind(item[0]))
 
-	vbox.add_child(HSeparator.new())
-	city_stock_lbl = Label.new()
-	vbox.add_child(city_stock_lbl)
+	add_child(overlay)
 
-	add_child(city_menu)
-	city_menu.hide()
-
-func open_city_menu(city: Node2D, rail_stock: int, train_stock: int, bridge_stock: int, tunnel_stock: int):
-	city_menu_city = city
-	refresh_city_menu(rail_stock, train_stock, bridge_stock, tunnel_stock)
-	city_menu.show()
-
-func close_city_menu():
-	city_menu.hide()
-	city_menu_city = null
-
-func refresh_city_menu(rail_stock: int, train_stock: int, bridge_stock: int, tunnel_stock: int):
-	if not city_menu_city: return
-	city_title_lbl.text = "%s\n%d / %d resources" % [
-		city_menu_city.name,
-		city_menu_city.get_resources(),
-		city_menu_city.get_max_resources()
-	]
-	var res = city_menu_city.get_resources()
-	for key in city_buy_btns:
-		city_buy_btns[key].disabled = res < costs[key]
-		
-	city_stock_lbl.text = "Stock: %d rail | %d trains\n%d bridges | %d tunnels" % [rail_stock, train_stock, bridge_stock, tunnel_stock]
-
-func _on_buy_pressed(item_type: String):
-	if city_menu_city:
-		# Tell Game.gd we want to buy something!
-		buy_requested.emit(item_type, city_menu_city)
-
-# ── Debug Overlay (active modifiers + weather) ────────────────────────────────
-# A throwaway helper so you can SEE what the cards are doing while testing.
-# Delete it once you have proper UI.
-
-func _build_debug_overlay():
-	debug_lbl = Label.new()
-	debug_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	debug_lbl.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	debug_lbl.offset_left = -300
-	debug_lbl.offset_top = 10
-	debug_lbl.offset_right = -10
-	debug_lbl.offset_bottom = 420
-	debug_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT 
-	debug_lbl.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
-	debug_lbl.add_theme_font_size_override("font_size", 13)
-	add_child(debug_lbl)
-
-func update_debug(modifiers, game_state: Dictionary):
-	if not debug_lbl:
-		return
-	var lines: Array = ["WEATHER: %s" % str(game_state.get("weather", "clear")), "── active modifiers ──"]
-	var desc: Array = modifiers.describe() if modifiers else []
-	if desc.is_empty():
-		lines.append("(none)")
-	else:
-		lines.append_array(desc)
-	debug_lbl.text = "\n".join(lines)
-
-# ── Stats Panel ───────────────────────────────────────────────────────────────
+# ── Stats panel ───────────────────────────────────────────────────────────────
 
 func show_stats(piece):
+	current_viewed_piece = piece
 	lbl_name.text = str(piece.name)
 	lbl_res.text  = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
-	lbl_act.text  = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
 
+	if piece is City:
+		var role := "Capital" if piece.is_capital else "City"
+		lbl_act.text = "%s — income %d/week" % [role, piece.resource_comp.replenish_rate]
+	else:
+		lbl_act.text = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
+
+	var move_comp = piece.get("movement_comp")
 	var path_text = ""
-	if piece.get("use_manual_path"):
-		path_text = " | MANUAL PATH (%d waypoints)" % piece.movement_comp.path.size()
-	elif piece.get("goal"):
-		path_text = " | Goal: %s" % str(piece.goal)
+	if move_comp and not (piece is City):
+		if move_comp.path.size() > 0:
+			path_text = " | Manual path (%d steps)" % move_comp.path.size()
+		elif move_comp.goal != null:
+			path_text = " | Moving to %s" % str(move_comp.goal)
 
 	if piece.is_combatant():
 		var target = piece.attack_comp.target
@@ -165,41 +226,97 @@ func refresh_stats():
 	if current_viewed_piece and is_instance_valid(current_viewed_piece):
 		show_stats(current_viewed_piece)
 	else:
-		# If the unit died or starved during the turn, close the panel
-		hide_panels()
+		hide_panels()   # the piece died or starved during the turn
 
 func hide_panels():
+	current_viewed_piece = null
 	panel.hide()
-	close_city_menu()
 
-# ── Game Over Panel ───────────────────────────────────────────────────────────
+func on_day_finished():
+	## Called by TurnManager at the end of every day so open panels stay honest.
+	if panel.visible:
+		refresh_stats()
+	_refresh_debug()
 
-func show_game_over(player_lost: bool):
-	var p = Panel.new()
-	p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+# ── Game over ─────────────────────────────────────────────────────────────────
+
+func show_game_over(player_lost: bool, day: int):
+	var dim = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.65)
+	dim.process_mode = Node.PROCESS_MODE_ALWAYS   # usable while the tree is paused
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.add_theme_constant_override("separation", 20)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	dim.add_child(vbox)
+
 	var lbl = Label.new()
-	lbl.text = "You Lose" if player_lost else "You Win!"
+	lbl.text = "Defeat" if player_lost else "Victory!"
 	lbl.add_theme_font_size_override("font_size", 80)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
-	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	p.add_child(lbl)
-	add_child(p)
-	
+	vbox.add_child(lbl)
+
+	var sub = Label.new()
+	var held := 0
+	for c in s.board.cities:
+		if is_instance_valid(c) and c.team == 1: held += 1
+	sub.text = "The campaign lasted %d weeks. Cities held: %d." % [day, held]
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub)
+
+	var btn = Button.new()
+	btn.text = "Play Again"
+	btn.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().reload_current_scene()
+	)
+	vbox.add_child(btn)
+
+	add_child(dim)
+
 func _on_card_ui_choice_made(card_data: Dictionary, choice: String):
-	# When the CardUI registers a click, we bubble the signal up to Game.gd
+	set_decision_pending(false)
 	card_choice_made.emit(card_data, choice)
-	
-# ── Mouse Shield ──────────────────────────────────────────────────────────────
+
+# ── Debug overlay (F3) ────────────────────────────────────────────────────────
+
+func _build_debug_overlay():
+	debug_lbl = Label.new()
+	debug_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	debug_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	debug_lbl.offset_left = -300
+	debug_lbl.offset_top = -420
+	debug_lbl.offset_right = -10
+	debug_lbl.offset_bottom = -10
+	debug_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	debug_lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	debug_lbl.add_theme_color_override("font_color", Color(1, 0.95, 0.6))
+	debug_lbl.add_theme_font_size_override("font_size", 13)
+	debug_lbl.visible = false
+	add_child(debug_lbl)
+
+func toggle_debug():
+	debug_lbl.visible = not debug_lbl.visible
+	_refresh_debug()
+
+func _refresh_debug():
+	if debug_lbl == null or not debug_lbl.visible:
+		return
+	var lines: Array = ["WEATHER: %s" % s.weather.weather_name, "── active modifiers ──"]
+	var desc: Array = s.modifiers.describe()
+	if desc.is_empty():
+		lines.append("(none)")
+	else:
+		lines.append_array(desc)
+	lines.append("── deck: %d cards ──" % s.card_manager.deck.size())
+	debug_lbl.text = "\n".join(lines)
+
+# ── Mouse shield ──────────────────────────────────────────────────────────────
 
 func is_mouse_over_ui() -> bool:
-	# Get the mouse position relative to the UI layer
-	var pos = get_viewport().get_mouse_position()
-	
-	# If the mouse is inside any of these rectangles, block the game board
-	if nextdaybutton.visible and nextdaybutton.get_global_rect().has_point(pos): return true
-	if panel.visible and panel.get_global_rect().has_point(pos): return true
-	if card_ui.visible and card_ui.get_global_rect().has_point(pos): return true
-	if city_menu and city_menu.visible and city_menu.get_global_rect().has_point(pos): return true
-	
-	return false
+	## True when the cursor is over any visible control, including ones built at
+	## runtime (city picker, game over). Keeps board clicks from firing through UI.
+	var hovered := get_viewport().gui_get_hovered_control()
+	return hovered != null and hovered.mouse_filter != Control.MOUSE_FILTER_IGNORE

@@ -17,12 +17,12 @@ func next_day() -> bool:
 		update_ui()
 		return starved
 
-	# Normal income, but routed through the modifier system so cards can boost or
+	# Normal income, routed through the modifier system so cards can boost or
 	# cut a city's output (permanently, temporarily, player-only, this city only…).
 	var base_rate: int = resource_comp.replenish_rate
 	var rate: int = base_rate
-	if game and game.modifiers:
-		rate = int(round(game.modifiers.get_value("city_income", float(base_rate), self)))
+	if modifiers:
+		rate = int(round(modifiers.get_value("city_income", float(base_rate), self)))
 
 	if rate > 0:
 		resource_comp.replenish(rate)
@@ -33,16 +33,18 @@ func next_day() -> bool:
 		update_ui()
 		return starved
 
-# ── Disabling Movement and Freezing ─────────────────────────────────────
+# ── Cities don't move or act ──────────────────────────────────────────────────
 
+func freeze(): pass
 func unfreeze(): pass
 func is_frozen(): return false
 func move_to(_hex): return # Cities can't move
+
 func set_hex(hex):
 	grid.disable_hex(hex)
 	return movement_comp.set_hex(hex, grid)
 
-# ── Team ───────────────────────────────────────────────────────────────
+# ── Team ──────────────────────────────────────────────────────────────────────
 
 func set_enemy():
 	if has_node("Sprite2D"):
@@ -60,14 +62,14 @@ func set_player():
 	if has_node("Sprite2D") and original_texture:
 		$Sprite2D.texture = original_texture
 
-# ── Capturing ─────────────────────────────────────────────────────────────
+# ── Capturing ─────────────────────────────────────────────────────────────────
 
-func capture(new_team: int, game: Node):
-	if is_capital: 
-		game._game_over(team == 1)
+func capture(new_team: int):
+	if is_capital:
+		Events.game_over.emit(team == 1)
 		return
 
-	var prev := team              
+	var prev := team
 	team = new_team
 	resource_comp.resources = 500
 
@@ -75,12 +77,10 @@ func capture(new_team: int, game: Node):
 		set_player()
 	elif team == 2:
 		set_enemy()
+	update_ui()
 
-	if game and game.card_manager and new_team == 1:
-		var ev := "enemy_city_captured" if prev == 2 else "neutral_city_captured"
-		game.card_manager.notify(ev, {"by": 1})
-
-	print("%s captured by team %d" % [name, team])
+	Events.city_captured.emit(self, new_team, prev)
+	Events.notify("%s captured." % name)
 
 func _is_sieged() -> bool:
 	if not grid:

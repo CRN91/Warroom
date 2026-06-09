@@ -1,90 +1,64 @@
 extends Node2D
-
 class_name Movement
 
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
 
 var piece: Node2D
-var hex: Vector2i
+var hex = null               # null until the piece is placed on the board
+
 func get_hex(): return hex
 
 func _ready():
 	piece = get_parent()
 
-# ── Moving Hex ───────────────────────────────────────────────────────────
+# ── Moving Hex ────────────────────────────────────────────────────────────────
 
-func valid_hex(check_hex, grid):
-	""" Checks the hex exists, is adjacent and is not occupied """
-	
-	if grid.Grid.has(check_hex):
-		if hex:
-			if check_hex in HEX.axial_neighbours(hex):
-				return grid.get_piece(check_hex) == null
-		else:
-			return grid.get_piece(check_hex) == null
-
-	return false
-		
 func set_hex(new_hex, grid):
-	""" Sets the position of the object on the grid.
-	Assumes the tile coords are given in axial or cube.
-	'old_loc' is used when the piece is already set and being moved. """
-	if valid_hex(new_hex, grid):
-		# Gets the centered position of the hex
-		var pos = grid.get_hex_pos(new_hex)
-
-		# Sets a reference to the parent node in the grid
-		grid.set_piece(new_hex, piece)
-		
-		# If the piece is currently stored somewhere, removes the reference
-		if hex:
-			grid.set_piece(hex)
-			
-		hex = new_hex
-		piece.position = pos
+	"""Places the piece on new_hex and updates the grid references."""
+	grid.set_piece(new_hex, piece)
+	if hex != null:
+		grid.set_piece(hex)        # clear the old cell
+	hex = new_hex
+	piece.position = grid.get_hex_pos(new_hex)
 
 func force_hex(new_hex, grid):
-	"""Sets Hex but bypasses adjacency checks"""
-	if hex:
+	"""Sets hex, bypassing adjacency checks (trains, teleports)."""
+	if hex != null:
 		grid.set_piece(hex)
 	hex = new_hex
 	grid.set_piece(new_hex, piece)
 	piece.position = grid.get_hex_pos(new_hex)
 
-func move_to(new_hex, grid):
-	var old_hex = get_hex()
-	# Inital placement does not freeze
-	if not old_hex:
-		#grid.disable_hex(new_hex)
+func move_to(new_hex, grid) -> bool:
+	"""One-step move. Initial placement is free; afterwards a move must be to an
+	adjacent empty hex and spends the piece's daily action (freeze)."""
+	if not grid.Grid.has(new_hex):
+		return false
+
+	# Initial placement does not freeze
+	if hex == null:
+		if grid.get_piece(new_hex) != null:
+			return false
 		set_hex(new_hex, grid)
-		return
+		return true
 
-	var frozen = piece.frozen
-	if not frozen:
-		frozen = true
-		#grid.enable_hex(old_hex)
+	if piece.is_frozen():
+		return false
+	if not (new_hex in HEX.axial_neighbours(hex)):
+		return false
+	if grid.get_piece(new_hex) != null:
+		return false
 
-		# Adjacency check
-		if new_hex in HEX.axial_neighbours(old_hex):
-			if grid.get_piece(new_hex) == null:
-				grid.disable_hex(new_hex)
-				set_hex(new_hex, grid)
-				piece.frozen = frozen
-				return
-			else:
-				# Hex occupied
-				frozen = false
-				#grid.disable_hex(old_hex)
-		else:
-			frozen = false
-			#grid.disable_hex(old_hex)
-	piece.frozen = frozen
+	grid.disable_hex(new_hex)
+	set_hex(new_hex, grid)
+	piece.freeze()
+	return true
 
-# ── Pathing ───────────────────────────────────────────────────────────
+# ── Pathing ───────────────────────────────────────────────────────────────────
 
-var goal = null
-var path: Array = []
+var goal = null              # auto-goal: re-routes around traffic each day
+var path: Array = []         # manual path: strict list of hexes to walk
 
 func set_goal(target_hex):
 	path.clear()
@@ -99,7 +73,7 @@ func clear_movement():
 	path.clear()
 
 func process_movement(grid):
-	"""Decides pathing type used"""
+	"""Walks one step along the manual path, or one step toward the auto-goal."""
 	if path.size() > 0:
 		_manual_pathing(grid)
 	elif goal != null:
@@ -111,7 +85,7 @@ func _auto_pathing(grid):
 		clear_movement()
 		return
 
-	# Treat all units as passable to get inital A* route
+	# Treat friendly traffic as passable to get the ideal A* route
 	var passable = [current, goal]
 	for h in grid.Grid:
 		var p = grid.get_piece(h)
@@ -122,7 +96,6 @@ func _auto_pathing(grid):
 	var astar_path = grid.get_map_path(current, goal)
 	grid.sync_pathing()
 
-	# Attempt the move
 	if astar_path.size() > 1:
 		var next_hex = astar_path[1]
 		var piece_in_way = grid.get_piece(next_hex)
@@ -130,21 +103,19 @@ func _auto_pathing(grid):
 		if piece_in_way == null:
 			move_to(next_hex, grid)
 		elif piece_in_way is City:
-			if HEX.axial_distance(current, goal) == 1 and goal == next_hex:
-				clear_movement() # We arrived next to our target city
-			else:
-				clear_movement() # Path blocked by unexpected city
+			clear_movement()   # arrived next to the target city, or blocked by one
 		elif piece_in_way.team != piece.team:
-			clear_movement() 
+			clear_movement()   # enemy in the way: stop and let the player decide
 
 func _manual_pathing(grid):
 	var next_hex = path[0]
 	var piece_in_way = grid.get_piece(next_hex)
 
 	if piece_in_way == null:
-		move_to(next_hex, grid)
-		path.pop_front()
+		if move_to(next_hex, grid):
+			path.pop_front()
 	elif piece_in_way is City:
 		clear_movement()
 	elif piece_in_way.team != piece.team:
 		clear_movement()
+	# Friendly unit in the way: hold position this turn, try again tomorrow.

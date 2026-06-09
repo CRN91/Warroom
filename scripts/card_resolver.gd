@@ -7,46 +7,45 @@ class_name CardResolver
 # Turns a card's `effects` array into actual changes in the game.
 # Called when an intel/event card is drawn, and when a decision choice is made.
 #
-# Everything is routed through `game` and its sub-systems:
-#   game.modifiers        (ModifierManager)   — buffs/debuffs/weather
-#   game.card_manager     (CardManager)       — deck edits + scheduling
-#   game.card_library     -> via card_manager — card lookups
-#   game.spawn_unit / transform_units         — board changes
+# Everything is routed through the GameServices bundle:
+#   s.modifiers     (ModifierManager)   — buffs/debuffs
+#   s.weather       (WeatherManager)    — weather fronts
+#   s.card_manager  (CardManager)       — deck edits + scheduling
+#   s.board         (Board)             — spawns / transforms / resources
+#   s.rail_network / s.terrain          — stock grants
 #
 # To add a new declarative effect, add a `match` case. To add a one-off bespoke
 # effect, use { "type": "script", "fn": "..." } and write it in card_scripts.gd.
 # ──────────────────────────────────────────────────────────────────────────────
 
-func resolve(effects: Array, game: Node) -> void:
-	for effect in effects:
-		_resolve_one(effect, game)
+var s: GameServices
 
-func _resolve_one(effect: Dictionary, game: Node) -> void:
-	var cm = game.card_manager
+func setup(services: GameServices) -> void:
+	s = services
+
+func resolve(effects: Array) -> void:
+	for effect in effects:
+		_resolve_one(effect)
+
+func _resolve_one(effect: Dictionary) -> void:
+	var cm := s.card_manager
 	match effect.get("type", ""):
 
-		# ── Simple flags / values on game_state ──────────────────────────────
+		# ── Story flags ──────────────────────────────────────────────────────
 		"set_state", "game_state":
-			game.game_state[effect["key"]] = effect["value"]
+			s.board.state[effect["key"]] = effect["value"]
 
 		# ── Modifiers (the main event) ───────────────────────────────────────
 		"add_modifier":
-			game.modifiers.add_modifier(effect)
+			s.modifiers.add_modifier(effect)
 		"remove_modifier":
-			game.modifiers.remove_modifier(effect["id"])
+			s.modifiers.remove_modifier(effect["id"])
 		"remove_modifiers_by_tag":
-			game.modifiers.remove_by_tag(effect["tag"])
+			s.modifiers.remove_by_tag(effect["tag"])
 
-		# ── Weather convenience (clears previous weather, applies a bundle) ──
+		# ── Weather (clears the previous front, applies a bundle) ────────────
 		"set_weather":
-			game.game_state["weather"] = effect.get("name", "clear")
-			game.modifiers.remove_by_tag("weather")
-			for m in effect.get("modifiers", []):
-				var mm: Dictionary = m.duplicate(true)
-				var tags: Array = mm.get("tags", [])
-				if not ("weather" in tags): tags.append("weather")
-				mm["tags"] = tags
-				game.modifiers.add_modifier(mm)
+			s.weather.set_weather(effect.get("name", "clear"), effect.get("modifiers", []))
 
 		# ── Deck editing ─────────────────────────────────────────────────────
 		"inject_cards":
@@ -85,29 +84,29 @@ func _resolve_one(effect: Dictionary, game: Node) -> void:
 
 		# ── Board changes ────────────────────────────────────────────────────
 		"spawn_unit":
-			game.spawn_unit(effect)
+			s.board.spawn_unit(effect)
 		"transform_unit":
-			game.transform_units(effect)
+			s.board.transform_units(effect)
 		"grant_resources":
-			for p in _select(game, effect):
+			for p in _select(effect):
 				p.replenish(int(effect.get("amount", 0)))
 		"drain_resources":
-			for p in _select(game, effect):
+			for p in _select(effect):
 				p.deplete(int(effect.get("amount", 0)))
 
-		# ── Purchasing ────────────────────────────────────────────────────
-		"grant_rails":   game.rail_network.player_rail_stock  += int(effect.get("amount", 0))
-		"grant_train":   game.rail_network.player_train_stock += int(effect.get("amount", 0))
-		"grant_bridges": game.terrain_manager.bridge_stock    += int(effect.get("amount", 0))
-		"grant_tunnels": game.terrain_manager.tunnel_stock    += int(effect.get("amount", 0))
+		# ── Stock grants ─────────────────────────────────────────────────────
+		"grant_rails":   s.rail_network.player_rail_stock  += int(effect.get("amount", 0))
+		"grant_train":   s.rail_network.player_train_stock += int(effect.get("amount", 0))
+		"grant_bridges": s.terrain.bridge_stock             += int(effect.get("amount", 0))
+		"grant_tunnels": s.terrain.tunnel_stock             += int(effect.get("amount", 0))
 
 		# ── Arbitrary scripted effect ────────────────────────────────────────
 		"script":
-			cm.card_scripts.run(effect.get("fn", ""), game, effect)
+			cm.card_scripts.run(effect.get("fn", ""), effect)
 
 		_:
 			push_warning("CardResolver: unknown effect type '%s'" % str(effect.get("type", "")))
 
-func _select(game: Node, effect: Dictionary) -> Array:
+func _select(effect: Dictionary) -> Array:
 	var scope: String = effect.get("scope", effect.get("selector", "all"))
-	return game.modifiers.select_pieces(game.units, game.cities, scope)
+	return s.modifiers.select_pieces(s.board.units, s.board.cities, scope)
