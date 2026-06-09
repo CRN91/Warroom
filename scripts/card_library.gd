@@ -37,17 +37,22 @@ func get_card(id: String) -> Dictionary:
 
 # Returns a shuffled array of cards from the chosen STARTABLE set names.
 func build_starting_deck(chosen_sets: Array) -> Array:
-	var result = []
+	var pool := []
 	for set_name in chosen_sets:
-		if not sets.has(set_name):
-			push_error("CardLibrary: unknown set '%s'" % set_name)
-			continue
-		if not sets[set_name].get("startable", false):
-			push_error("CardLibrary: set '%s' is not startable" % set_name)
-			continue
+		if not sets.has(set_name): continue
+		if not sets[set_name].get("startable", false): continue
 		for card in sets[set_name]["cards"]:
-			result.append(card.duplicate(true))
-	result.shuffle()
+			pool.append(card.duplicate(true))
+	# weighted ordering: higher weight tends to land earlier in the pile
+	var keyed := []
+	for c in pool:
+		var w: float = float(c.get("weight", 1.0))
+		var key: float = 0.0 if w <= 0.0 else pow(randf(), 1.0 / w)
+		keyed.append({ "k": key, "card": c })
+	keyed.sort_custom(func(a, b): return a["k"] > b["k"])
+	var result := []
+	for e in keyed:
+		result.append(e["card"])
 	return result
 
 # All card ids in a set, startable or not (used by add_set/remove_set effects so

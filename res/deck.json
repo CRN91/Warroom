@@ -206,7 +206,7 @@
 		{
 		  "id": "decision_general_family",
 		  "type": "decision",
-		  "text": "General Harwick requests leave to visit his family.",
+		  "text": "General Harwick requests leave to attend to the funeral of a close relative.",
 		  "protected": false,
 		  "choice_a": {
 			"label": "Grant Leave",
@@ -234,9 +234,9 @@
 			"label": "Deny Leave",
 			"effects": [
 			  {
-				"type": "delayed_card",
-				"id": "event_mutiny",
-				"after_days": 20
+				"id": "intel_unrest",
+				"after_days": 13,
+				"type": "delayed_card"
 			  }
 			]
 		  }
@@ -423,22 +423,104 @@
 		{
 		  "id": "intel_harwick_grateful",
 		  "type": "intel",
-		  "text": "Harwick returns rested and grateful. Morale among his staff is high.",
+		  "text": "Harwick returns rested and grateful. Morale among his staff remains high.",
 		  "protected": false,
 		  "effects": []
 		},
 		{
 		  "id": "event_mutiny",
 		  "type": "event",
-		  "text": "Resentment boils over. A unit downs tools — supplies bleed away overnight.",
+		  "text": "A mutiny forms in the front lines lead by General Harwick. A brawl ensues and some mutineers are captured, the rest escaping into the nearby woods.",
 		  "protected": false,
 		  "effects": [
 			{
 			  "type": "drain_resources",
 			  "scope": "combatant",
 			  "amount": 40
+			},
+			{
+			  "id": "decision_mutineers",
+			  "after_days": 35,
+			  "type": "delayed_card"
 			}
 		  ]
+		},
+		{
+		  "id": "intel_unrest",
+		  "type": "intel",
+		  "text": "Reports suggest morale is low and point to an insubordinate General stirring distrust amongst the ranks.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "ids": [
+                "event_mutiny"
+			  ],
+			  "position": "soon",
+			  "type": "inject_cards"
+			}
+		  ]
+		},
+		{
+		  "id": "decision_mutineers",
+		  "type": "decision",
+		  "text": "A band of mutineers are captured whilst attempting to raid a supply depot for food.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Execute the mutineers for deserting their post.",
+			"effects": [
+			  {
+				"scope": "type:infantry",
+				"count": 1,
+				"unit_type": "dsquad",
+				"rename": "Death Squad",
+				"add_tags": [
+                  "execute"
+				],
+				"max_resources": 90,
+				"modifiers": [
+				  {
+					"stat": "attack",
+					"op": "add",
+					"value": 15,
+					"scope": "type:dsquad",
+					"source": "harwick"
+				  }
+				],
+				"type": "transform_unit"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Send the mutineers to a military tribunal.",
+			"effects": [
+			  {
+				"scope": "player",
+				"amount": 10,
+				"type": "drain_resources"
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Pardon the mutineers on the condition they rejoin the war effort.",
+			"effects": [
+			  {
+				"unit": "infantry",
+				"team": 1,
+				"unit_type": "mutineers",
+				"max_resources": 40,
+				"name": "Ex-Mutineers",
+				"modifiers": [
+				  {
+					"stat": "attack",
+					"op": "mul",
+					"value": 1.2,
+					"scope": "type:mutineers"
+				  }
+				],
+				"type": "spawn_unit"
+			  }
+			]
+		  }
 		}
 	  ]
 	},
@@ -583,6 +665,170 @@
 				"amount": 40
 			  }
 			]
+		  }
+		}
+	  ]
+	},
+	"supply_offers": {
+	  "label": "Supply Offers (purchase shops)",
+	  "startable": true,
+	  "cards": [
+		{
+		  "id": "shop_field_requisition",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A requisition officer can release units to a city's garrison — for a price. Which, if any?",
+		  "choice_a": {
+			"label": "Infantry (800)",
+			"cost": 800,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "spawn_unit",
+				"unit": "infantry",
+				"team": 1,
+				"near": "purchased_city"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Artillery (1000)",
+			"cost": 1000,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "spawn_unit",
+				"unit": "artillery",
+				"team": 1,
+				"near": "purchased_city"
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Logistics truck (800)",
+			"cost": 800,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "spawn_unit",
+				"unit": "logistics",
+				"team": 1,
+				"near": "purchased_city"
+			  }
+			]
+		  },
+		  "choice_d": {
+			"label": "Nothing this time",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_rail_yard",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A rail yard offers rolling stock. Stock up now, or wait for a better day?",
+		  "choice_a": {
+			"label": "Train + 5 rails (1200)",
+			"cost": 1200,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_train",
+				"amount": 1
+			  },
+			  {
+				"type": "grant_rails",
+				"amount": 5
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "5 rails (500)",
+			"cost": 500,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_rails",
+				"amount": 5
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Leave",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_engineers",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "Engineers can prefabricate crossings if a city funds them.",
+		  "choice_a": {
+			"label": "2 bridges (800)",
+			"cost": 800,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_bridges",
+				"amount": 2
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "1 tunnel (800)",
+			"cost": 800,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_tunnels",
+				"amount": 1
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Decline",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_black_market",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A quartermaster offers off-the-books boosts. Buy a benefit instead of hardware?",
+		  "choice_a": {
+			"label": "Morale surge: +25% attack, 5 days (600)",
+			"cost": 600,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"stat": "attack",
+				"op": "mul",
+				"value": 1.25,
+				"scope": "player",
+				"duration_days": 5,
+				"source": "black_market"
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "War bonds: +6 city income (600)",
+			"cost": 600,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"stat": "city_income",
+				"op": "add",
+				"value": 6,
+				"scope": "player",
+				"source": "war_bonds"
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Pass",
+			"effects": []
 		  }
 		}
 	  ]

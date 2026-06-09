@@ -27,18 +27,13 @@ func freeze(): frozen = true
 @onready var movement_comp = $Movement
 func get_hex(): return movement_comp.get_hex()
 func set_destination(hex): movement_comp.set_goal(hex)
-func clear_destination(): movement_comp.clear_goal()
+func clear_destination(): movement_comp.clear_movement()
 func add_waypoint(hex): movement_comp.add_waypoint(hex)
 func move_to(hex): movement_comp.move_to(hex, grid)
 
-var use_manual_path: bool = false
-func toggle_path_mode():
+func clear_movement():
 	if movement_comp:
-		use_manual_path = not use_manual_path
-		if use_manual_path:
-			movement_comp.clear_goal()
-		else:
-			movement_comp.clear_path()
+		movement_comp.clear_movement()
 
 func process_movement():
 	if not get_hex() or is_frozen(): return
@@ -134,13 +129,13 @@ func update_ui():
 func status() -> String:
 	var extras = ""
 	if attack_comp and attack_comp.target and is_instance_valid(attack_comp.target):
-		extras += " | Target: %s" % attack_comp.target.name
+		extras += " | Destination: %s" % attack_comp.target.name
 
-	if use_manual_path:
-		extras += " | MANUAL PATH (%d waypoints)" % movement_comp.path.size()
-	elif movement_comp.goal:
+	if movement_comp.path.size() > 0:
+		extras += " | Manual Path (%d waypoints)" % movement_comp.path.size()
+	elif movement_comp.goal != null:
 		extras += " | Auto → %s" % str(movement_comp.goal)
 
-	return "Hex: %s | %s | HP: %d/%d%s" % [
+	return "Hex: %s | %s | Resources: %d/%d%s" % [
 		get_hex(), name, get_resources(), get_max_resources(), extras
 	]

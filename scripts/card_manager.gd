@@ -36,8 +36,9 @@ func setup(_game: Node2D):
 	card_library.load_library()
 
 	var starting = card_library.build_starting_deck([
-		"ambient",        # recurring texture (weather, filler intel, supply)
-		"story_seeds",    # the per-run story openers
+		"ambient",         # recurring texture (weather, filler intel, supply)
+		"story_seeds",     # the per-run story openers
+		"supply_offers",   # the purchase shops
 	])
 	for card in starting:
 		deck.push(card)
@@ -163,10 +164,14 @@ func resolve_drawn(card: Dictionary) -> void:
 		resolver.resolve(card["effects"], game)
 
 func resolve_choice(card_data: Dictionary, choice: String):
-	# Accepts any choice_* key (yes/no and multi-choice). "ack"/anything else =
-	# a plain dismiss of an intel/event card.
-	if choice.begins_with("choice_") and card_data.has(choice):
-		resolver.resolve(card_data[choice].get("effects", []), game)
+	if not (choice.begins_with("choice_") and card_data.has(choice)):
+		return
+	var ch = card_data[choice]
+	var cost := int(ch.get("cost", 0))
+	if cost > 0 and ch.get("pay_from", "pick_city") == "pick_city":
+		game.begin_purchase(cost, ch.get("effects", []))   # waits for a city click
+	else:
+		resolver.resolve(ch.get("effects", []), game)
 
 # ── Conditions / world snapshot ───────────────────────────────────────────────
 

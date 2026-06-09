@@ -51,10 +51,14 @@ func _resolve_one(effect: Dictionary, game: Node) -> void:
 		# ── Deck editing ─────────────────────────────────────────────────────
 		"inject_cards":
 			var position: String = effect.get("position", "random")
-			for id in effect["ids"]:
-				var card: Dictionary = cm.card_library.get_card(id)
-				if not card.is_empty():
-					cm.deck.inject(card, position)
+			var delay: int = int(effect.get("after_days", 0))
+			for id in effect.get("ids", []):
+				if delay > 0:
+					cm.schedule_card(id, delay, position)
+				else:
+					var card = cm.card_library.get_card(id)
+					if card:
+						cm.deck.inject(card, position)
 		"remove_cards":
 			for id in effect["ids"]:
 				cm.deck.remove_by_id(id)
@@ -90,6 +94,12 @@ func _resolve_one(effect: Dictionary, game: Node) -> void:
 		"drain_resources":
 			for p in _select(game, effect):
 				p.deplete(int(effect.get("amount", 0)))
+
+		# ── Purchasing ────────────────────────────────────────────────────
+		"grant_rails":   game.rail_network.player_rail_stock  += int(effect.get("amount", 0))
+		"grant_train":   game.rail_network.player_train_stock += int(effect.get("amount", 0))
+		"grant_bridges": game.terrain_manager.bridge_stock    += int(effect.get("amount", 0))
+		"grant_tunnels": game.terrain_manager.tunnel_stock    += int(effect.get("amount", 0))
 
 		# ── Arbitrary scripted effect ────────────────────────────────────────
 		"script":

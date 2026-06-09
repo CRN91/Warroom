@@ -72,7 +72,6 @@ func _ready():
 	
 	ui.setup(COST)
 	ui.next_day_requested.connect(clock_increment)
-	ui.buy_requested.connect(_on_city_buy_requested)
 	ui.card_choice_made.connect(card_manager.resolve_choice)
 	
 	test_setup()
@@ -180,6 +179,22 @@ func _spawn_unit_near_city(scene: PackedScene, city: Node2D, unit_type: String =
 		
 	print("No free hex adjacent to %s" % city.name)
 	return false
+	
+var purchase_city: Node2D = null
+var _pending_purchase = null
+
+func begin_purchase(cost: int, effects: Array) -> void:
+	_pending_purchase = { "cost": cost, "effects": effects }   # + a UI prompt
+
+func _try_purchase_click(piece) -> bool:        # call at the top of your select handler
+	if _pending_purchase == null: return false
+	if piece is City and piece.team == 1 and piece.get_resources() >= _pending_purchase["cost"]:
+		piece.deplete(_pending_purchase["cost"])
+		purchase_city = piece
+		card_manager.resolver.resolve(_pending_purchase["effects"], self)
+		purchase_city = null
+		_pending_purchase = null
+	return true    
 
 # ── Card-driven board changes ─────────────────────────────────────────────────
 
@@ -255,10 +270,11 @@ func _resolve_spawn_hex(near):
 	elif near == "enemy_capital":
 		var capital = enemy_capital()
 		center = capital.get_hex() if capital else null
+	elif near == "purchased_city":
+		center = purchase_city.get_hex() if purchase_city else player_capital().get_hex()
 	else:
 		var c = find_city_by_name(str(near))
 		center = c.get_hex() if c else null
-
 	if center == null:
 		return null
 	return _free_hex_near(center)
@@ -291,13 +307,12 @@ func enemy_capital() -> Node2D:
 func _select_piece(piece: Node2D, hex: Vector2i):
 	if piece is City:
 		if piece.team == 1:
-			ui.open_city_menu(piece, rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
-		else:
 			ui.show_stats(piece)
 	else:
 		ui.close_city_menu()
-		ui.show_stats(piece)
-		hex_to_move = hex
+		if piece.team == 1:
+			ui.show_stats(piece)
+			hex_to_move = hex
 
 func _deselect_piece():
 	path_line.clear_points()
@@ -353,7 +368,7 @@ func _resolve_all_movement() -> Array:
 		if unit is City: continue
 		
 		if unit.team == 1:
-			if unit.get("use_manual_path"):
+			if unit.movement_comp.path.size() > 0:
 				player_manual.append(unit)
 			else:
 				player_auto.append(unit)
@@ -373,17 +388,38 @@ func _resolve_all_movement() -> Array:
 	return starved
 
 func _handle_movement_command(unit, target_hex):
-	if unit.use_manual_path:
-		var start_hex = unit.movement_comp.path.back() if unit.movement_comp.path.size() > 0 else unit.get_hex()
-
-		grid.sync_pathing(_occupied_hexes()) 
-		var route = grid.get_map_path(start_hex, target_hex)
-		grid.sync_pathing()   
-
-		for i in range(1, route.size()):
-			unit.movement_comp.add_waypoint(route[i])
+	var move_comp = unit.movement_comp
+	
+	if move_comp.goal == null and move_comp.path.is_empty():
+		# FIRST CLICK: Set the smart Auto-Goal
+		move_comp.set_goal(target_hex)
+		
 	else:
-		unit.movement_comp.set_goal(target_hex)
+		# SECOND CLICK (or more): Convert to a strict Manual Path!
+		var start_hex = unit.get_hex()
+		var passable_traffic = _get_passable_for_pathing()
+		
+		# If they currently have an auto-goal, lock it in as the first part of the manual path
+		if move_comp.goal != null:
+			grid.sync_pathing(passable_traffic)
+			var first_leg = grid.get_map_path(start_hex, move_comp.goal)
+			grid.sync_pathing() # Reset true collisions!
+			
+			for i in range(1, first_leg.size()):
+				move_comp.path.append(first_leg[i])
+				
+			move_comp.goal = null # Erase the auto-goal, we are entirely manual now!
+			
+		# Now, draw the next leg of the journey from where the current path ends
+		var route_start = move_comp.path.back() if move_comp.path.size() > 0 else start_hex
+		
+		grid.sync_pathing(passable_traffic)
+		var next_leg = grid.get_map_path(route_start, target_hex)
+		grid.sync_pathing() # Reset true collisions!
+		
+		# Append the new steps to the queue
+		for i in range(1, next_leg.size()):
+			move_comp.path.append(next_leg[i])
 
 func _play_selected(hex, p_hex_to_move):
 	var selected    = get_piece(hex)
@@ -420,7 +456,7 @@ func _play_selected(hex, p_hex_to_move):
 					ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock, terrain_manager.bridge_stock, terrain_manager.tunnel_stock)
 				return
 
-	if active_unit.use_manual_path:
+	if active_unit.movement_comp.path.size() > 0:
 		if not selected is City:
 			_handle_movement_command(active_unit, hex)
 		return
@@ -513,32 +549,30 @@ func _input(event):
 		
 		if hex in grid.Grid.keys():
 			grid.select_hex(oddr_hex)
-			var selected = get_piece(hex)
+			var clicked_piece = get_piece(hex)
 			
-			if not selected and not hex_to_move:
-				if rail_network.can_deploy_train(hex) and rail_network.player_train_stock > 0:
-					if rail_network.deploy_train_from_stock(hex):
-						ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
-					return
-			
-			if selected:
-				if hex_to_move:
-					_play_selected(hex, hex_to_move)
-					_deselect_piece()
+			if not hex_to_move:
+				if not clicked_piece:
+					if rail_network.can_deploy_train(hex) and rail_network.player_train_stock > 0:
+						if rail_network.deploy_train_from_stock(hex):
+							ui.refresh_city_menu(rail_network.player_rail_stock, rail_network.player_train_stock)
 				else:
-					_select_piece(selected, hex)
-			elif hex_to_move:
-				var piece_to_move = get_piece(hex_to_move)
-				if piece_to_move:
-					_play_selected(hex, hex_to_move) 
+					_select_piece(clicked_piece, hex)
 					
-					if is_instance_valid(piece_to_move):
-						if piece_to_move.use_manual_path:
-							ui.show_stats(piece_to_move)
-						else:
-							_deselect_piece()
-					else:
-						_deselect_piece()
+			else:
+				var active_unit = get_piece(hex_to_move)
+				if not is_instance_valid(active_unit):
+					_deselect_piece()
+					return
+					
+				if clicked_piece == active_unit:
+					_deselect_piece()
+				elif clicked_piece and clicked_piece.team == active_unit.team:
+					_select_piece(clicked_piece, hex)
+				else:
+					_play_selected(hex, hex_to_move)
+					ui.show_stats(active_unit)
+					_update_path_preview_line(active_unit, hex)
 
 	elif event.is_action_pressed("deselect"):
 		_deselect_piece()
@@ -548,31 +582,9 @@ func _input(event):
 			var oddr_hex   = grid.base_layer.local_to_map(get_global_mouse_position())
 			var target_hex = HEX.oddr_to_axial(oddr_hex)
 			
-			if target_hex in grid.Grid.keys():
-				var piece = get_piece(hex_to_move)
-				if piece:
-					if piece.use_manual_path:
-						path_line.default_color = Color(1.0, 0.8, 0.2)
-						var points = PackedVector2Array()        # pixel positions — for the line only
-						var prev = piece.get_hex()
-
-						points.append(grid.get_hex_pos(prev))
-						for p in piece.movement_comp.path:
-							points.append(grid.get_hex_pos(p))
-							prev = p
-
-						grid.sync_pathing(_occupied_hexes())     # HEX coords, not pixels
-						var mouse_points = grid.get_hex_path(prev, target_hex)
-						grid.sync_pathing()                       # restore truth
-
-						for i in range(1, mouse_points.size()):
-							points.append(mouse_points[i])
-						path_line.points = points
-					else:
-						path_line.default_color = Color(0.5, 1.0, 0.2)
-						grid.sync_pathing([hex_to_move])
-						path_line.points = grid.get_hex_path(hex_to_move, target_hex)
-						grid.sync_pathing()
+			var piece = get_piece(hex_to_move)
+			if piece:
+				_update_path_preview_line(piece, target_hex)
 			else:
 				path_line.clear_points()
 		else:
@@ -587,8 +599,9 @@ func _input(event):
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
 					if piece:
-						piece.toggle_path_mode()
+						piece.clear_movement()
 						ui.show_stats(piece)
+						_update_path_preview_line(piece, hex) 
 			KEY_F:
 				if hex_to_move:
 					var piece = get_piece(hex_to_move)
@@ -613,6 +626,66 @@ func _occupied_hexes() -> Array:
 		if p and not (p is City):
 			out.append(h)
 	return out
+
+func _update_path_preview_line(piece: Node2D, target_hex: Vector2i):
+	if not target_hex in grid.Grid.keys() or not is_instance_valid(piece):
+		path_line.clear_points()
+		return
+
+	var passable = _get_passable_for_pathing()
+
+	if piece.movement_comp.path.size() > 0:
+		path_line.default_color = Color(1.0, 0.8, 0.2)
+		var points = PackedVector2Array()
+		var prev = piece.get_hex()
+		
+		points.append(grid.get_hex_pos(prev))
+		for p in piece.movement_comp.path:
+			points.append(grid.get_hex_pos(p))
+			prev = p
+		
+		grid.sync_pathing(passable)
+		var mouse_points = grid.get_hex_path(prev, target_hex)
+		grid.sync_pathing() # Reset
+		
+		for i in range(1, mouse_points.size()):
+			points.append(mouse_points[i])
+		path_line.points = points
+
+	elif piece.movement_comp.goal != null:
+		path_line.default_color = Color(1.0, 0.8, 0.2)
+		var points = PackedVector2Array()
+		
+		# Draw the path from the unit to the established goal
+		grid.sync_pathing(passable)
+		var first_leg = grid.get_hex_path(piece.get_hex(), piece.movement_comp.goal)
+		grid.sync_pathing() # Reset
+		
+		points.append_array(first_leg)
+		
+		# Draw the preview extension from the goal to the mouse
+		grid.sync_pathing(passable)
+		var mouse_points = grid.get_hex_path(piece.movement_comp.goal, target_hex)
+		grid.sync_pathing() # Reset
+		
+		for i in range(1, mouse_points.size()):
+			points.append(mouse_points[i])
+		path_line.points = points
+
+	else:
+		path_line.default_color = Color(0.5, 1.0, 0.2)
+		grid.sync_pathing(passable)
+		path_line.points = grid.get_hex_path(piece.get_hex(), target_hex)
+		grid.sync_pathing()
+
+func _get_passable_for_pathing() -> Array:
+	# Ignore all units (except cities) so we can draw lines through traffic jams
+	var passable = []
+	for h in grid.Grid:
+		var p = get_piece(h)
+		if p and not (p is City):
+			passable.append(h)
+	return passable
 
 # ── Day cycle ─────────────────────────────────────────────────────────────────
 

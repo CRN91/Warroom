@@ -83,44 +83,68 @@ func move_to(new_hex, grid):
 
 # ── Pathing ───────────────────────────────────────────────────────────
 
-# Auto
-var goal
-func set_goal(hex): goal = hex
-func clear_goal(): goal = null
-
-# Manual
+var goal = null
 var path: Array = []
-func add_waypoint(hex): path.append(hex)
-func clear_path(): path.clear()
+
+func set_goal(target_hex):
+	path.clear()
+	goal = target_hex
+
+func add_waypoint(target_hex):
+	goal = null
+	path.append(target_hex)
+
+func clear_movement():
+	goal = null
+	path.clear()
 
 func process_movement(grid):
 	"""Decides pathing type used"""
 	if path.size() > 0:
 		_manual_pathing(grid)
-	elif goal:
+	elif goal != null:
 		_auto_pathing(grid)
 
 func _auto_pathing(grid):
 	var current = get_hex()
 	if current == goal:
-		clear_goal()
+		clear_movement()
 		return
 
+	# Treat all units as passable to get inital A* route
 	var passable = [current, goal]
 	for h in grid.Grid:
 		var p = grid.get_piece(h)
-		if p and not p.visible and p.team != piece.team:
+		if p and p.has_method("is_combatant") and not (p is City):
 			passable.append(h)
-	grid.sync_pathing(passable)
 
+	grid.sync_pathing(passable)
 	var astar_path = grid.get_map_path(current, goal)
 	grid.sync_pathing()
 
+	# Attempt the move
 	if astar_path.size() > 1:
-		move_to(astar_path[1], grid)
+		var next_hex = astar_path[1]
+		var piece_in_way = grid.get_piece(next_hex)
+
+		if piece_in_way == null:
+			move_to(next_hex, grid)
+		elif piece_in_way is City:
+			if HEX.axial_distance(current, goal) == 1 and goal == next_hex:
+				clear_movement() # We arrived next to our target city
+			else:
+				clear_movement() # Path blocked by unexpected city
+		elif piece_in_way.team != piece.team:
+			clear_movement() 
 
 func _manual_pathing(grid):
 	var next_hex = path[0]
-	if grid.get_piece(next_hex) == null:
+	var piece_in_way = grid.get_piece(next_hex)
+
+	if piece_in_way == null:
 		move_to(next_hex, grid)
 		path.pop_front()
+	elif piece_in_way is City:
+		clear_movement()
+	elif piece_in_way.team != piece.team:
+		clear_movement()
