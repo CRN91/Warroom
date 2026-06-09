@@ -50,10 +50,29 @@ func move_to(new_hex, grid) -> bool:
 	if grid.get_piece(new_hex) != null:
 		return false
 
+	var old_hex = hex
 	grid.disable_hex(new_hex)
 	set_hex(new_hex, grid)
 	piece.freeze()
+	_withdrawal_fire(old_hex, new_hex, grid)
 	return true
+
+func _withdrawal_fire(old_hex, new_hex, grid) -> void:
+	## Disengaging from contact has a price: one adjacent enemy combatant gets
+	## a parting shot (half damage) if the move breaks out of its reach.
+	for adj in HEX.axial_neighbours(old_hex):
+		if not grid.Grid.has(adj): continue
+		var e = grid.get_piece(adj)
+		if e == null or e.team == piece.team: continue
+		if not (e.has_method("is_combatant") and e.is_combatant()): continue
+		if HEX.axial_distance(e.get_hex(), new_hex) <= 1: continue  # still in contact — no shot
+
+		var dmg = int(round(e.get_damage() * 0.5))
+		if dmg > 0:
+			piece.deplete(dmg)
+			if piece.team == 1:
+				Events.notify("%s took %d withdrawal fire from %s." % [piece.name, dmg, e.name])
+		return
 
 # ── Pathing ───────────────────────────────────────────────────────────────────
 
@@ -85,16 +104,21 @@ func _auto_pathing(grid):
 		clear_movement()
 		return
 
-	# Treat friendly traffic as passable to get the ideal A* route
-	var passable = [current, goal]
-	for h in grid.Grid:
-		var p = grid.get_piece(h)
-		if p and p.has_method("is_combatant") and not (p is City):
-			passable.append(h)
-
-	grid.sync_pathing(passable)
+	# 1. Prefer a route around other units (true collisions, just allow the goal)
+	grid.sync_pathing([current, goal])
 	var astar_path = grid.get_map_path(current, goal)
 	grid.sync_pathing()
+
+	# 2. If fully boxed in, fall back to the through-traffic route and wait in line
+	if astar_path.size() < 2:
+		var passable = [current, goal]
+		for h in grid.Grid:
+			var p = grid.get_piece(h)
+			if p and p.has_method("is_combatant") and not (p is City):
+				passable.append(h)
+		grid.sync_pathing(passable)
+		astar_path = grid.get_map_path(current, goal)
+		grid.sync_pathing()
 
 	if astar_path.size() > 1:
 		var next_hex = astar_path[1]
@@ -106,6 +130,8 @@ func _auto_pathing(grid):
 			clear_movement()   # arrived next to the target city, or blocked by one
 		elif piece_in_way.team != piece.team:
 			clear_movement()   # enemy in the way: stop and let the player decide
+		# Friendly unit in the way: hold this turn; a later movement pass (or
+		# tomorrow) will find the hex free or route around it.
 
 func _manual_pathing(grid):
 	var next_hex = path[0]

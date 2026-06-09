@@ -26,8 +26,9 @@ func attack(enemy, damage_override = null):
 		if dmg < 0:
 			dmg = 0
 
+	# Never damage your own side — including cities you've just captured.
 	var destroyed := false
-	if not (enemy.is_combatant() and unit.team == enemy.team):
+	if unit.team != enemy.team:
 		destroyed = enemy.deplete(dmg)
 
 	if attack_cost > 0:
@@ -51,9 +52,9 @@ func clear_target():
 	pending_attack = null
 
 func get_target(grid = null) -> Node2D:
-	# 1. Clean up dead targets to avoid crashes
-	if target and not is_instance_valid(target): target = null
-	if pending_attack and not is_instance_valid(pending_attack): pending_attack = null
+	# 1. Clean up dead targets — and targets that changed sides (captured cities)
+	if target and (not is_instance_valid(target) or target.team == unit.team): target = null
+	if pending_attack and (not is_instance_valid(pending_attack) or pending_attack.team == unit.team): pending_attack = null
 
 	# 2. Manual attacks ordered this turn take priority
 	if pending_attack:
@@ -86,9 +87,9 @@ func _find_enemy_in_range(grid) -> Node2D:
 
 	if possible.is_empty(): return null
 
-	# Priority targeting: combatants > logistics > anything else (cities)
+	# Priority targeting: combatants > engineers > anything else (cities)
 	for t in possible:
 		if t.is_combatant(): return t
 	for t in possible:
-		if t is Logistics: return t
+		if t is Engineers: return t
 	return possible[0]

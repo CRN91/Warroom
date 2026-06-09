@@ -46,13 +46,27 @@ unfreeze → modifiers.tick → weather expiry → scheduled card effects → en
 → resupply → card draw/display → city income/siege → starvation deaths → cull
 → unfreeze → FOW → intent arrows → UI refresh.
 
+## Map generation
+
+- The river is the meandering border between two territories grown outward
+  from each capital by random flood fill (`TerrainManager._grow_territories`) —
+  a different course every run, with exactly one pre-built bridge whose
+  endpoint hexes are protected from mountain placement.
+- 1–3 neutral towns spawn at random sites each run (≥3 hexes from capitals and
+  each other — `Game._pick_town_hexes`). Mountains avoid city surroundings.
+- **Capitals** (win/loss condition): 1000 stores, 100/week income, drawn larger.
+  **Towns**: 400 stores, 40/week, drawn smaller — quick to capture, worth
+  holding for supply position and the stories they trigger (see below).
+- Captured cities change hands with half their stores.
+
 ## Economy (FTL-style scarcity)
 
-There is **no open shop**. The player acquires units and stock only through
-cards: rare paid supply offers (pity timer: guaranteed within 12 weeks, then
-5–9 weeks apart), the periodic requisition (infrastructure only — never units),
-and story decisions like conscription that trade permanent income for a unit.
-City resources exist to feed the front and pay for card choices. The enemy AI
+There is **no open shop and nothing is free**. Units and stock come only from
+paid shop cards (guaranteed within 10 weeks, then 4–7 apart, never the same
+shop twice in a row) and story decisions like conscription. Capitals earn just
+50/week — holding towns (40/week each) IS the economy, so captures directly
+fund the war. Each neutral town is guarded by a militia that shoots at
+whoever approaches: towns are fought for, not walked into. The enemy AI
 spawns units through `Board.spawn_unit_near_city` directly.
 
 ## Cards
@@ -61,7 +75,15 @@ spawns units through `Board.spawn_unit_near_city` directly.
 - Every 6th week the decision slot is a **free requisition offer**
   (`CardManager.requisition_offer`); paid shops stay on their own pity timer.
 - Card sets: `ambient` + `story_seeds` start in the deck; `consequences`,
-  story chains and `supply_offers` enter only via injection/scheduling.
+  `city_stories`, `bear_story`, `coalition`, story chains and `supply_offers`
+  enter only via injection/scheduling/triggers.
+- **Capture stories**: taking a neutral town triggers a loyalty decision
+  (pillage vs protect, with consequences); the 2nd town triggers the mayor's
+  bargain; taking an enemy city triggers rebels enlisting.
+- **Coalition doom clock**: day-triggered intel at weeks 14/28/40 warns of a
+  growing coalition; at week 48 their vanguard arrives (enemy reinforcements +
+  permanent buff). Keeps long runs under pressure — race to the enemy capital.
+- **The bear** is in the deck. Leave it be.
 - Intel cards with `"dynamic_text": "recon_report" | "economy_report"` get text
   generated from the real board at draw time (`scripts/intel_generator.gd`).
   Intel **filler** also produces a live recon report.
@@ -74,12 +96,35 @@ spawns units through `Board.spawn_unit_near_city` directly.
 
 | Input | Action |
 |---|---|
-| Left click | select / order (move, attack, supply, build) |
+| Left click | select / order. Clicking a destination **replaces** the unit's goal |
+| Shift + click | append manual waypoints for an exact route |
+| Click selected unit | cancel its orders (click again to deselect) |
 | Right click / Esc | deselect (Esc also cancels a rail plan) |
 | M / F | clear movement / clear attack target |
-| R / T | plan rail on hovered hex / commit route |
+| R / T | plan rail on hovered hex (needs Engineers nearby) / commit or extend line |
 | F3 | debug overlay (modifiers, weather, deck size) |
 | Click rail hex with train selected | drive train manually |
+
+## Combat & movement rules
+
+- Movement resolves in up to 3 passes, so a column can advance into hexes
+  vacated the same turn. No swaps: a hex must actually be free.
+- Auto-goals route **around** other units when possible, and only queue
+  through traffic when fully boxed in.
+- **Withdrawal fire**: breaking contact with an adjacent enemy combatant costs
+  a parting shot (half its damage). Retreat is possible, never free.
+- Friendly fire is impossible (including cities you've just captured), and
+  stale attack targets clear when a target changes sides.
+
+## Rails (Engineers)
+
+- Rail can only be planned (R) on hexes adjacent to your **Engineers** unit —
+  they're the builders (class `Engineers`; internal ids stay "logistics").
+- Rail cannot cross a river edge until a bridge stands there.
+- T on a plan touching an existing line's end **extends** that route (the
+  running train adopts the longer line, no new train needed); otherwise it
+  commits a new line, which needs ≥2 hexes and a train in stock.
+- Trains halt at broken rail *or* broken bridges until Engineers repair them.
 
 ## Fixed bugs (from before the refactor)
 

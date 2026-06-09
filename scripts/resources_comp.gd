@@ -16,7 +16,7 @@ func set_replenish_rate(x): replenish_rate = x
 func get_space() -> int: return MAX_RESC - resources
 
 func deplete(x) -> bool:
-	resources -= x
+	resources = max(0, resources - x)   # never display negative stores
 	return resources <= 0
 
 func replenish(x):

@@ -71,12 +71,15 @@ func capture(new_team: int):
 
 	var prev := team
 	team = new_team
-	resource_comp.resources = 500
+	# A captured city changes hands with half its stores intact.
+	resource_comp.resources = int(resource_comp.get_max_resources() * 0.5)
 
 	if team == 1:
 		set_player()
 	elif team == 2:
 		set_enemy()
+	else:
+		set_neutral()   # e.g. a militia retaking its home town
 	update_ui()
 
 	Events.city_captured.emit(self, new_team, prev)

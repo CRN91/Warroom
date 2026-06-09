@@ -186,7 +186,7 @@ func _unit_type(piece) -> String:
 	if piece is Train:      return "train"
 	if piece is Infantry:   return "infantry"
 	if piece is Artillery:  return "artillery"
-	if piece is Logistics:  return "logistics"
+	if piece is Engineers:  return "logistics"
 	if piece.has_method("is_combatant"):
 		return "combatant" if piece.is_combatant() else "supplier"
 	return ""

@@ -90,12 +90,43 @@ func _unfreeze_all() -> void:
 
 func _resolve_all_movement() -> Array:
 	## Player units with manual paths go first, then player auto-goal units,
-	## then the enemy. Returns the units that starved during their daily tick.
-	var starved: Array = []
+	## then the enemy. Runs multiple passes so a unit blocked by a friend that
+	## moves this turn can step into the vacated hex (no swaps — the hex must
+	## actually be free when the follower moves).
+	## Returns the units that starved during their daily tick.
+	var movers: Array = _movement_order()
+	var done: Dictionary = {}
 
+	for _pass in range(3):
+		var any_moved := false
+		for unit in movers:
+			if not is_instance_valid(unit) or done.has(unit): continue
+			if not unit.has_method("process_movement"): continue
+			if s.modifiers.is_movement_blocked(unit):
+				done[unit] = true
+				continue
+
+			var before = unit.get_hex()
+			unit.process_movement()
+
+			if unit is Train:
+				done[unit] = true   # trains run their whole route in one go
+			elif unit.get_hex() != before:
+				done[unit] = true   # moved (and froze) — spent for today
+				any_moved = true
+		if not any_moved:
+			break
+
+	var starved: Array = []
+	for unit in movers:
+		if is_instance_valid(unit) and unit.next_day():
+			starved.append(unit)
+	return starved
+
+func _movement_order() -> Array:
 	var player_manual: Array = []
 	var player_auto: Array = []
-	var enemy_units: Array = []
+	var others: Array = []
 
 	for unit in s.board.units:
 		if unit is City: continue
@@ -105,17 +136,9 @@ func _resolve_all_movement() -> Array:
 			else:
 				player_auto.append(unit)
 		else:
-			enemy_units.append(unit)
+			others.append(unit)
 
-	for unit in player_manual + player_auto + enemy_units:
-		if not is_instance_valid(unit): continue
-		var blocked: bool = s.modifiers.is_movement_blocked(unit)
-		if unit.has_method("process_movement") and not blocked:
-			unit.process_movement()
-		if unit.next_day():
-			starved.append(unit)
-
-	return starved
+	return player_manual + player_auto + others
 
 # ── Combat ────────────────────────────────────────────────────────────────────
 
@@ -138,7 +161,9 @@ func _resolve_all_combat() -> void:
 
 		if attacker.attack(target):
 			if target is City:
-				target.capture(attacker.team)
+				# Shellfire can empty a city, but only adjacent troops take it.
+				if s.board.HEX.axial_distance(attacker.get_hex(), target.get_hex()) == 1:
+					target.capture(attacker.team)
 			elif target not in to_die:
 				to_die.append(target)
 

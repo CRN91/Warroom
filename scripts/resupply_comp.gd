@@ -41,9 +41,14 @@ func process_resupply(grid) -> void:
 func receive_from(donor: Node2D) -> void:
 	var gap = _piece.get_max_resources() - _piece.get_resources()
 	var donor_res = donor.get_node_or_null("Resupply")
-	var reserve = donor_res.supplier_reserve if donor_res else 0
-	var available = donor.get_resources() - reserve
+	var reserve: int = donor_res.supplier_reserve if donor_res else 0
 
+	# A unit donor must always keep at least 1 supply — a transfer can never
+	# kill it. (Cities can be drained to zero; they don't die, they just starve.)
+	if not (donor is City):
+		reserve = max(reserve, 1)
+
+	var available = donor.get_resources() - reserve
 	if gap <= 0 or available <= 0:
 		return
 

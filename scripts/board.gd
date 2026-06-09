@@ -16,12 +16,14 @@ const UNIT_SCENES := {
 }
 const CITY = preload("res://scenes/city.tscn")
 
+# Reference prices (shop cards carry their own costs; the enemy AI budgets
+# against these).
 const COST := {
-	"infantry":  800,
-	"artillery": 1000,
-	"logistics": 800,
+	"infantry":  600,
+	"artillery": 900,
+	"logistics": 500,
 	"rail":      100,
-	"train":     800,
+	"train":     600,
 	"bridge":    400,
 	"tunnel":    800,
 }
@@ -63,8 +65,15 @@ func add_unit(type: String, hex: Vector2i, team: int = 1) -> Node2D:
 	unit.setup(s.grid)
 	register_unit(unit)
 	unit.unit_type = type
-	if team == 2: unit.set_enemy()
+	match team:
+		2: unit.set_enemy()
+		0: unit.set_neutral()
 	unit.move_to(hex)
+	if unit.get_hex() == null:
+		# Placement failed (hex occupied/invalid) — don't leave a ghost piece.
+		units.erase(unit)
+		unit.queue_free()
+		return null
 	return unit
 
 func add_city(city_name: String, hex: Vector2i, team: int, capital: bool = false) -> Node2D:
@@ -74,11 +83,25 @@ func add_city(city_name: String, hex: Vector2i, team: int, capital: bool = false
 	register_city(city)
 	city.name = city_name
 	city.is_capital = capital
+
+	# Capitals are the win/loss condition but NOT the whole economy: their
+	# income alone barely sustains a small army. Captured towns are where real
+	# spending power comes from — the map is the economy.
+	if capital:
+		city.resource_comp.replenish_rate = 50
+		city.scale = Vector2(1.2, 1.2)
+	else:
+		city.resource_comp.set_max_resources(400)
+		city.resource_comp.replenish_rate = 40
+		city.resource_comp.resources = 400
+		city.scale = Vector2(0.85, 0.85)
+
 	match team:
 		2: city.set_enemy()
 		0: city.set_neutral()
 		_: city.set_player()
 	city.set_hex(hex)
+	city.update_ui()
 	return city
 
 # ── Purchasing ────────────────────────────────────────────────────────────────
@@ -146,12 +169,27 @@ func transform_units(effect: Dictionary) -> void:
 		if effect.has("max_resources"): p.resource_comp.set_max_resources(int(effect["max_resources"]))
 		if effect.has("set_resources"): p.resource_comp.resources = int(effect["set_resources"])
 		if effect.has("replenish"):     p.replenish(int(effect["replenish"]))
+		if effect.has("grant_attack"):  _grant_attack(p, effect["grant_attack"])
 		for m in effect.get("modifiers", []):
 			var mm: Dictionary = m.duplicate(true)
 			mm["scope"] = "unit:%d" % p.get_instance_id()
 			s.modifiers.add_modifier(mm)
 		p.update_ui()
 		done += 1
+
+func _grant_attack(piece: Node2D, spec: Dictionary) -> void:
+	## Gives a non-combat piece a real Attack component (e.g. the armoured
+	## train). Pair with add_tags: ["combatant"] so is_combatant() flips too.
+	if piece.attack_comp != null:
+		piece.attack_comp.damage = int(spec.get("damage", piece.attack_comp.damage))
+		piece.attack_comp.attack_range = int(spec.get("range", piece.attack_comp.attack_range))
+		return
+	var a := Attack.new()
+	a.name = "Attack"
+	a.damage = int(spec.get("damage", 40))
+	a.attack_range = int(spec.get("range", 1))
+	piece.add_child(a)
+	piece.attack_comp = a
 
 # ── Spawn-location helpers ────────────────────────────────────────────────────
 

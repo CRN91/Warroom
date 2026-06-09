@@ -73,8 +73,11 @@ func process_movement():
 		return
 
 	if not _route_intact():
-		Events.notify("%s halted — rail broken at %s." % [name, _first_broken()])
+		if not _halt_notified:
+			Events.notify("%s halted — line broken at %s." % [name, _first_broken()])
+			_halt_notified = true
 		return
+	_halt_notified = false
 
 	var current_idx = route.find(get_hex())
 	if current_idx == -1: return
@@ -146,14 +149,23 @@ func _exchange_supplies():
 
 # ── Rail integrity ────────────────────────────────────────────────────────────
 
+var _halt_notified: bool = false
+
 func _route_intact() -> bool:
 	for hex in route:
 		if not rail_network.rail_hexes.has(hex): return false
 		if rail_network.rail_hexes[hex].get("broken", false): return false
+	# A blown bridge along the line stops the train too
+	for i in range(route.size() - 1):
+		if terrain and not terrain.is_crossable(route[i], route[i + 1]):
+			return false
 	return true
 
 func _first_broken() -> Vector2i:
 	for hex in route:
 		if not rail_network.rail_hexes.has(hex) or rail_network.rail_hexes[hex].get("broken", false):
 			return hex
+	for i in range(route.size() - 1):
+		if terrain and not terrain.is_crossable(route[i], route[i + 1]):
+			return route[i]
 	return Vector2i(-99, -99)

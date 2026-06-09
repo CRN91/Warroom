@@ -3,7 +3,9 @@ class_name RailNetwork
 
 ## Rail building, damage/repair, and train deployment.
 ## Routes are planned hex by hex (R key), then committed (T key) which spawns a
-## train from stock. Broken rail halts trains until a Logistics unit repairs it.
+## train from stock. Broken rail halts trains until your Engineers repair it.
+## Rail can only be planned on hexes adjacent to an Engineers unit, and may
+## only cross a river where a bridge already stands.
 
 signal train_created(train: Node2D)
 
@@ -56,15 +58,28 @@ func toggle_rail(hex):
 		return
 
 	if player_rail_stock < 1:
-		Events.notify("No rail in stock. Buy more from a city.")
+		Events.notify("No rail in stock.")
+		return
+
+	if not _engineer_nearby(hex):
+		Events.notify("Rail must be laid near your Engineers.")
 		return
 
 	if building_route.size() > 0:
-		var to_back  = hex in HEX.axial_neighbours(building_route.back())
-		var to_front = hex in HEX.axial_neighbours(building_route.front())
+		var to_back  = _can_link(building_route.back(), hex)
+		var to_front = _can_link(building_route.front(), hex)
 		if not to_back and not to_front:
-			Events.notify("Rail must extend from either end of the plan.")
+			if hex in HEX.axial_neighbours(building_route.back()) or hex in HEX.axial_neighbours(building_route.front()):
+				Events.notify("A rail crossing needs a bridge on that river first.")
+			else:
+				Events.notify("Rail must extend from either end of the plan.")
 			return
+		if to_back:
+			building_route.append(hex)
+		else:
+			building_route.insert(0, hex)
+	else:
+		building_route.append(hex)
 
 	var rail_node = RAIL.instantiate()
 	add_child(rail_node)
@@ -72,20 +87,39 @@ func toggle_rail(hex):
 	rail_node.position = grid.get_hex_pos(hex)
 	rail_node.modulate = Color(0.6, 0.6, 1.0)   # blue tint = planned, not committed
 
-	if building_route.size() > 0 and hex in HEX.axial_neighbours(building_route.back()):
-		building_route.append(hex)
-	else:
-		building_route.insert(0, hex)
-
 	rail_nodes_building[hex] = rail_node
 	player_rail_stock -= 1
 
+func _can_link(a: Vector2i, b: Vector2i) -> bool:
+	## Two rail hexes can connect if adjacent and not split by an unbridged river.
+	if not (b in HEX.axial_neighbours(a)):
+		return false
+	return terrain.is_crossable(a, b)
+
+func _engineer_nearby(hex: Vector2i) -> bool:
+	## Rails are laid by Engineers: the hex (or a neighbour) must hold one.
+	for h in [hex] + HEX.axial_neighbours(hex):
+		if not grid.Grid.has(h): continue
+		var p = grid.get_piece(h)
+		if p and p.team == 1 and p is Engineers:
+			return true
+	return false
+
 func commit_rail_route():
+	if building_route.is_empty():
+		return
+
+	# Extending an existing line? (plan touches a terminus of a committed route)
+	var ext: Dictionary = _find_extension()
+	if not ext.is_empty():
+		_commit_extension(ext["route_id"], ext["merged"])
+		return
+
 	if building_route.size() < 2:
-		Events.notify("A rail route needs at least 2 hexes.")
+		Events.notify("A new rail route needs at least 2 hexes.")
 		return
 	if player_train_stock < 1:
-		Events.notify("Need a train in stock to open the line. (Buy one from a city.)")
+		Events.notify("Need a train in stock to open a new line.")
 		return
 
 	var id = next_route_id
@@ -104,6 +138,39 @@ func commit_rail_route():
 
 	Events.notify("Rail line opened.")
 	Events.rail_established.emit(id)
+
+func _find_extension() -> Dictionary:
+	## If the planned strip links (bridge-checked) to the end of an existing
+	## route, return that route id plus the merged hex list.
+	for id in rail_routes:
+		var r: Array = rail_routes[id]
+		if r.is_empty(): continue
+		if _can_link(r.back(), building_route.front()):
+			return { "route_id": id, "merged": r + building_route }
+		if _can_link(r.back(), building_route.back()):
+			var rev := building_route.duplicate(); rev.reverse()
+			return { "route_id": id, "merged": r + rev }
+		if _can_link(r.front(), building_route.front()):
+			var rev2 := building_route.duplicate(); rev2.reverse()
+			return { "route_id": id, "merged": rev2 + r }
+		if _can_link(r.front(), building_route.back()):
+			return { "route_id": id, "merged": building_route + r }
+	return {}
+
+func _commit_extension(route_id: int, merged: Array) -> void:
+	for hex in building_route:
+		var rn = rail_nodes_building[hex]
+		rn.modulate = Color(1.0, 1.0, 1.0)
+		rail_hexes[hex] = { "route_id": route_id, "broken": false, "node": rn }
+
+	rail_routes[route_id] = merged
+	var t = route_trains.get(route_id)
+	if t != null and is_instance_valid(t):
+		t.route = merged   # the running train learns the longer line
+
+	building_route.clear()
+	rail_nodes_building.clear()
+	Events.notify("Rail line extended.")
 
 func cancel_rail_build():
 	player_rail_stock += building_route.size()

@@ -55,13 +55,26 @@ func _on_select(hex: Vector2i) -> void:
 			_select_piece(clicked_piece)
 	else:
 		if clicked_piece == selected_unit:
-			deselect()
+			_on_click_self(selected_unit)
 		elif clicked_piece != null and clicked_piece.team == selected_unit.team and clicked_piece.visible:
 			_select_piece(clicked_piece)
 		else:
 			_play_selected(hex)
 			s.ui.show_stats(selected_unit)
 			_update_path_preview(selected_unit, hex)
+
+func _on_click_self(unit: Node2D) -> void:
+	## Clicking the selected unit again: first click cancels its orders,
+	## a second click (no orders left) deselects.
+	var mc = unit.movement_comp
+	var had_orders: bool = mc.goal != null or mc.path.size() > 0
+	if had_orders:
+		unit.clear_movement()
+		Events.notify("Orders cancelled.")
+		s.ui.show_stats(unit)
+		path_line.clear_points()
+	else:
+		deselect()
 
 func _on_mouse_moved(hex: Vector2i) -> void:
 	if selected_unit != null and is_instance_valid(selected_unit):
@@ -132,16 +145,10 @@ func _play_selected(hex: Vector2i) -> void:
 			s.ui.show_stats(active_unit)
 		return
 
-	# Logistics build/repair actions on adjacent hexes
-	if active_unit is Logistics and HEX.axial_distance(active_hex, hex) == 1:
+	# Engineer build/repair actions on adjacent hexes
+	if active_unit is Engineers and HEX.axial_distance(active_hex, hex) == 1:
 		if _try_logistics_action(active_unit, active_hex, hex):
 			return
-
-	# Already on a manual path: clicks extend the path
-	if active_unit.movement_comp.path.size() > 0:
-		if not (clicked is City):
-			_handle_movement_command(active_unit, hex)
-		return
 
 	# Treat fogged enemies as empty ground
 	var click_as_empty: bool = clicked == null or (not clicked.visible and clicked.team != active_unit.team)
@@ -199,14 +206,23 @@ func _handle_supply_transfer(active_unit: Node2D, other: Node2D) -> void:
 		active_unit.receive_from(other)
 
 func _handle_movement_command(unit: Node2D, target_hex: Vector2i) -> void:
+	## Plain click: set (or REPLACE) the auto-goal — changing your mind is one
+	## click. Shift+click: append manual waypoints for an exact route.
 	var move_comp = unit.movement_comp
+	var add_waypoint: bool = Input.is_key_pressed(KEY_SHIFT) \
+		and (move_comp.goal != null or move_comp.path.size() > 0)
 
-	if move_comp.goal == null and move_comp.path.is_empty():
-		# First click: smart auto-goal (re-routes around traffic each day)
+	if not add_waypoint:
+		var passable := _passable_for_pathing()
+		var probe: Array = _routed_path(unit.get_hex(), target_hex, passable)
+		if probe.size() < 2 and unit.get_hex() != target_hex:
+			Events.notify("No route to that hex.")
+			return
+		unit.clear_movement()
 		unit.set_destination(target_hex)
 		return
 
-	# Second click (or more): lock in a strict manual path
+	# Shift: lock in a strict manual path, extending from any existing orders
 	var start_hex = unit.get_hex()
 	var passable := _passable_for_pathing()
 

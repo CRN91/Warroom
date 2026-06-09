@@ -143,6 +143,48 @@
 		  }
 		},
 		{
+		  "id": "intel_bear_spotted",
+		  "type": "intel",
+		  "text": "Fifth Company reports a brown bear wandering the shell craters between the lines. The men have started leaving it rations.",
+		  "protected": false,
+		  "weight": 0.5,
+		  "effects": [
+			{
+			  "type": "inject_cards",
+			  "ids": [
+				"decision_bear"
+			  ],
+			  "position": "soon"
+			}
+		  ]
+		},
+		{
+		  "id": "event_winter_truce",
+		  "type": "event",
+		  "text": "An unspoken truce settles over the front. Carols drift across no-man's-land, and parcels from home are shared in the open.",
+		  "protected": false,
+		  "requires": {
+			"season": "winter"
+		  },
+		  "effects": [
+			{
+			  "type": "add_modifier",
+			  "id": "truce_calm",
+			  "stat": "move_block",
+			  "op": "set",
+			  "value": 1,
+			  "scope": "all",
+			  "duration_days": 1,
+			  "source": "event_winter_truce"
+			},
+			{
+			  "type": "grant_resources",
+			  "scope": "all",
+			  "amount": 25
+			}
+		  ]
+		},
+		{
 		  "id": "event_supply_drop",
 		  "type": "event",
 		  "text": "An airdrop reaches the front lines. Supplies and a short logistics boost.",
@@ -183,6 +225,9 @@
 		  "type": "event",
 		  "text": "Partisans strike the rail network in the night.",
 		  "protected": false,
+		  "requires": {
+			"rail_count": 1
+		  },
 		  "effects": [
 			{
 			  "type": "script",
@@ -821,13 +866,10 @@
 				"add_tags": [
                   "combatant"
 				],
-				"modifiers": [
-				  {
-					"stat": "attack",
-					"op": "set",
-					"value": 40
-				  }
-				]
+				"grant_attack": {
+				  "damage": 40,
+				  "range": 2
+				}
 			  }
 			]
 		  },
@@ -841,6 +883,294 @@
 			  }
 			]
 		  }
+		}
+	  ]
+	},
+	"city_stories": {
+	  "label": "City Stories (capture-triggered)",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "decision_city_loyalty",
+		  "type": "decision",
+		  "text": "The townsfolk of the captured city line the streets in silence as your troops march in. The garrison commander asks how to proceed.",
+		  "protected": false,
+		  "trigger": {
+			"event": "neutral_city_captured",
+			"by": 1,
+			"once": true,
+			"position": "soon"
+		  },
+		  "choice_a": {
+			"label": "Strip the stores for the front",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 60
+			  },
+			  {
+				"type": "delayed_card",
+				"id": "event_armed_rebels",
+				"after_days": 5
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Protect the town and its trade",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "loyal_town",
+				"stat": "city_income",
+				"op": "add",
+				"value": 5,
+				"scope": "player",
+				"source": "decision_city_loyalty"
+			  },
+			  {
+				"type": "inject_cards",
+				"ids": [
+				  "intel_town_loyal"
+				],
+				"position": "random"
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "decision_city_refuses",
+		  "type": "decision",
+		  "text": "The latest town to fall under your control refuses to provision your troops. Their mayor proposes keeping a fifth of every delivery.",
+		  "protected": false,
+		  "trigger": {
+			"event": "neutral_city_captured",
+			"by": 1,
+			"count": 2,
+			"once": true,
+			"position": "soon"
+		  },
+		  "choice_a": {
+			"label": "Make an example of the mayor",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 40
+			  },
+			  {
+				"type": "delayed_card",
+				"id": "event_armed_rebels",
+				"after_days": 4
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Accept the bargain",
+			"effects": [
+			  {
+				"type": "add_modifier",
+				"id": "mayors_fifth",
+				"stat": "city_income",
+				"op": "mul",
+				"value": 0.9,
+				"scope": "player",
+				"duration_days": 10,
+				"source": "decision_city_refuses"
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "event_rebels_enlist",
+		  "type": "event",
+		  "text": "Word of the enemy city's fall spreads fast. Local rebels arrive at your lines with stolen rifles and full carts, asking to enlist.",
+		  "protected": false,
+		  "trigger": {
+			"event": "enemy_city_captured",
+			"by": 1,
+			"once": true,
+			"position": "soon"
+		  },
+		  "effects": [
+			{
+			  "type": "grant_resources",
+			  "scope": "combatant",
+			  "amount": 60
+			}
+		  ]
+		},
+		{
+		  "id": "event_armed_rebels",
+		  "type": "event",
+		  "text": "Armed townsfolk strike back for what was taken from them — supply caches raided, a rail line cut in the night.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "drain_resources",
+			  "scope": "player",
+			  "amount": 30
+			},
+			{
+			  "type": "script",
+			  "fn": "sabotage_rail"
+			}
+		  ]
+		},
+		{
+		  "id": "intel_town_loyal",
+		  "type": "intel",
+		  "text": "The protected town has come around. Merchants there now pass on what they hear from across the river.",
+		  "protected": false,
+		  "effects": []
+		}
+	  ]
+	},
+	"bear_story": {
+	  "label": "Story: The Bear",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "decision_bear",
+		  "type": "decision",
+		  "text": "The bear has taken to following Fifth Company on the march. The quartermaster sees meat and a pelt; the men see something else.",
+		  "protected": false,
+		  "choice_a": {
+			"label": "Hunt it for the pot",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "combatant",
+				"amount": 40
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Let it stay",
+			"effects": [
+			  {
+				"type": "delayed_card",
+				"id": "event_bear_joins",
+				"after_days": 3
+			  }
+			]
+		  }
+		},
+		{
+		  "id": "event_bear_joins",
+		  "type": "event",
+		  "text": "It is official, insofar as a regimental order can make a bear official: the beast has been enlisted. Fifth Company fights harder with it at their side.",
+		  "protected": false,
+		  "effects": [
+			{
+			  "type": "transform_unit",
+			  "scope": "player",
+			  "combatants_only": true,
+			  "count": 1,
+			  "rename": "Bear Company",
+			  "add_tags": [
+				"bear"
+			  ],
+			  "replenish": 20,
+			  "modifiers": [
+				{
+				  "stat": "attack",
+				  "op": "mul",
+				  "value": 1.2
+				}
+			  ]
+			}
+		  ]
+		}
+	  ]
+	},
+	"coalition": {
+	  "label": "The Coalition (run timer)",
+	  "startable": false,
+	  "cards": [
+		{
+		  "id": "intel_coalition_rumours",
+		  "type": "intel",
+		  "text": "Foreign attachés have gone quiet. Our embassies report a coalition forming behind the enemy — money, rifles, promises.",
+		  "protected": false,
+		  "trigger": {
+			"event": "day",
+			"day": 14,
+			"position": "soon"
+		  },
+		  "effects": []
+		},
+		{
+		  "id": "intel_coalition_drills",
+		  "type": "intel",
+		  "text": "The coalition is real. Recruitment surges across three borders, and their armies now drill together. They will not stay home forever.",
+		  "protected": false,
+		  "trigger": {
+			"event": "day",
+			"day": 28,
+			"position": "soon"
+		  },
+		  "effects": []
+		},
+		{
+		  "id": "intel_coalition_convoy",
+		  "type": "intel",
+		  "text": "Coalition convoys are moving. Rolling stock, guns, men. Best estimate puts their vanguard at the front within eight weeks. End this war before they do.",
+		  "protected": false,
+		  "trigger": {
+			"event": "day",
+			"day": 40,
+			"position": "soon"
+		  },
+		  "effects": []
+		},
+		{
+		  "id": "event_coalition_arrives",
+		  "type": "event",
+		  "text": "Fresh colours fly over the enemy capital. The coalition vanguard has arrived, and the whole enemy line stands taller for it.",
+		  "protected": false,
+		  "trigger": {
+			"event": "day",
+			"day": 48,
+			"position": "front"
+		  },
+		  "effects": [
+			{
+			  "type": "spawn_unit",
+			  "unit": "infantry",
+			  "team": 2,
+			  "near": "enemy_capital",
+			  "fill": true
+			},
+			{
+			  "type": "spawn_unit",
+			  "unit": "infantry",
+			  "team": 2,
+			  "near": "enemy_capital",
+			  "fill": true
+			},
+			{
+			  "type": "spawn_unit",
+			  "unit": "artillery",
+			  "team": 2,
+			  "near": "enemy_capital",
+			  "fill": true
+			},
+			{
+			  "type": "grant_resources",
+			  "scope": "enemy",
+			  "amount": 300
+			},
+			{
+			  "type": "add_modifier",
+			  "id": "coalition_backing",
+			  "stat": "attack",
+			  "op": "mul",
+			  "value": 1.2,
+			  "scope": "enemy",
+			  "source": "event_coalition_arrives"
+			}
+		  ]
 		}
 	  ]
 	},
@@ -858,7 +1188,7 @@
 		{
 		  "id": "event_partisan_anger",
 		  "type": "event",
-		  "text": "Word of the refugees turned away has spread. Sympathisers strike your rail in the night.",
+		  "text": "Word of the refugees turned away has spread. Sympathisers raid your depots in the night.",
 		  "protected": false,
 		  "effects": [
 			{
@@ -879,8 +1209,8 @@
 		  "protected": false,
 		  "text": "A requisition officer can release units to a city's garrison — for a price. Which, if any?",
 		  "choice_a": {
-			"label": "Infantry (800)",
-			"cost": 800,
+			"label": "Infantry (600)",
+			"cost": 600,
 			"pay_from": "pick_city",
 			"effects": [
 			  {
@@ -892,8 +1222,8 @@
 			]
 		  },
 		  "choice_b": {
-			"label": "Artillery (1000)",
-			"cost": 1000,
+			"label": "Artillery (900)",
+			"cost": 900,
 			"pay_from": "pick_city",
 			"effects": [
 			  {
@@ -905,8 +1235,8 @@
 			]
 		  },
 		  "choice_c": {
-			"label": "Logistics truck (800)",
-			"cost": 800,
+			"label": "Engineers (500)",
+			"cost": 500,
 			"pay_from": "pick_city",
 			"effects": [
 			  {
@@ -928,8 +1258,8 @@
 		  "protected": false,
 		  "text": "A rail yard offers rolling stock. Stock up now, or wait for a better day?",
 		  "choice_a": {
-			"label": "Train + 5 rails (1200)",
-			"cost": 1200,
+			"label": "Train + 5 rails (1000)",
+			"cost": 1000,
 			"pay_from": "pick_city",
 			"effects": [
 			  {
@@ -943,13 +1273,50 @@
 			]
 		  },
 		  "choice_b": {
-			"label": "5 rails (500)",
-			"cost": 500,
+			"label": "5 rails (400)",
+			"cost": 400,
 			"pay_from": "pick_city",
 			"effects": [
 			  {
 				"type": "grant_rails",
 				"amount": 5
+			  }
+			]
+		  },
+		  "choice_c": {
+			"label": "Leave",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_quartermaster",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A quartermaster with flexible paperwork offers surplus from the depot — for a price.",
+		  "choice_a": {
+			"label": "Shells and rations (+60 to all your pieces) (300)",
+			"cost": 300,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_resources",
+				"scope": "player",
+				"amount": 60
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Bridge kit and tunnel charges (500)",
+			"cost": 500,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "grant_bridges",
+				"amount": 1
+			  },
+			  {
+				"type": "grant_tunnels",
+				"amount": 1
 			  }
 			]
 		  },

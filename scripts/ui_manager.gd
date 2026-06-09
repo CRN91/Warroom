@@ -24,6 +24,7 @@ var current_viewed_piece: Node2D = null
 var decision_pending: bool = false
 
 # Built-in-code UI
+var top_bar: PanelContainer = null
 var top_bar_lbl: Label = null
 var stock_lbl: Label = null
 var toast_box: VBoxContainer = null
@@ -72,17 +73,23 @@ func _style_stats_panel():
 # ── Top bar (date / season / weather) ─────────────────────────────────────────
 
 func _build_top_bar():
-	var bar := PanelContainer.new()
-	bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	bar.offset_top = 8
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_theme_stylebox_override("panel", _hud_style())
+	top_bar = PanelContainer.new()
+	top_bar.position.y = 8
+	top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_bar.add_theme_stylebox_override("panel", _hud_style())
 
 	top_bar_lbl = Label.new()
 	top_bar_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_bar_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bar.add_child(top_bar_lbl)
-	add_child(bar)
+	top_bar.add_child(top_bar_lbl)
+	add_child(top_bar)
+
+func _position_top_bar():
+	## Keep the bar horizontally centred over the hex grid (not the window).
+	if top_bar == null or s == null or s.grid == null: return
+	var world: Vector2 = s.grid.base_layer.to_global(s.grid.get_hex_pos(Vector2i(0, 0)))
+	var screen: Vector2 = s.grid.get_viewport().get_canvas_transform() * world
+	top_bar.position.x = screen.x - top_bar.size.x * 0.5
 
 func _refresh_top_bar():
 	if top_bar_lbl == null or s == null: return
@@ -119,6 +126,7 @@ func _refresh_stock():
 func _process(_delta):
 	# Stocks change from many places (cards, building, planning); cheap to poll.
 	_refresh_stock()
+	_position_top_bar()
 
 # ── Toasts ────────────────────────────────────────────────────────────────────
 
@@ -164,9 +172,13 @@ func set_decision_pending(pending: bool):
 func show_city_picker(eligible_cities: Array, cost: int, on_pick: Callable):
 	set_decision_pending(true)   # still mid-decision until a city is chosen
 
+	var center = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	var overlay = PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_CENTER)
 	overlay.add_theme_stylebox_override("panel", _hud_style(0.96))
+	center.add_child(overlay)
 
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
@@ -183,11 +195,11 @@ func show_city_picker(eligible_cities: Array, cost: int, on_pick: Callable):
 		btn.pressed.connect(func():
 			on_pick.call(c)
 			set_decision_pending(false)
-			overlay.queue_free()
+			center.queue_free()
 		)
 		vbox.add_child(btn)
 
-	add_child(overlay)
+	add_child(center)
 
 # ── Stats panel ───────────────────────────────────────────────────────────────
 
@@ -246,11 +258,14 @@ func show_game_over(player_lost: bool, day: int):
 	dim.process_mode = Node.PROCESS_MODE_ALWAYS   # usable while the tree is paused
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+	var center = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.add_child(center)
+
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
 	vbox.add_theme_constant_override("separation", 20)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	dim.add_child(vbox)
+	center.add_child(vbox)
 
 	var lbl = Label.new()
 	lbl.text = "Defeat" if player_lost else "Victory!"

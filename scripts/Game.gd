@@ -32,6 +32,24 @@ class_name Game
 @onready var turn_manager: TurnManager = $TurnManager
 @onready var input_controller: InputController = $InputController
 
+const HEXGRID = preload("res://Hexgrid/hex.gd")
+var HEX = HEXGRID.new()
+
+const PLAYER_CAPITAL_HEX := Vector2i(0, 3)
+const ENEMY_CAPITAL_HEX := Vector2i(0, -3)
+const STARTING_UNIT_HEXES := {
+	"player_infantry_a": Vector2i(2, 1),
+	"player_infantry_b": Vector2i(-2, 3),
+	"player_artillery": Vector2i(0, 2),
+	"player_engineers": Vector2i(1, 2),
+	"enemy_infantry_a": Vector2i(1, -3),
+	"enemy_infantry_b": Vector2i(-1, -2),
+	"enemy_artillery": Vector2i(0, -2),
+}
+const TOWN_NAMES := ["Brennfeld", "Kaltenmoor", "Severin", "Ostbruck", "Witmark", "Lindenhal"]
+
+var town_hexes: Array = []
+
 func _ready():
 	var s := GameServices.new()
 	s.grid = grid
@@ -49,10 +67,12 @@ func _ready():
 	# World generation
 	terrain_manager.setup(grid)
 	grid.terrain = terrain_manager
+	town_hexes = _pick_town_hexes(1 + randi() % 3)   # 1–3 neutral towns per run
 	terrain_manager.generate({
-		"capital_hexes": [Vector2i(0, 3), Vector2i(0, -3)],
-		"city_hexes": [Vector2i(0, 0)],
-		"occupied": [Vector2i(2, 1), Vector2i(1, -3), Vector2i(2, -3), Vector2i(-1, 2), Vector2i(-1, -1)],
+		"capital_hexes": [PLAYER_CAPITAL_HEX, ENEMY_CAPITAL_HEX],
+		"city_hexes": town_hexes,
+		"occupied": STARTING_UNIT_HEXES.values(),
+		"bridges": 1,   # exactly one pre-built crossing per run
 	})
 	rail_network.setup(grid, terrain_manager)
 
@@ -73,11 +93,65 @@ func _ready():
 	_spawn_starting_forces()
 	fow_manager.update_fow()
 
-func _spawn_starting_forces():
-	board.add_city("Aldermark", Vector2i(0, 3), 1, true)     # player capital
-	board.add_city("Veslograd", Vector2i(0, -3), 2, true)    # enemy capital
-	board.add_city("Brennfeld", Vector2i(0, 0), 0)           # contested neutral city
+func _pick_town_hexes(count: int) -> Array:
+	## Random town sites: away from both capitals, away from each other, and
+	## not on a starting unit's hex.
+	var capitals := [PLAYER_CAPITAL_HEX, ENEMY_CAPITAL_HEX]
+	var blocked: Array = STARTING_UNIT_HEXES.values()
 
-	board.add_unit("infantry", Vector2i(2, 1), 1)
-	board.add_unit("logistics", Vector2i(-1, -1), 1)
-	board.add_unit("infantry", Vector2i(1, -3), 2)
+	var candidates: Array = []
+	for hex in grid.Grid.keys():
+		if hex in blocked: continue
+		var ok := true
+		for cap in capitals:
+			if HEX.axial_distance(hex, cap) < 3:
+				ok = false
+				break
+		if ok: candidates.append(hex)
+	candidates.shuffle()
+
+	var picked: Array = []
+	for hex in candidates:
+		if picked.size() >= count: break
+		var clear := true
+		for p in picked:
+			if HEX.axial_distance(hex, p) < 3:
+				clear = false
+				break
+		if clear: picked.append(hex)
+	return picked
+
+func _spawn_starting_forces():
+	board.add_city("Aldermark", PLAYER_CAPITAL_HEX, 1, true)   # player capital
+	board.add_city("Veslograd", ENEMY_CAPITAL_HEX, 2, true)    # enemy capital
+
+	var names := TOWN_NAMES.duplicate()
+	names.shuffle()
+	for i in range(town_hexes.size()):
+		board.add_city(names[i], town_hexes[i], 0)             # neutral towns
+
+	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_a"], 1)
+	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_b"], 1)
+	board.add_unit("artillery", STARTING_UNIT_HEXES["player_artillery"], 1)
+	board.add_unit("logistics", STARTING_UNIT_HEXES["player_engineers"], 1)
+
+	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_a"], 2)
+	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_b"], 2)
+	board.add_unit("artillery", STARTING_UNIT_HEXES["enemy_artillery"], 2)
+
+	# Militias spawn last so they never steal a starting unit's hex.
+	for hex in town_hexes:
+		_spawn_town_militia(hex)
+
+func _spawn_town_militia(town_hex: Vector2i) -> void:
+	## Towns don't fall for free: a small neutral militia stands beside each
+	## one and shoots at whoever comes close. It never moves or resupplies.
+	var hex = board._free_hex_near(town_hex)
+	if hex == null: return
+	var militia = board.add_unit("infantry", hex, 0)
+	if militia:
+		militia.name = "Town Militia"
+		militia.resource_comp.set_max_resources(60)
+		militia.resource_comp.resources = 60
+		militia.resource_comp.deplete_rate = 0   # they live off the town
+		militia.update_ui()

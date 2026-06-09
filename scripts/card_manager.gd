@@ -33,17 +33,14 @@ var fired: Dictionary = {}             # card_id -> true   (once-triggers alread
 var tally: Dictionary = {}             # card_id -> int    (running count toward trigger.count)
 
 # Paid shops: not in the starting deck — scheduled one at a time so they stay
-# rare (FTL-style: units are scarce, every acquisition chance matters).
+# occasional, and ALWAYS paid (there is no free acquisition in this game).
 const SHOP_SET := "supply_offers"
-const SHOP_PITY := 12                   # guarantee a shop if none has appeared in N weeks
-const SHOP_GAP_MIN := 5                 # otherwise the next random shop lands in 5..9 weeks
-const SHOP_GAP_MAX := 9
+const SHOP_PITY := 10                   # guarantee a shop if none has appeared in N weeks
+const SHOP_GAP_MIN := 4                 # otherwise the next random shop lands in 4..7 weeks
+const SHOP_GAP_MAX := 7
 var weeks_since_shop := 0
 var _shop_ids: Array = []
-
-# Free requisition offer (Mini Metro-style steady drip): replaces the decision
-# slot once every OFFER_INTERVAL weeks.
-const OFFER_INTERVAL := 6
+var _last_shop_id := ""
 
 func setup(services: GameServices):
 	s = services
@@ -157,11 +154,6 @@ func draw_daily_card(day: int):
 
 	var order = ["intel", "event", "decision"]
 	var required: String = order[(day - 1) % 3] if day > 0 else "intel"
-
-	# Guaranteed free requisition: lands on the decision slot every OFFER_INTERVAL weeks.
-	if required == "decision" and day % OFFER_INTERVAL == 0:
-		weeks_since_shop += 1
-		return requisition_offer()
 
 	var world := _world()
 	var drawn = null
@@ -325,40 +317,26 @@ func _chain_active(set_name: String) -> bool:
 func _is_shop(card) -> bool:
 	return card != null and card.get("id", "") in _shop_ids
 
+func _pick_shop_id() -> String:
+	# Avoid offering the same shop twice in a row (no more endless rail yards).
+	var pool := _shop_ids.filter(func(id): return id != _last_shop_id)
+	if pool.is_empty():
+		pool = _shop_ids
+	var id: String = pool[randi() % pool.size()]
+	_last_shop_id = id
+	return id
+
 func _schedule_next_shop() -> void:
 	# Queue one random paid shop a few weeks out (the "recycle").
 	if _shop_ids.is_empty():
 		return
-	var id: String = _shop_ids[randi() % _shop_ids.size()]
-	schedule_card(id, randi_range(SHOP_GAP_MIN, SHOP_GAP_MAX), "soon")
+	schedule_card(_pick_shop_id(), randi_range(SHOP_GAP_MIN, SHOP_GAP_MAX), "soon")
 
 func _force_shop() -> void:
-	# Pity backstop: drop a random shop in now if we've gone too long without one.
+	# Pity backstop: drop a shop in now if we've gone too long without one.
 	if _shop_ids.is_empty():
 		return
-	var id: String = _shop_ids[randi() % _shop_ids.size()]
+	var id: String = _pick_shop_id()
 	if not deck.has_id(id):
 		deck.inject(card_library.get_card(id), "front")
 	weeks_since_shop = 0
-
-func requisition_offer() -> Dictionary:
-	## Guaranteed free pick (Mini Metro style): reliable, predictable, small —
-	## and infrastructure only. Units stay scarce: they come from rare paid
-	## shops and story cards, never for free.
-	var pool := [
-		{ "label": "A new locomotive", "effects": [{ "type": "grant_train", "amount": 1 }] },
-		{ "label": "A new rail line (5 rails)", "effects": [{ "type": "grant_rails", "amount": 5 }] },
-		{ "label": "A prefab bridge", "effects": [{ "type": "grant_bridges", "amount": 1 }] },
-		{ "label": "Tunnelling crews", "effects": [{ "type": "grant_tunnels", "amount": 1 }] },
-		{ "label": "A supply convoy (+60 to all units)",
-		  "effects": [{ "type": "grant_resources", "scope": "player", "amount": 60 }] },
-	]
-	pool.shuffle()
-	return {
-		"id": "weekly_requisition",
-		"type": "decision",
-		"text": "High command's allocation has arrived. Choose one.",
-		"choice_a": pool[0],
-		"choice_b": pool[1],
-		"choice_c": { "label": "Hold it back this time", "effects": [] },
-	}

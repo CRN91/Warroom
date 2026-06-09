@@ -51,35 +51,33 @@ func _compute_hex_size() -> void:
 # ── Generation ────────────────────────────────────────────────────────────────
 
 func generate(opts: Dictionary) -> void:
-	var capital_hexes: Array      = opts.get("capital_hexes", [])
+	var capital_hexes: Array = opts.get("capital_hexes", [])
 	var city_hexes: Array    = opts.get("city_hexes", [])
 	var occupied: Array      = opts.get("occupied", [])
 	var mfraction: float     = opts.get("mountain_fraction", 0.10)
-	var fords: int           = opts.get("fords", 1)
+	var bridges: int         = opts.get("bridges", 1)
 	if opts.has("seed"):
 		seed(int(opts["seed"]))
 
-	_generate_river(capital_hexes, city_hexes, fords)
-	_generate_mountains(capital_hexes, city_hexes, occupied, mfraction)
+	_generate_river(capital_hexes, city_hexes, bridges)
+	# Mountains must never bury a bridge's endpoints.
+	_generate_mountains(capital_hexes, city_hexes, occupied + _bridge_endpoint_hexes(), mfraction)
 	queue_redraw()
 
-func _generate_river(capital_hexes: Array, city_hexes: Array, fords: int) -> void:
-	var axis: int = 1               # 0 = q, 1 = r, 2 = s (= -q-r)
-	var threshold: float = 0.0
-	if capital_hexes.size() >= 2:
-		var a: Vector2i = capital_hexes[0]
-		var b: Vector2i = capital_hexes[1]
-		var dq: int = abs(a.x - b.x)
-		var dr: int = abs(a.y - b.y)
-		var ds: int = abs((-a.x - a.y) - (-b.x - b.y))
-		if dq >= dr and dq >= ds:
-			axis = 0; threshold = (a.x + b.x) / 2.0
-		elif ds >= dr:
-			axis = 2; threshold = ((-a.x - a.y) + (-b.x - b.y)) / 2.0
-		else:
-			axis = 1; threshold = (a.y + b.y) / 2.0
-	else:
-		threshold = _median_axis_value(axis)
+func _bridge_endpoint_hexes() -> Array:
+	var out: Array = []
+	for k in river.keys():
+		var e: Dictionary = river[k]
+		if e["bridge"]:
+			out.append(e["a"])
+			out.append(e["b"])
+	return out
+
+func _generate_river(capital_hexes: Array, city_hexes: Array, bridges: int) -> void:
+	## The river is the meandering border between two territories, grown
+	## outward from each capital with random expansion order. Every run gets a
+	## different course; cities land on a random side of it.
+	var side: Dictionary = _grow_territories(capital_hexes)
 
 	var seen: Dictionary = {}
 	for hex in grid.Grid.keys():
@@ -88,35 +86,68 @@ func _generate_river(capital_hexes: Array, city_hexes: Array, fords: int) -> voi
 			var k: String = _edge_key(hex, nb)
 			if seen.has(k): continue
 			seen[k] = true
-			var side_a: bool = _axis_value(hex, axis) <= threshold
-			var side_b: bool = _axis_value(nb, axis) <= threshold
-			if side_a != side_b:
+			if side.get(hex, 0) != side.get(nb, 0):
 				river[k] = { "a": hex, "b": nb, "bridge": false, "broken": false }
 
-	if fords > 0 and river.size() > 0:
-		var valid_ford_edges = []
-		
-		# Only keep edges where NEITHER side is a city
+	if bridges > 0 and river.size() > 0:
+		# Pre-built starting bridge(s): never on a city hex, placed at the
+		# crossing closest to a city so both sides can reach the contested middle.
+		var candidate_edges = []
 		for k in river.keys():
 			var e = river[k]
 			if not e["a"] in city_hexes and not e["b"] in city_hexes:
-				valid_ford_edges.append(k)
-				
-		# Sort the remaining valid edges by proximity to the city
-		valid_ford_edges.sort_custom(func(x, y): return _edge_city_dist(river[x], city_hexes) < _edge_city_dist(river[y], city_hexes))
-		
-		for i in range(min(fords, valid_ford_edges.size())):
-			var k = valid_ford_edges[i]
-			
-			# Spawn a pre-built bridge at the crossing
-			river[k]["bridge"] = true 
+				candidate_edges.append(k)
+
+		candidate_edges.sort_custom(func(x, y): return _edge_city_dist(river[x], city_hexes) < _edge_city_dist(river[y], city_hexes))
+
+		for i in range(min(bridges, candidate_edges.size())):
+			var k = candidate_edges[i]
+			river[k]["bridge"] = true
 			river[k]["broken"] = false
 
 	# Apply the cut to astar so pathfinding (and the AI) respects it.
 	for k in river.keys():
 		var e: Dictionary = river[k]
-		if not e["bridge"]: 
+		if not e["bridge"]:
 			grid.disconnect_hexes(e["a"], e["b"])
+
+func _grow_territories(capital_hexes: Array) -> Dictionary:
+	## Multi-source random flood fill: each capital claims hexes outward in a
+	## random order, so the border between the two territories meanders.
+	## Returns hex -> 0 or 1. Falls back to one territory if <2 capitals.
+	var side: Dictionary = {}
+	if capital_hexes.size() < 2:
+		return side
+
+	var frontiers: Array = [[], []]
+	for i in range(2):
+		var cap: Vector2i = capital_hexes[i]
+		side[cap] = i
+		frontiers[i].append(cap)
+
+	while not frontiers[0].is_empty() or not frontiers[1].is_empty():
+		# Pick a side to expand (random, but a side with no frontier left can't)
+		var i: int = randi() % 2
+		if frontiers[i].is_empty():
+			i = 1 - i
+
+		var idx: int = randi() % frontiers[i].size()
+		var cur: Vector2i = frontiers[i][idx]
+
+		# Claim one random unclaimed neighbour; retire the hex when exhausted
+		var unclaimed: Array = []
+		for nb in HEX.axial_neighbours(cur):
+			if grid.Grid.has(nb) and not side.has(nb):
+				unclaimed.append(nb)
+
+		if unclaimed.is_empty():
+			frontiers[i].remove_at(idx)
+		else:
+			var pick: Vector2i = unclaimed[randi() % unclaimed.size()]
+			side[pick] = i
+			frontiers[i].append(pick)
+
+	return side
 
 func _generate_mountains(capital_hexes: Array, city_hexes: Array, occupied: Array, mfraction: float) -> void:
 	var protected: Dictionary = {}
@@ -271,18 +302,6 @@ func blocks_line_of_fire(from_hex: Vector2i, to_hex: Vector2i) -> bool:
 	return false
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-func _axis_value(hex: Vector2i, axis: int) -> float:
-	if axis == 0: return float(hex.x)
-	if axis == 2: return float(-hex.x - hex.y)
-	return float(hex.y)
-
-func _median_axis_value(axis: int) -> float:
-	var vals: Array = []
-	for hex in grid.Grid.keys():
-		vals.append(_axis_value(hex, axis))
-	vals.sort()
-	return vals[int(vals.size() / 2.0)] if vals.size() > 0 else 0.0
 
 func _edge_key(a: Vector2i, b: Vector2i) -> String:
 	if a.x < b.x or (a.x == b.x and a.y <= b.y):

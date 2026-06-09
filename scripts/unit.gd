@@ -44,9 +44,11 @@ func unfreeze():
 	frozen = false
 	_update_frozen_visual()
 
+var base_modulate: Color = Color(1, 1, 1)
+
 func _update_frozen_visual():
 	# Spent units dim so it's obvious who can still act this turn.
-	modulate = Color(0.55, 0.55, 0.55) if frozen else Color(1, 1, 1)
+	modulate = base_modulate * Color(0.55, 0.55, 0.55) if frozen else base_modulate
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
@@ -105,7 +107,10 @@ func supply_to(target: Node2D) -> void:
 
 # ── Attack ────────────────────────────────────────────────────────────────────
 
-func is_combatant(): return false
+func is_combatant():
+	# Infantry/Artillery override this. Other units (e.g. an armoured train)
+	# can be promoted to combatant by a card adding the "combatant" tag.
+	return "combatant" in tags
 
 @onready var attack_comp = get_node_or_null("Attack")
 
@@ -136,7 +141,12 @@ func clear_attack_target():
 
 var team: int = 1 # 1 = Player, 2 = Enemy, 0 = Neutral
 func set_enemy():   team = 2
-func set_neutral(): team = 0
+
+func set_neutral():
+	team = 0
+	base_modulate = Color(0.55, 0.58, 0.66)   # unmistakably grey-blue: not yours
+	_update_frozen_visual()
+
 func set_player():  team = 1
 
 # ── Daily tick ────────────────────────────────────────────────────────────────

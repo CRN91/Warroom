@@ -102,12 +102,18 @@ func enemy_offensive(ctx: Dictionary) -> void:
 	s.board.spawn_unit({ "unit": "artillery", "team": 2, "near": "enemy_capital" })
 
 func sabotage_rail(_ctx: Dictionary) -> void:
-	# Supply disruption: breaks a random intact player rail hex.
+	# Supply disruption: breaks a random intact rail hex. If there's no rail to
+	# hit, the saboteurs raid supplies instead so the card never does nothing.
 	var candidates: Array = []
 	for hex in s.rail_network.rail_hexes:
 		if not s.rail_network.rail_hexes[hex]["broken"]:
 			candidates.append(hex)
 	if candidates.is_empty():
+		# Depot raid instead — hits city stores only, never kills units outright.
+		for c in s.board.cities:
+			if is_instance_valid(c) and c.team == 1:
+				c.deplete(60)
+		Events.notify("Saboteurs raided your depots in the night.")
 		return
 	s.rail_network.break_rail_at(candidates[randi() % candidates.size()])
 
