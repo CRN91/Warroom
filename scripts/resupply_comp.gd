@@ -55,6 +55,8 @@ func receive_from(donor: Node2D) -> void:
 	var take = min(gap, available)
 	donor.deplete(take)
 	_piece.replenish(take)
+	if take > 0 and _piece.has_method("mark_resupplied"):
+		_piece.mark_resupplied()
 
 func supply_to(target: Node2D) -> void:
 	var target_supply = target.get_node_or_null("Resupply")

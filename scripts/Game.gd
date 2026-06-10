@@ -92,6 +92,7 @@ func _ready():
 
 	_spawn_starting_forces()
 	fow_manager.update_fow()
+	turn_manager.prepare_first_turn()
 
 func _pick_town_hexes(count: int) -> Array:
 	## Random town sites: away from both capitals, away from each other, and
@@ -138,20 +139,3 @@ func _spawn_starting_forces():
 	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_a"], 2)
 	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_b"], 2)
 	board.add_unit("artillery", STARTING_UNIT_HEXES["enemy_artillery"], 2)
-
-	# Militias spawn last so they never steal a starting unit's hex.
-	for hex in town_hexes:
-		_spawn_town_militia(hex)
-
-func _spawn_town_militia(town_hex: Vector2i) -> void:
-	## Towns don't fall for free: a small neutral militia stands beside each
-	## one and shoots at whoever comes close. It never moves or resupplies.
-	var hex = board._free_hex_near(town_hex)
-	if hex == null: return
-	var militia = board.add_unit("infantry", hex, 0)
-	if militia:
-		militia.name = "Town Militia"
-		militia.resource_comp.set_max_resources(60)
-		militia.resource_comp.resources = 60
-		militia.resource_comp.deplete_rate = 0   # they live off the town
-		militia.update_ui()

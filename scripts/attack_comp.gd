@@ -34,6 +34,10 @@ func attack(enemy, damage_override = null):
 	if attack_cost > 0:
 		unit.deplete(attack_cost)
 
+	# Cities are captured, not killed — only unit kills count toward veterancy.
+	if destroyed and not (enemy is City) and unit.has_method("record_kill"):
+		unit.record_kill()
+
 	return destroyed
 
 func get_damage(): return damage
@@ -51,7 +55,12 @@ func clear_target():
 	target = null
 	pending_attack = null
 
-func get_target(grid = null) -> Node2D:
+func get_target(_grid = null) -> Node2D:
+	## HONEST TELEGRAPH RULE: a unit may only fire at a target it locked on a
+	## previous turn (acquire_target) or was manually ordered to attack. There
+	## is no opportunistic move-in-and-shoot — if you saw no red arrow, you
+	## take no hit.
+
 	# 1. Clean up dead targets — and targets that changed sides (captured cities)
 	if target and (not is_instance_valid(target) or target.team == unit.team): target = null
 	if pending_attack and (not is_instance_valid(pending_attack) or pending_attack.team == unit.team): pending_attack = null
@@ -65,14 +74,18 @@ func get_target(grid = null) -> Node2D:
 	# 3. If we already moved (frozen), we cannot auto-attack this turn
 	if unit.is_frozen(): return null
 
-	# 4. Check if our sticky target is still in range
+	# 4. The locked (telegraphed) target — must still be in range and in sight
 	if target:
-		if HEX.axial_distance(unit.get_hex(), target.get_hex()) <= unit.get_attack_range():
-			return target
+		var dist = HEX.axial_distance(unit.get_hex(), target.get_hex())
+		if dist <= unit.get_attack_range():
+			if dist <= 1 or unit.terrain == null or not unit.terrain.blocks_line_of_fire(unit.get_hex(), target.get_hex()):
+				return target
+	return null
 
-	# 5. Otherwise, scan for a new target
-	if grid:
-		return _find_enemy_in_range(grid)
+func acquire_target(grid) -> Node2D:
+	## End-of-turn telegraph: lock the target this unit will fire at next turn.
+	## The intent arrows render it, so every attack is visible a turn ahead.
+	target = _find_enemy_in_range(grid)
 	return target
 
 func _find_enemy_in_range(grid) -> Node2D:

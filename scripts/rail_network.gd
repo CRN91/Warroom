@@ -259,6 +259,7 @@ func _spawn_train_on_route(route_id: int) -> bool:
 
 	var train = TRAIN.instantiate()
 	add_child(train, true)
+	train.name = "Locomotive %d" % (route_id + 1)
 	train.setup_route(rail_routes[route_id], route_id, grid, self, start_hex)
 	route_trains[route_id] = train
 	# When the train is freed (e.g. destroyed), clear its slot so the route can be reused.

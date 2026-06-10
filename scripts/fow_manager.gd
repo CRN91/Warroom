@@ -13,11 +13,20 @@ const BASE_VISION := 2
 var grid: Node
 var rail_network: Node
 var board: Board
+var _flashed: Array = []   # pieces revealed by firing, until next turn
 
 func setup(_grid: Node, _rail_network: Node, _board: Board):
 	grid = _grid
 	rail_network = _rail_network
 	board = _board
+
+func flash(piece: Node2D) -> void:
+	## A unit that fires gives away its position until the next turn.
+	if piece not in _flashed:
+		_flashed.append(piece)
+
+func clear_flashes() -> void:
+	_flashed.clear()
 
 func update_fow():
 	var visible_hexes = _get_visible_hexes()
@@ -25,7 +34,8 @@ func update_fow():
 	for hex in grid.Grid:
 		var piece = grid.get_piece(hex)
 		if piece:
-			piece.visible = piece.team == 1 or visible_hexes.has(hex)
+			piece.visible = piece.team == 1 or visible_hexes.has(hex) \
+				or (piece in _flashed and is_instance_valid(piece))
 
 	for hex in rail_network.rail_hexes:
 		if rail_network.rail_hexes[hex].has("node"):

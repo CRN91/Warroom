@@ -65,9 +65,43 @@ There is **no open shop and nothing is free**. Units and stock come only from
 paid shop cards (guaranteed within 10 weeks, then 4–7 apart, never the same
 shop twice in a row) and story decisions like conscription. Capitals earn just
 50/week — holding towns (40/week each) IS the economy, so captures directly
-fund the war. Each neutral town is guarded by a militia that shoots at
-whoever approaches: towns are fought for, not walked into. The enemy AI
-spawns units through `Board.spawn_unit_near_city` directly.
+fund the war. The enemy AI spawns units through `Board.spawn_unit_near_city`
+directly. (Town militias were tried and removed; if towns need defenders
+later, frame them as partisans.)
+
+## Units are people (service records)
+
+- Every unit gets a generated company name ("3rd Veldt Rifles") and can be
+  renamed from the stats panel, FTL-style. Player cities can be renamed too.
+- Three visible stats: **damage**, **drain/week**, **max supplies** — shown
+  with veterancy progress meters in the stats panel:
+  - survive 14 weeks → +5 max supplies; 28 weeks → +2 more
+  - 3 kills → +3 damage; 5 kills → +2 more (infantry: 35 → 38 → 40)
+  - 10 weeks without resupply → drain −1 (infantry: 3 → 2)
+- Milestones toast when earned; kills/weeks tracked per unit (`Unit` service
+  record section). Cards can target one specific unit with the modifier scope
+  `name:<unit name>` (plus existing `unit:<id>` and `tag:` scopes).
+- Infantry rebalanced: damage 35 (was 75), drain 3 (was 1).
+
+## Telegraphed attacks (honest)
+
+At end of turn every combatant (both sides) locks the target it will shoot
+next turn (`TurnManager._telegraph_attacks` → `Attack.acquire_target`), and the
+red intent arrows render it. The lock is binding: `Attack.get_target` no longer
+scans opportunistically, so **a unit can only be hit by an attack that was
+telegraphed** (or manually ordered) — no move-in-and-shoot surprise deaths.
+Firing also flashes the attacker visible through fog until next turn
+(`FOWManager.flash`), so hidden artillery reveals itself when it shells you.
+
+## Combat feedback
+
+Kill and withdrawal events go to `Events.battle_event`, collect in
+`CardManager.battle_log`, and surface as a FIELD REPORT intel card (the intel
+filler slot, or any card with `"dynamic_text": "war_report"`) — combat news
+arrives through the card game, not toast spam. The stats panel is FTL-style:
+a supply bar plus thin colored veterancy meters (red = kills→damage,
+blue = weeks→capacity, yellow = unsupplied streak→drain), with exact numbers
+in hover tooltips. The frozen-unit dim was removed.
 
 ## Cards
 

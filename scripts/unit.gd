@@ -47,8 +47,8 @@ func unfreeze():
 var base_modulate: Color = Color(1, 1, 1)
 
 func _update_frozen_visual():
-	# Spent units dim so it's obvious who can still act this turn.
-	modulate = base_modulate * Color(0.55, 0.55, 0.55) if frozen else base_modulate
+	# No dimming — it read as a glitch. "Used/Ready" lives in the stats panel.
+	modulate = base_modulate
 
 # ── Movement ──────────────────────────────────────────────────────────────────
 
@@ -149,9 +149,88 @@ func set_neutral():
 
 func set_player():  team = 1
 
+# ── Service record (veterancy) ────────────────────────────────────────────────
+# Every unit slowly grows into itself. Three small, legible upgrade tracks:
+#   • survive long enough        -> bigger supply capacity
+#   • win fights                 -> more damage
+#   • live off the land 10 weeks -> lower supply drain
+# Deltas are relative to the unit's base stats, so they work for any type.
+
+const SURVIVAL_MILESTONES := [[14, 5], [28, 2]]   # [weeks survived, +max supplies]
+const KILL_MILESTONES := [[3, 3], [5, 2]]         # [kills, +damage]
+const SUPPLY_STREAK_WEEKS := 10                   # weeks without resupply -> −1 drain
+
+var kills: int = 0
+var weeks_survived: int = 0
+var weeks_since_resupply: int = 0
+var _survival_rank: int = 0
+var _kill_rank: int = 0
+var _drain_improved: bool = false
+
+func record_kill() -> void:
+	kills += 1
+	while _kill_rank < KILL_MILESTONES.size() and kills >= KILL_MILESTONES[_kill_rank][0]:
+		if attack_comp:
+			attack_comp.damage += KILL_MILESTONES[_kill_rank][1]
+			if team == 1:
+				Events.notify("%s hardened by battle — damage now %d." % [name, attack_comp.damage])
+		_kill_rank += 1
+
+func mark_resupplied() -> void:
+	weeks_since_resupply = 0
+
+func _check_service_milestones() -> void:
+	while _survival_rank < SURVIVAL_MILESTONES.size() and weeks_survived >= SURVIVAL_MILESTONES[_survival_rank][0]:
+		var bonus: int = SURVIVAL_MILESTONES[_survival_rank][1]
+		resource_comp.set_max_resources(get_max_resources() + bonus)
+		if team == 1:
+			Events.notify("%s endures — max supplies now %d." % [name, get_max_resources()])
+		_survival_rank += 1
+
+	if not _drain_improved and weeks_since_resupply >= SUPPLY_STREAK_WEEKS:
+		_drain_improved = true
+		if resource_comp.deplete_rate > 1:
+			resource_comp.deplete_rate -= 1
+			if team == 1:
+				Events.notify("%s lives off the land — supply drain now %d/week." % [name, resource_comp.deplete_rate])
+
+func service_meters() -> Array:
+	## Data for the FTL-style progress bars in the stats panel.
+	## Each entry: { color, value, max, tip }. Numbers live in the tooltips.
+	var meters: Array = []
+
+	if attack_comp:
+		if _kill_rank < KILL_MILESTONES.size():
+			var goal: int = KILL_MILESTONES[_kill_rank][0]
+			meters.append({ "id": "attack", "color": Color(0.9, 0.35, 0.35), "value": kills, "max": goal,
+				"tip": "Damage %d — +%d at %d kills (%d/%d)" % [attack_comp.damage, KILL_MILESTONES[_kill_rank][1], goal, kills, goal] })
+		else:
+			meters.append({ "id": "attack", "color": Color(0.9, 0.35, 0.35), "value": 1, "max": 1,
+				"tip": "Damage %d — veteran (%d kills)" % [attack_comp.damage, kills] })
+
+	if _survival_rank < SURVIVAL_MILESTONES.size():
+		var goal2: int = SURVIVAL_MILESTONES[_survival_rank][0]
+		meters.append({ "id": "capacity", "color": Color(0.4, 0.65, 1.0), "value": weeks_survived, "max": goal2,
+			"tip": "Max supplies %d — +%d at %d weeks (%d/%d)" % [get_max_resources(), SURVIVAL_MILESTONES[_survival_rank][1], goal2, weeks_survived, goal2] })
+	else:
+		meters.append({ "id": "capacity", "color": Color(0.4, 0.65, 1.0), "value": 1, "max": 1,
+			"tip": "Max supplies %d — veteran (%d weeks)" % [get_max_resources(), weeks_survived] })
+
+	if resource_comp.deplete_rate > 1 and not _drain_improved:
+		meters.append({ "id": "drain", "color": Color(0.95, 0.85, 0.35), "value": mini(weeks_since_resupply, SUPPLY_STREAK_WEEKS), "max": SUPPLY_STREAK_WEEKS,
+			"tip": "Drain %d/wk — −1 after %d weeks unsupplied (%d/%d)" % [resource_comp.deplete_rate, SUPPLY_STREAK_WEEKS, weeks_since_resupply, SUPPLY_STREAK_WEEKS] })
+	elif _drain_improved:
+		meters.append({ "id": "drain", "color": Color(0.95, 0.85, 0.35), "value": 1, "max": 1,
+			"tip": "Drain %d/wk — lives off the land" % resource_comp.deplete_rate })
+
+	return meters
+
 # ── Daily tick ────────────────────────────────────────────────────────────────
 
 func next_day() -> bool:
+	weeks_survived += 1
+	weeks_since_resupply += 1
+	_check_service_milestones()
 	var starved = resource_comp.clock_cycle()
 	update_ui()
 	return starved
@@ -225,18 +304,23 @@ func refresh_intent():
 	_target_piece = null
 	_resupply_piece = null
 
-	# 1. Movement intent
+	# 1. Movement intent — mirror _auto_pathing exactly (route around units
+	# first, only path through traffic when boxed in) so the arrow is honest.
 	if movement_comp and movement_comp.path.size() > 0:
 		_next_move_hex = movement_comp.path[0]
 	elif movement_comp and movement_comp.goal != null:
-		var passable = [get_hex(), movement_comp.goal]
-		for h in grid.Grid:
-			var p = grid.get_piece(h)
-			if p and p.has_method("is_combatant") and not (p is City):
-				passable.append(h)
-		grid.sync_pathing(passable)
+		grid.sync_pathing([get_hex(), movement_comp.goal])
 		var apath = grid.get_map_path(get_hex(), movement_comp.goal)
 		grid.sync_pathing()
+		if apath.size() < 2:
+			var passable = [get_hex(), movement_comp.goal]
+			for h in grid.Grid:
+				var p = grid.get_piece(h)
+				if p and p.has_method("is_combatant") and not (p is City):
+					passable.append(h)
+			grid.sync_pathing(passable)
+			apath = grid.get_map_path(get_hex(), movement_comp.goal)
+			grid.sync_pathing()
 		if apath.size() > 1:
 			_next_move_hex = apath[1]
 

@@ -36,6 +36,17 @@ var state: Dictionary = {}             # story flags set by cards ("prepared_for
 var recent_death_hexes: Array = []     # no respawning on a hex something just died on
 var purchase_city: Node2D = null       # context for "near": "purchased_city" spawns
 
+# Generated company names — small, flavourful, renameable by the player.
+const NAME_ORDINALS := ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th",
+	"9th", "11th", "13th", "17th", "21st", "42nd"]
+const NAME_REGIONS := ["Lowland", "Greymoor", "Ashvale", "Northern", "Veldt",
+	"Brennish", "Kalten", "Eastmark", "Hollow Vale"]
+const NAME_CORPS := {
+	"infantry":  ["Rifles", "Fusiliers", "Grenadiers", "Foot", "Pickets"],
+	"artillery": ["Battery", "Guns", "Howitzers", "Field Guns"],
+	"logistics": ["Sappers", "Pioneers", "Supply Corps", "Field Engineers"],
+}
+
 var s: GameServices
 
 func setup(services: GameServices) -> void:
@@ -65,6 +76,7 @@ func add_unit(type: String, hex: Vector2i, team: int = 1) -> Node2D:
 	unit.setup(s.grid)
 	register_unit(unit)
 	unit.unit_type = type
+	unit.name = generate_unit_name(type)
 	match team:
 		2: unit.set_enemy()
 		0: unit.set_neutral()
@@ -176,6 +188,17 @@ func transform_units(effect: Dictionary) -> void:
 			s.modifiers.add_modifier(mm)
 		p.update_ui()
 		done += 1
+
+func generate_unit_name(type: String) -> String:
+	var corps: Array = NAME_CORPS.get(type, ["Company"])
+	var n: String = "%s %s" % [
+		NAME_ORDINALS[randi() % NAME_ORDINALS.size()],
+		corps[randi() % corps.size()],
+	]
+	if randf() < 0.6:
+		var bits := n.split(" ")
+		n = "%s %s %s" % [bits[0], NAME_REGIONS[randi() % NAME_REGIONS.size()], bits[1]]
+	return n
 
 func _grant_attack(piece: Node2D, spec: Dictionary) -> void:
 	## Gives a non-combat piece a real Attack component (e.g. the armoured

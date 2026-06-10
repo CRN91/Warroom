@@ -25,6 +25,13 @@ static func generate(report: String, board: Board) -> String:
 
 # ── Reports ───────────────────────────────────────────────────────────────────
 
+static func war_report(log_lines: Array) -> String:
+	## Last week's combat events, written up as a field report.
+	if log_lines.is_empty():
+		return "FIELD REPORT: The front is quiet. No engagements this week."
+	var lines: Array = log_lines.slice(max(0, log_lines.size() - 4))
+	return "FIELD REPORT:\n— " + "\n— ".join(lines)
+
 static func recon_report(board: Board) -> String:
 	var enemy_units: Array = board.units.filter(
 		func(u): return is_instance_valid(u) and u.team == 2)

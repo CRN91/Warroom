@@ -25,6 +25,10 @@ signal game_over(player_lost: bool)
 
 # ── UI feedback ───────────────────────────────────────────────────────────────
 signal toast(message: String)            # transient on-screen message
+signal battle_event(message: String)     # combat log line — surfaces in intel cards
 
 func notify(message: String) -> void:
 	toast.emit(message)
+
+func report(message: String) -> void:
+	battle_event.emit(message)

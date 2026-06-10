@@ -15,14 +15,14 @@ script = ExtResource("1_1bh05")
 
 [node name="Resources" type="Node2D" parent="." unique_id=1302726788]
 script = ExtResource("2_3dir1")
-deplete_rate = 1
+deplete_rate = 3
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=194678195]
 texture = ExtResource("3_68dwf")
 
 [node name="Attack" type="Node2D" parent="." unique_id=1796694160]
 script = ExtResource("5_doxku")
-damage = 75
+damage = 35
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]
 script = ExtResource("6_q00lq")

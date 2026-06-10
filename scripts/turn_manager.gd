@@ -27,6 +27,7 @@ func advance_day() -> void:
 	day += 1
 	Events.day_advanced.emit(day)
 
+	s.fow.clear_flashes()
 	_unfreeze_all()
 	s.modifiers.tick(day)
 	s.weather.on_day_tick()
@@ -58,6 +59,8 @@ func advance_day() -> void:
 	_unfreeze_all()
 	s.fow.update_fow()
 
+	_telegraph_attacks()
+
 	for unit in s.board.units:
 		if is_instance_valid(unit) and unit.has_method("refresh_intent"):
 			unit.refresh_intent()
@@ -80,6 +83,24 @@ func _max_city_funds() -> int:
 		if c.team == 1:
 			funds = max(funds, c.get_resources())
 	return funds
+
+func prepare_first_turn() -> void:
+	## Called once after setup so intent arrows are correct before turn 1.
+	_telegraph_attacks()
+	for unit in s.board.units:
+		if is_instance_valid(unit) and unit.has_method("refresh_intent"):
+			unit.refresh_intent()
+
+func _telegraph_attacks() -> void:
+	## Every combatant locks in the target it would shoot next turn, so the
+	## intent arrows (red) show incoming attacks before they happen — yours
+	## and, crucially, the enemy's.
+	for unit in s.board.units:
+		if not is_instance_valid(unit): continue
+		if not unit.is_combatant() or unit.attack_comp == null: continue
+		if unit.attack_comp.target != null and is_instance_valid(unit.attack_comp.target):
+			continue   # keep an existing (manual/sticky) target
+		unit.attack_comp.acquire_target(s.grid)
 
 func _unfreeze_all() -> void:
 	for unit in s.board.units:
@@ -159,6 +180,10 @@ func _resolve_all_combat() -> void:
 		var target = pair["target"]
 		if not is_instance_valid(attacker) or not is_instance_valid(target): continue
 
+		# Muzzle flash: firing gives away your position until next turn,
+		# so fog can't hide an artillery piece that just shelled you.
+		s.fow.flash(attacker)
+
 		if attacker.attack(target):
 			if target is City:
 				# Shellfire can empty a city, but only adjacent troops take it.
@@ -166,6 +191,8 @@ func _resolve_all_combat() -> void:
 					target.capture(attacker.team)
 			elif target not in to_die:
 				to_die.append(target)
+				if attacker.team == 1 or target.team == 1:
+					Events.report("%s destroyed %s." % [attacker.name, target.name])
 
 		# Shellfire wrecks any rail on the defender's hex.
 		var target_hex = target.get_hex()

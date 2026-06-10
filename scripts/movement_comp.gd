@@ -71,7 +71,9 @@ func _withdrawal_fire(old_hex, new_hex, grid) -> void:
 		if dmg > 0:
 			piece.deplete(dmg)
 			if piece.team == 1:
-				Events.notify("%s took %d withdrawal fire from %s." % [piece.name, dmg, e.name])
+				Events.report("%s took %d withdrawal fire from %s." % [piece.name, dmg, e.name])
+			elif e.team == 1:
+				Events.report("%s caught %s withdrawing — %d damage." % [e.name, piece.name, dmg])
 		return
 
 # ── Pathing ───────────────────────────────────────────────────────────────────

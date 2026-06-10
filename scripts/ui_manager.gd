@@ -23,6 +23,17 @@ var s: GameServices
 var current_viewed_piece: Node2D = null
 var decision_pending: bool = false
 
+# Runtime-built stats panel extras (FTL-style bars; numbers live in tooltips)
+const RESOURCE_ICON = preload("res://assets/resource_icon.png")
+const ATTACK_ICON = preload("res://assets/attack_icon.png")
+const DRAIN_ICON = preload("res://assets/drain_icon.png")
+const METER_ICONS := { "attack": ATTACK_ICON, "capacity": RESOURCE_ICON, "drain": DRAIN_ICON }
+const SUPPLY_BAR_WIDTH := 170.0   # the headline bar
+const BAR_WIDTH := 104.0          # veterancy meters
+
+var supply_bar: ProgressBar = null
+var meter_box: VBoxContainer = null
+
 # Built-in-code UI
 var top_bar: PanelContainer = null
 var top_bar_lbl: Label = null
@@ -37,6 +48,7 @@ func setup(services: GameServices):
 	_build_toast_box()
 	_build_debug_overlay()
 	_style_stats_panel()
+	_build_stats_extras()
 	panel.hide()
 	card_ui.hide()
 	nextdaybutton.pressed.connect(func(): next_day_requested.emit())
@@ -69,6 +81,141 @@ func _hud_style(alpha := 0.85) -> StyleBoxFlat:
 
 func _style_stats_panel():
 	panel.add_theme_stylebox_override("panel", _hud_style(0.92))
+
+func _build_stats_extras():
+	var vbox = lbl_res.get_parent()
+
+	# Click the name to rename (player pieces only), FTL-style
+	lbl_name.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl_name.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	lbl_name.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var p = current_viewed_piece
+			if p and is_instance_valid(p) and p.team == 1:
+				_open_rename_dialog(p)
+	)
+
+	# Raw text line replaced by an icon + supply bar (hover for exact numbers)
+	lbl_res.visible = false
+	supply_bar = ProgressBar.new()
+	supply_bar.custom_minimum_size = Vector2(SUPPLY_BAR_WIDTH, 14)
+	supply_bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	supply_bar.show_percentage = false
+	supply_bar.mouse_filter = Control.MOUSE_FILTER_PASS   # allow tooltip
+	_style_bar(supply_bar, Color(0.25, 0.75, 0.35))
+	var supply_row := _icon_row(RESOURCE_ICON, supply_bar, 16)
+	vbox.add_child(supply_row)
+	vbox.move_child(supply_row, lbl_res.get_index() + 1)
+
+	# Veterancy meters: thin colored bars, one per upgrade track
+	meter_box = VBoxContainer.new()
+	meter_box.add_theme_constant_override("separation", 3)
+	vbox.add_child(meter_box)
+	vbox.move_child(meter_box, supply_row.get_index() + 1)
+
+	# Small action/mode text
+	lbl_act.add_theme_font_size_override("font_size", 12)
+	lbl_mode.add_theme_font_size_override("font_size", 12)
+	lbl_mode.modulate = Color(1, 1, 1, 0.8)
+
+
+func _style_bar(bar: ProgressBar, fill_color: Color) -> void:
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.45)
+	bg.corner_radius_top_left = 3
+	bg.corner_radius_top_right = 3
+	bg.corner_radius_bottom_left = 3
+	bg.corner_radius_bottom_right = 3
+	bar.add_theme_stylebox_override("background", bg)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = fill_color
+	fill.corner_radius_top_left = 3
+	fill.corner_radius_top_right = 3
+	fill.corner_radius_bottom_left = 3
+	fill.corner_radius_bottom_right = 3
+	bar.add_theme_stylebox_override("fill", fill)
+
+func _icon_row(texture: Texture2D, bar: ProgressBar, icon_size: int) -> HBoxContainer:
+	## icon + bar side by side; hovering either shows the bar's tooltip.
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var icon := TextureRect.new()
+	icon.texture = texture
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(icon)
+	row.add_child(bar)
+	return row
+
+func _set_meters(meters: Array) -> void:
+	for c in meter_box.get_children():
+		c.queue_free()
+	for m in meters:
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(BAR_WIDTH, 10)
+		bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bar.show_percentage = false
+		bar.mouse_filter = Control.MOUSE_FILTER_PASS
+		bar.max_value = m["max"]
+		bar.value = m["value"]
+		bar.tooltip_text = m["tip"]
+		_style_bar(bar, m["color"])
+		var row := _icon_row(METER_ICONS.get(m.get("id", "capacity"), RESOURCE_ICON), bar, 14)
+		var icon: TextureRect = row.get_child(0)
+		icon.tooltip_text = m["tip"]
+		meter_box.add_child(row)
+
+func _open_rename_dialog(piece: Node2D):
+	var center = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var overlay = PanelContainer.new()
+	overlay.add_theme_stylebox_override("panel", _hud_style(0.96))
+	center.add_child(overlay)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	overlay.add_child(vbox)
+
+	var lbl = Label.new()
+	lbl.text = "Rename unit:"
+	vbox.add_child(lbl)
+
+	var edit = LineEdit.new()
+	edit.text = str(piece.name)
+	edit.custom_minimum_size = Vector2(260, 0)
+	vbox.add_child(edit)
+
+	var apply := func():
+		# Strip characters Godot node names can't hold
+		var n = edit.text.strip_edges()
+		for bad in [".", "/", ":", "@", "\"", "%"]:
+			n = n.replace(bad, "")
+		if n != "" and is_instance_valid(piece):
+			piece.name = n
+			refresh_stats()
+		center.queue_free()
+
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var ok = Button.new()
+	ok.text = "OK"
+	ok.pressed.connect(apply)
+	var cancel = Button.new()
+	cancel.text = "Cancel"
+	cancel.pressed.connect(func(): center.queue_free())
+	row.add_child(ok)
+	row.add_child(cancel)
+	vbox.add_child(row)
+
+	edit.text_submitted.connect(func(_t): apply.call())
+	add_child(center)
+	edit.grab_focus()
+	edit.select_all()
 
 # ── Top bar (date / season / weather) ─────────────────────────────────────────
 
@@ -206,11 +353,30 @@ func show_city_picker(eligible_cities: Array, cost: int, on_pick: Callable):
 func show_stats(piece):
 	current_viewed_piece = piece
 	lbl_name.text = str(piece.name)
-	lbl_res.text  = "Resources: %d / %d" % [piece.get_resources(), piece.get_max_resources()]
+
+	# Supply bar — exact numbers on hover, FTL-style
+	supply_bar.max_value = piece.get_max_resources()
+	supply_bar.value = piece.get_resources()
+	var supply_tip := "Supplies %d / %d" % [piece.get_resources(), piece.get_max_resources()]
+	if piece is City:
+		supply_tip += " — income %d/wk" % piece.resource_comp.replenish_rate
+	else:
+		supply_tip += " — drain %d/wk" % piece.resource_comp.deplete_rate
+		if piece.is_combatant() and piece.attack_comp:
+			supply_tip += ", damage %d (range %d)" % [piece.attack_comp.damage, piece.attack_comp.attack_range]
+	supply_bar.tooltip_text = supply_tip
+	supply_bar.get_parent().get_child(0).tooltip_text = supply_tip   # the icon too
+
+	# Veterancy meters for the player's own units
+	if piece is City or piece.team != 1:
+		_set_meters([])
+	else:
+		_set_meters(piece.service_meters())
+	lbl_name.tooltip_text = "Click to rename" if piece.team == 1 else ""
 
 	if piece is City:
-		var role := "Capital" if piece.is_capital else "City"
-		lbl_act.text = "%s — income %d/week" % [role, piece.resource_comp.replenish_rate]
+		var role := "Capital" if piece.is_capital else "Town"
+		lbl_act.text = "%s — income %d/wk" % [role, piece.resource_comp.replenish_rate]
 	else:
 		lbl_act.text = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
 
@@ -222,12 +388,12 @@ func show_stats(piece):
 		elif move_comp.goal != null:
 			path_text = " | Moving to %s" % str(move_comp.goal)
 
-	if piece.is_combatant():
+	if piece.is_combatant() and piece.attack_comp:
 		var target = piece.attack_comp.target
 		if target and is_instance_valid(target):
 			lbl_mode.text = "Target: %s  (F to clear)" % target.name
 		else:
-			lbl_mode.text = "Range: %d | Click enemy to target" % piece.get_attack_range()
+			lbl_mode.text = "Click an enemy in range to target"
 		lbl_mode.text += path_text
 	else:
 		lbl_mode.text = path_text.trim_prefix(" | ")

@@ -146,6 +146,7 @@ func select_pieces(units: Array, cities: Array, scope: String) -> Array:
 #   "city" / "train" / "ground" (anything that isn't a city or train)
 #   "combatant" / "supplier"
 #   "type:infantry"   (matches Unit.unit_type, which you can set per scene/spawn)
+#   "name:3rd Veldt Rifles"   (one specific piece by its current name — handy in cards)
 #   "unit:<instance_id>"   (one specific piece)
 #   "tag:elite"   (matches a piece that has that string in its `tags` array)
 
@@ -167,6 +168,8 @@ func _matches(scope: String, piece) -> bool:
 
 	if scope.begins_with("team:"):
 		return str(piece.team) == scope.substr(5)
+	if scope.begins_with("name:"):
+		return str(piece.name) == scope.substr(5)
 	if scope.begins_with("type:"):
 		return _unit_type(piece) == scope.substr(5)
 	if scope.begins_with("unit:"):

@@ -42,6 +42,10 @@ var weeks_since_shop := 0
 var _shop_ids: Array = []
 var _last_shop_id := ""
 
+# Combat events queue up here (via Events.battle_event) and surface as a
+# field-report intel card instead of noisy toasts.
+var battle_log: Array = []
+
 func setup(services: GameServices):
 	s = services
 	card_library.load_library()
@@ -63,6 +67,10 @@ func setup(services: GameServices):
 	Events.city_captured.connect(_on_city_captured)
 	Events.rail_established.connect(func(_route_id): notify("rail_established"))
 	Events.unit_died.connect(func(unit): notify("unit_died", { "team": unit.team }))
+	Events.battle_event.connect(func(m: String):
+		battle_log.append(m)
+		if battle_log.size() > 8: battle_log.pop_front()
+	)
 
 	print("CardManager: starting deck has %d cards, %d trigger-watchers." % [deck.size(), watchers.size()])
 
@@ -173,7 +181,11 @@ func draw_daily_card(day: int):
 	# Intel cards can carry live reconnaissance instead of canned text.
 	if drawn.has("dynamic_text"):
 		drawn = drawn.duplicate(true)
-		drawn["text"] = IntelGenerator.generate(str(drawn["dynamic_text"]), s.board)
+		if str(drawn["dynamic_text"]) == "war_report":
+			drawn["text"] = IntelGenerator.war_report(battle_log)
+			battle_log.clear()
+		else:
+			drawn["text"] = IntelGenerator.generate(str(drawn["dynamic_text"]), s.board)
 
 	# Pity bookkeeping: reset when a shop surfaces, otherwise count the week.
 	if _is_shop(drawn):
@@ -185,7 +197,11 @@ func draw_daily_card(day: int):
 func _filler_card(required: String) -> Dictionary:
 	match required:
 		"intel":
-			# Quiet week at HQ -> recon still files a real report on the enemy.
+			# Fighting last week? File the field report. Otherwise recon reports.
+			if not battle_log.is_empty():
+				var text := IntelGenerator.war_report(battle_log)
+				battle_log.clear()
+				return { "id": "filler_war_report", "type": "intel", "text": text, "effects": [] }
 			return { "id": "filler_intel", "type": "intel",
 				"text": IntelGenerator.generate("recon_report", s.board), "effects": [] }
 		"event":
