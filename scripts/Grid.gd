@@ -14,8 +14,57 @@ var HEX = HEXGRID.new()
 var Grid = {}                  # axial hex -> { "Piece": Node2D or null }
 var terrain: TerrainManager    # set by Game after terrain generation
 
+## The tile art files, by source id. Swap/overwrite these pngs freely — any
+## resolution works; the TileSet is rebuilt from them on every game start.
+const TILE_ART := {
+	0: "res://assets/bluehex.png",        # base ground tile
+	1: "res://assets/hexoutline.png",     # hover highlight
+	2: "res://assets/hexoutlinered.png",  # selection highlight
+	3: "res://assets/redhex.png",         # reserved
+}
+const CELL := Vector2i(500, 580)
+
 func _ready():
+	_build_tileset()
+	base_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	highlight_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	make_grid_axial()
+
+func _build_tileset() -> void:
+	## Builds the TileSet in code from the art files instead of trusting
+	## grid.tres state. Runtime mutation of a shared TileSet (regions, dropped
+	## tiles, stale uids) caused every "tile is set but nothing renders" bug —
+	## a fresh, fully-configured TileSet has no partial state to go wrong.
+	var ts := TileSet.new()
+	ts.tile_shape = TileSet.TILE_SHAPE_HEXAGON
+	ts.tile_size = CELL
+
+	for id in TILE_ART:
+		var path: String = TILE_ART[id]
+		if not ResourceLoader.exists(path):
+			push_warning("Grid: tile art missing: %s" % path)
+			continue
+		var tex: Texture2D = load(path)
+		var img: Image = tex.get_image() if tex else null
+		if img == null or img.is_empty():
+			push_warning("Grid: couldn't read image: %s" % path)
+			continue
+		if img.is_compressed():
+			img.decompress()
+		var was := Vector2i(img.get_width(), img.get_height())
+		if was != CELL:
+			img.resize(CELL.x, CELL.y, Image.INTERPOLATE_NEAREST)
+		img.generate_mipmaps()
+
+		var src := TileSetAtlasSource.new()
+		src.texture = ImageTexture.create_from_image(img)
+		src.texture_region_size = CELL
+		src.create_tile(Vector2i.ZERO)
+		ts.add_source(src, id)
+		print("Grid: tile source %d <- %s (%s -> %s)" % [id, path, was, CELL])
+
+	base_layer.tile_set = ts
+	highlight_layer.tile_set = ts
 
 func make_grid_axial(shortest_width = 4):
 	"""Creates a hexagonal board of the given radius."""

@@ -26,6 +26,11 @@ var hex_size: float = 32.0
 
 func setup(services: GameServices) -> void:
 	s = services
+	# MULTIPLY blending: territory paint darkens/casts the tile art instead of
+	# covering it — ground texture stays fully visible underneath.
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	material = mat
 	_compute_hex_size()
 	# Initial paint from the map generator's territory split
 	for hex in s.grid.Grid.keys():
@@ -175,10 +180,11 @@ func _flood_owned(start, side: int) -> Dictionary:
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
 
-const COLOR_PLAYER := Color(0.30, 0.80, 0.40, 0.14)
-const COLOR_ENEMY := Color(0.90, 0.25, 0.20, 0.20)   # enemy ground reads clearly red
-const COLOR_NML := Color(0.55, 0.55, 0.55, 0.17)
-const LOC_LINE := Color(0.12, 0.10, 0.08, 0.55)
+# MULTIPLY-blend tints: 1.0 on a channel passes art through; lower darkens.
+const COLOR_PLAYER := Color(0.88, 1.00, 0.88)   # faint green cast on your ground
+const COLOR_ENEMY := Color(1.00, 0.74, 0.72)    # clear red cast on theirs
+const COLOR_NML := Color(0.88, 0.88, 0.88)      # slightly dimmed no-man's-land
+const LOC_LINE := Color(0.45, 0.45, 0.45)       # multiplies to a firm dark line
 
 func _draw() -> void:
 	if s == null: return
