@@ -31,6 +31,7 @@ class_name Game
 @onready var board: Board = $Board
 @onready var turn_manager: TurnManager = $TurnManager
 @onready var input_controller: InputController = $InputController
+@onready var control_map: ControlMap = $ControlMap
 
 const HEXGRID = preload("res://Hexgrid/hex.gd")
 var HEX = HEXGRID.new()
@@ -63,6 +64,8 @@ func _ready():
 	s.card_manager = card_manager
 	s.enemy_ai = enemy_ai
 	s.ui = ui
+	s.control = control_map
+	s.input = input_controller
 
 	# World generation
 	terrain_manager.setup(grid)
@@ -78,6 +81,7 @@ func _ready():
 
 	# Systems
 	weather.setup(modifiers)
+	control_map.setup(s)
 	board.setup(s)
 	card_manager.setup(s)
 	enemy_ai.setup(s)
@@ -89,6 +93,12 @@ func _ready():
 	# UI -> gameplay wiring
 	ui.next_day_requested.connect(turn_manager.advance_day)
 	ui.card_choice_made.connect(card_manager.resolve_choice)
+	ui.deliver_requested.connect(board.deliver_cargo)
+	ui.shuttle_requested.connect(input_controller.begin_shuttle_pick)
+	ui.garrison_requested.connect(func(unit):
+		if board.garrison_unit(unit):
+			input_controller.deselect()
+	)
 
 	_spawn_starting_forces()
 	fow_manager.update_fow()
@@ -126,10 +136,12 @@ func _spawn_starting_forces():
 	board.add_city("Aldermark", PLAYER_CAPITAL_HEX, 1, true)   # player capital
 	board.add_city("Veslograd", ENEMY_CAPITAL_HEX, 2, true)    # enemy capital
 
+	# Towns start OWNED by whichever side's territory they sit in — no neutrals.
 	var names := TOWN_NAMES.duplicate()
 	names.shuffle()
 	for i in range(town_hexes.size()):
-		board.add_city(names[i], town_hexes[i], 0)             # neutral towns
+		var t_side: int = int(terrain_manager.territory.get(town_hexes[i], 0))
+		board.add_city(names[i], town_hexes[i], 1 if t_side == 0 else 2)
 
 	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_a"], 1)
 	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_b"], 1)

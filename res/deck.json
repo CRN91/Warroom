@@ -896,7 +896,7 @@
 		  "text": "The townsfolk of the captured city line the streets in silence as your troops march in. The garrison commander asks how to proceed.",
 		  "protected": false,
 		  "trigger": {
-			"event": "neutral_city_captured",
+			"event": "enemy_city_captured",
 			"by": 1,
 			"once": true,
 			"position": "soon"
@@ -944,7 +944,7 @@
 		  "text": "The latest town to fall under your control refuses to provision your troops. Their mayor proposes keeping a fifth of every delivery.",
 		  "protected": false,
 		  "trigger": {
-			"event": "neutral_city_captured",
+			"event": "enemy_city_captured",
 			"by": 1,
 			"count": 2,
 			"once": true,
@@ -989,6 +989,7 @@
 		  "trigger": {
 			"event": "enemy_city_captured",
 			"by": 1,
+			"count": 3,
 			"once": true,
 			"position": "soon"
 		  },
@@ -997,6 +998,24 @@
 			  "type": "grant_resources",
 			  "scope": "combatant",
 			  "amount": 60
+			}
+		  ]
+		},
+		{
+		  "id": "event_deserters",
+		  "type": "event",
+		  "text": "A division left too long in the line has begun to bleed men. Sentries report boots in the night, walking the wrong way.",
+		  "protected": false,
+		  "trigger": {
+			"event": "unit_exhausted",
+			"once": true,
+			"position": "soon"
+		  },
+		  "effects": [
+			{
+			  "type": "drain_resources",
+			  "scope": "combatant",
+			  "amount": 20
 			}
 		  ]
 		},
@@ -1091,11 +1110,11 @@
 		{
 		  "id": "intel_coalition_rumours",
 		  "type": "intel",
-		  "text": "Foreign attachés have gone quiet. Our embassies report a coalition forming behind the enemy — money, rifles, promises.",
+		  "text": "Foreign attachés have gone quiet. Our embassies report a coalition forming behind the enemy — money, rifles, promises. Their fleet could sail within the year.",
 		  "protected": false,
 		  "trigger": {
 			"event": "day",
-			"day": 14,
+			"day": 16,
 			"position": "soon"
 		  },
 		  "effects": []
@@ -1103,11 +1122,11 @@
 		{
 		  "id": "intel_coalition_drills",
 		  "type": "intel",
-		  "text": "The coalition is real. Recruitment surges across three borders, and their armies now drill together. They will not stay home forever.",
+		  "text": "The coalition is real. Recruitment surges across three borders, and their armies drill together. Agents speak of a land dreadnought — an armoured monster the size of a church.",
 		  "protected": false,
 		  "trigger": {
 			"event": "day",
-			"day": 28,
+			"day": 30,
 			"position": "soon"
 		  },
 		  "effects": []
@@ -1115,11 +1134,11 @@
 		{
 		  "id": "intel_coalition_convoy",
 		  "type": "intel",
-		  "text": "Coalition convoys are moving. Rolling stock, guns, men. Best estimate puts their vanguard at the front within eight weeks. End this war before they do.",
+		  "text": "Coalition convoys are at sea. Best estimate puts their landing within eight weeks. Win this war before they do — or be ready to destroy what comes ashore.",
 		  "protected": false,
 		  "trigger": {
 			"event": "day",
-			"day": 40,
+			"day": 44,
 			"position": "soon"
 		  },
 		  "effects": []
@@ -1127,48 +1146,17 @@
 		{
 		  "id": "event_coalition_arrives",
 		  "type": "event",
-		  "text": "Fresh colours fly over the enemy capital. The coalition vanguard has arrived, and the whole enemy line stands taller for it.",
-		  "protected": false,
+		  "text": "Orange colours fly over the enemy's port roads. The coalition expedition has landed — and something vast moves at its centre. Destroy the expedition, or take the capital.",
+		  "protected": true,
 		  "trigger": {
 			"event": "day",
-			"day": 48,
+			"day": 52,
 			"position": "front"
 		  },
 		  "effects": [
 			{
-			  "type": "spawn_unit",
-			  "unit": "infantry",
-			  "team": 2,
-			  "near": "enemy_capital",
-			  "fill": true
-			},
-			{
-			  "type": "spawn_unit",
-			  "unit": "infantry",
-			  "team": 2,
-			  "near": "enemy_capital",
-			  "fill": true
-			},
-			{
-			  "type": "spawn_unit",
-			  "unit": "artillery",
-			  "team": 2,
-			  "near": "enemy_capital",
-			  "fill": true
-			},
-			{
-			  "type": "grant_resources",
-			  "scope": "enemy",
-			  "amount": 300
-			},
-			{
-			  "type": "add_modifier",
-			  "id": "coalition_backing",
-			  "stat": "attack",
-			  "op": "mul",
-			  "value": 1.2,
-			  "scope": "enemy",
-			  "source": "event_coalition_arrives"
+			  "type": "script",
+			  "fn": "coalition_landfall"
 			}
 		  ]
 		}

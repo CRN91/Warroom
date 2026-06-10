@@ -67,6 +67,9 @@ func setup(services: GameServices):
 	Events.city_captured.connect(_on_city_captured)
 	Events.rail_established.connect(func(_route_id): notify("rail_established"))
 	Events.unit_died.connect(func(unit): notify("unit_died", { "team": unit.team }))
+	Events.unit_exhausted.connect(func(unit):
+		if unit.team == 1: notify("unit_exhausted")
+	)
 	Events.battle_event.connect(func(m: String):
 		battle_log.append(m)
 		if battle_log.size() > 8: battle_log.pop_front()

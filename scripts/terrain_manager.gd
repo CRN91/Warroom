@@ -27,10 +27,16 @@ var hex_size: float = 32.0
 var mountains: Dictionary = {}
 # edge_key(String) -> { "a": Vector2i, "b": Vector2i, "bridge": bool, "broken": bool }
 var river: Dictionary = {}
+# hex -> 0 (first capital's side) or 1 — the generated territory split.
+# ControlMap uses this as the initial line of control.
+var territory: Dictionary = {}
 
 const MOUNTAIN_TEX = preload("res://assets/mountain.png")
 const BRIDGE_TEX = preload("res://assets/bridge.png")
 const TUNNEL_TEX   = preload("res://assets/tunnel.png")
+
+const RIVER_COLOR := Color(0.21, 0.54, 0.86)
+const RIVER_WIDTH := 0.20   # fraction of hex_size
 
 var bridge_stock: int = 0
 var tunnel_stock: int = 0
@@ -78,6 +84,7 @@ func _generate_river(capital_hexes: Array, city_hexes: Array, bridges: int) -> v
 	## outward from each capital with random expansion order. Every run gets a
 	## different course; cities land on a random side of it.
 	var side: Dictionary = _grow_territories(capital_hexes)
+	territory = side
 
 	var seen: Dictionary = {}
 	for hex in grid.Grid.keys():
@@ -352,7 +359,7 @@ func _draw() -> void:
 		# Draw the tunnel PNG on top if it exists
 		if mountains[hex]["tunnel"]:
 			var t_draw_size = Vector2(hex_size * tunnel_draw_size_mult, hex_size * tunnel_draw_size_mult)
-			var t_top_left  = c - (t_draw_size / 2.0) + Vector2(0,100)
+			var t_top_left  = c - (t_draw_size / 2.0) + Vector2(0, hex_size * 0.3)
 			var t_rect      = Rect2(t_top_left, t_draw_size)
 			draw_texture_rect(TUNNEL_TEX, t_rect, false)
 
@@ -367,9 +374,9 @@ func _draw() -> void:
 		var p2: Vector2 = mid - perp
 		
 		if e["bridge"] and not e["broken"]:
-			# Optional: Draw the blue river water *under* the bridge first 
+			# Optional: Draw the river water *under* the bridge first
 			# (so there isn't a gap if your PNG has transparency)
-			draw_line(p1, p2, Color(0.21, 0.54, 0.86), hex_size * 0.20)
+			draw_line(p1, p2, RIVER_COLOR, RIVER_WIDTH * hex_size)
 			
 			# 1. Calculate the angle connecting the two hex centers
 			var angle: float = (cb - ca).angle()
@@ -392,6 +399,6 @@ func _draw() -> void:
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			
 		elif e["bridge"] and e["broken"]:
-			draw_line(p1, p2, Color(0.80, 0.21, 0.21), hex_size * 0.14)
+			draw_line(p1, p2, Color(0.80, 0.21, 0.21), 0.14 * hex_size)
 		else:
-			draw_line(p1, p2, Color(0.21, 0.54, 0.86), hex_size * 0.20)
+			draw_line(p1, p2, RIVER_COLOR, RIVER_WIDTH * hex_size)

@@ -13,9 +13,10 @@ func setup(services: GameServices) -> void:
 	s = services
 	Events.game_over.connect(_on_game_over)
 
-func _on_game_over(player_lost: bool) -> void:
+func _on_game_over(player_lost: bool, headline: String) -> void:
+	if game_paused: return
 	game_paused = true
-	s.ui.show_game_over(player_lost, day)
+	s.ui.show_game_over(player_lost, day, headline)
 	get_tree().paused = true
 
 # ── The day cycle ─────────────────────────────────────────────────────────────
@@ -34,6 +35,11 @@ func advance_day() -> void:
 	s.card_manager.check_pending(day)
 	s.enemy_ai.run_turn()
 
+	# Standing supply runs set their goals before movement resolves
+	for unit in s.board.units:
+		if is_instance_valid(unit) and unit is Engineers and unit.has_shuttle():
+			unit.process_shuttle(s.board)
+
 	var starved := _resolve_all_movement()
 
 	s.board.recent_death_hexes.clear()
@@ -42,6 +48,13 @@ func advance_day() -> void:
 	for unit in s.board.units:
 		if is_instance_valid(unit):
 			unit.process_resupply()
+
+	# The map table updates: paint, pockets, who's cut off — then consequences
+	s.control.weekly_update()
+	s.control.update_isolation()
+	s.board.harass_haulers()
+	s.board.tick_garrisons()
+	s.board.check_sieges()
 
 	_draw_and_show_card()
 
@@ -55,6 +68,7 @@ func advance_day() -> void:
 			s.board.kill(dead)
 
 	s.board.cull_dead()
+	_check_coalition_defeated()
 
 	_unfreeze_all()
 	s.fow.update_fow()
@@ -66,6 +80,18 @@ func advance_day() -> void:
 			unit.refresh_intent()
 
 	s.ui.on_day_finished()
+
+func _check_coalition_defeated() -> void:
+	## Second victory path: the coalition expedition has landed and been wiped out.
+	if game_paused: return
+	if not s.board.state.get("coalition_landed", false): return
+	if s.board.state.get("coalition_defeated", false): return
+	for u in s.board.units:
+		if is_instance_valid(u) and u.team == 3:
+			return
+	s.board.state["coalition_defeated"] = true
+	Events.game_over.emit(false,
+		"The coalition expedition is destroyed. Their colours come down; the enemy sues for peace.")
 
 func _draw_and_show_card() -> void:
 	var card = s.card_manager.draw_daily_card(day)

@@ -37,9 +37,12 @@ func _purchase_units():
 
 func _command_units():
 	for unit in s.board.units:
-		if unit.team != 2 or unit is City or unit is Train: continue
+		# Commands its own side: the enemy (2) and the coalition (3)
+		if Sides.side_of(unit.team) != 2 or unit is City or unit is Train: continue
 
-		if unit.is_combatant():
+		if unit is Artillery:
+			_command_artillery(unit)
+		elif unit.is_combatant():
 			_command_combatant(unit)
 		else:
 			_command_logistics(unit)
@@ -57,6 +60,22 @@ func _command_combatant(unit):
 
 	var target = _nearest_player_piece(unit.get_hex())
 	if target:
+		unit.set_destination(target.get_hex())
+
+func _command_artillery(unit):
+	## Guns deploy when something is in reach and limber up to reposition.
+	var target = _nearest_player_piece(unit.get_hex())
+	if target == null: return
+	var dist = HEX.axial_distance(unit.get_hex(), target.get_hex())
+
+	if dist <= unit.get_attack_range():
+		unit.clear_movement()
+		if not unit.deployed:
+			unit.try_deploy()
+	else:
+		if unit.deployed:
+			unit.pack_up()
+		unit.clear_movement()
 		unit.set_destination(target.get_hex())
 
 func _command_logistics(unit):
@@ -77,7 +96,7 @@ func _nearest_own_city(start_hex) -> Node2D:
 	var best = null
 	var best_dist = 9999
 	for city in s.board.cities:
-		if city.team == 2:
+		if Sides.side_of(city.team) == 2:
 			var d = HEX.axial_distance(start_hex, city.get_hex())
 			if d < best_dist:
 				best_dist = d
@@ -99,7 +118,7 @@ func _nearest_own_combatant(start_hex, self_unit) -> Node2D:
 	var best = null
 	var best_dist = 9999
 	for unit in s.board.units:
-		if unit.team == 2 and unit != self_unit and unit.has_method("is_combatant") and unit.is_combatant():
+		if Sides.side_of(unit.team) == 2 and unit != self_unit and unit.has_method("is_combatant") and unit.is_combatant():
 			var d = HEX.axial_distance(start_hex, unit.get_hex())
 			if d < best_dist:
 				best_dist = d

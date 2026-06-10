@@ -11,6 +11,8 @@ extends RefCounted
 var grid: Node2D
 var board: Node2D                     # Board: units/cities/trains + spawning
 var turn: Node                        # TurnManager: day counter + pipeline
+var control: ControlMap               # line of control / territory paint
+var input: Node2D                     # InputController (for UI-triggered modes)
 var modifiers: ModifierManager
 var weather: WeatherManager
 var terrain: TerrainManager

@@ -4,6 +4,7 @@ class_name City
 @export var hex_tile: Vector2i
 var is_capital: bool = false
 var original_texture: Texture2D
+var surrender_weeks: int = 0   # consecutive weeks cut off at zero stores
 
 func _ready():
 	if has_node("Sprite2D"):
@@ -66,20 +67,23 @@ func set_player():
 
 func capture(new_team: int):
 	if is_capital:
-		Events.game_over.emit(team == 1)
+		var headline := "%s has fallen. The war is over." % name
+		Events.game_over.emit(team == 1, headline)
 		return
 
 	var prev := team
 	team = new_team
-	# A captured city changes hands with half its stores intact.
-	resource_comp.resources = int(resource_comp.get_max_resources() * 0.5)
+	surrender_weeks = 0
+	# A captured city changes hands with half its CURRENT stores intact —
+	# a freshly stocked depot is a prize, an empty one is just ground.
+	resource_comp.resources = int(resource_comp.resources * 0.5)
 
 	if team == 1:
 		set_player()
-	elif team == 2:
+	elif team == 2 or team == 3:
 		set_enemy()
 	else:
-		set_neutral()   # e.g. a militia retaking its home town
+		set_neutral()
 	update_ui()
 
 	Events.city_captured.emit(self, new_team, prev)
@@ -92,6 +96,6 @@ func _is_sieged() -> bool:
 		if not grid.Grid.has(adj):
 			continue
 		var p = grid.get_piece(adj)
-		if p and p.team != team and p.is_combatant():
+		if p and Sides.hostile(team, p.team) and p.is_combatant():
 			return true
 	return false

@@ -10,10 +10,11 @@
 [ext_resource type="Script" uid="uid://dmenykovq2onk" path="res://scripts/fow_manager.gd" id="11_kvuet"]
 [ext_resource type="Script" uid="uid://cqsmj54nmcwk2" path="res://scripts/modifier_manager.gd" id="12_dinhu"]
 [ext_resource type="Script" uid="uid://b8yeb4crcd2hh" path="res://scripts/terrain_manager.gd" id="13_kvuet"]
-[ext_resource type="Script" path="res://scripts/weather_manager.gd" id="14_weath"]
-[ext_resource type="Script" path="res://scripts/board.gd" id="15_board"]
-[ext_resource type="Script" path="res://scripts/turn_manager.gd" id="16_turnm"]
-[ext_resource type="Script" path="res://scripts/input_controller.gd" id="17_input"]
+[ext_resource type="Script" uid="uid://bhol2fnjx6htn" path="res://scripts/weather_manager.gd" id="14_weath"]
+[ext_resource type="Script" uid="uid://ch8jfs6nvyqgf" path="res://scripts/board.gd" id="15_board"]
+[ext_resource type="Script" uid="uid://bqjsk5vexu6qi" path="res://scripts/turn_manager.gd" id="16_turnm"]
+[ext_resource type="Script" uid="uid://cjlmb7a1w32q0" path="res://scripts/input_controller.gd" id="17_input"]
+[ext_resource type="Script" uid="uid://j1twstk6qqmw" path="res://scripts/control_map.gd" id="18_cntrl"]
 
 [node name="Game" type="Node2D" unique_id=745179235]
 script = ExtResource("1_4d42g")
@@ -31,6 +32,10 @@ tile_set = ExtResource("2_vtaks")
 z_index = 2
 use_parent_material = true
 tile_set = ExtResource("2_vtaks")
+
+[node name="ControlMap" type="Node2D" parent="." unique_id=1023641089]
+z_index = -2
+script = ExtResource("18_cntrl")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1228484869]
 position = Vector2(1850, 980)
@@ -63,14 +68,14 @@ script = ExtResource("12_dinhu")
 z_index = -1
 script = ExtResource("13_kvuet")
 
-[node name="WeatherManager" type="Node" parent="."]
+[node name="WeatherManager" type="Node" parent="." unique_id=1252906777]
 script = ExtResource("14_weath")
 
-[node name="Board" type="Node2D" parent="."]
+[node name="Board" type="Node2D" parent="." unique_id=1974265136]
 script = ExtResource("15_board")
 
-[node name="TurnManager" type="Node" parent="."]
+[node name="TurnManager" type="Node" parent="." unique_id=350203947]
 script = ExtResource("16_turnm")
 
-[node name="InputController" type="Node2D" parent="."]
+[node name="InputController" type="Node2D" parent="." unique_id=429911791]
 script = ExtResource("17_input")

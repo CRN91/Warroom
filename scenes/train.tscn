@@ -1,16 +1,25 @@
 [gd_scene format=3 uid="uid://cj4wxwm3todpa"]
 
 [ext_resource type="Script" uid="uid://dni4dd01uwr5a" path="res://scripts/train.gd" id="1_68jl8"]
-[ext_resource type="Texture2D" uid="uid://ou2ps5ykks4q" path="res://assets/traing.png" id="2_o1hdh"]
+[ext_resource type="Shader" uid="uid://b0hwel0n5b5n3" path="res://shaders/infantry.gdshader" id="2_fr42t"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
+[ext_resource type="Texture2D" uid="uid://cnvshpasvfmb3" path="res://assets/train.png" id="3_xwl36"]
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
 [ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flq6t"]
+shader = ExtResource("2_fr42t")
+shader_parameter/origin_color = Color(1, 0, 1, 1)
+shader_parameter/new_color = Color(1, 1, 1, 1)
+shader_parameter/tolerance = 0.1
+
 [node name="Train" type="Node2D" unique_id=577757589]
+scale = Vector2(7, 7)
 script = ExtResource("1_68jl8")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1588922519]
-texture = ExtResource("2_o1hdh")
+material = SubResource("ShaderMaterial_flq6t")
+texture = ExtResource("3_xwl36")
 
 [node name="Resources" type="Node2D" parent="." unique_id=2005096263]
 script = ExtResource("3_o0ibc")

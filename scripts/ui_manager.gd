@@ -7,6 +7,9 @@ class_name UIManager
 
 signal next_day_requested
 signal card_choice_made(card_data: Dictionary, choice: String)
+signal garrison_requested(unit: Node2D)
+signal deliver_requested(unit: Node2D)
+signal shuttle_requested(unit: Node2D)
 
 # ── Scene references ──────────────────────────────────────────────────────────
 @onready var daycounter: Label = $DayCount
@@ -33,6 +36,9 @@ const BAR_WIDTH := 104.0          # veterancy meters
 
 var supply_bar: ProgressBar = null
 var meter_box: VBoxContainer = null
+var btn_garrison: Button = null
+var btn_deliver: Button = null
+var btn_route: Button = null
 
 # Built-in-code UI
 var top_bar: PanelContainer = null
@@ -117,6 +123,33 @@ func _build_stats_extras():
 	lbl_act.add_theme_font_size_override("font_size", 12)
 	lbl_mode.add_theme_font_size_override("font_size", 12)
 	lbl_mode.modulate = Color(1, 1, 1, 0.8)
+
+	# Order buttons (visibility set per-piece in show_stats)
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 6)
+	btn_garrison = _small_button("Garrison", btn_row)
+	btn_garrison.tooltip_text = "Rest this division inside the adjacent city for 6 weeks. Resets fatigue; lost if the city falls."
+	btn_garrison.pressed.connect(func():
+		if current_viewed_piece: garrison_requested.emit(current_viewed_piece))
+	btn_deliver = _small_button("Deliver", btn_row)
+	btn_deliver.tooltip_text = "Unload cargo (keeping a reserve) into the adjacent friendly city."
+	btn_deliver.pressed.connect(func():
+		if current_viewed_piece:
+			deliver_requested.emit(current_viewed_piece)
+			refresh_stats())
+	btn_route = _small_button("Set Route", btn_row)
+	btn_route.tooltip_text = "Standing supply run: pick a source city and a destination city; the engineers shuttle automatically."
+	btn_route.pressed.connect(func():
+		if current_viewed_piece: shuttle_requested.emit(current_viewed_piece))
+	vbox.add_child(btn_row)
+
+func _small_button(text: String, parent: Node) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.add_theme_font_size_override("font_size", 12)
+	b.visible = false
+	parent.add_child(b)
+	return b
 
 
 func _style_bar(bar: ProgressBar, fill_color: Color) -> void:
@@ -242,8 +275,11 @@ func _refresh_top_bar():
 	if top_bar_lbl == null or s == null: return
 	var weather := s.weather.weather_name
 	var weather_part := "" if weather == "clear" else "   •   %s" % weather.capitalize()
-	top_bar_lbl.text = "Week %d   •   %s (%s)%s" % [
-		s.turn.day, s.weather.date_string(), s.weather.current_season().capitalize(), weather_part
+	var held := ""
+	if s.control != null:
+		held = "   •   %d%% held" % int(round(s.control.territory_share(1) * 100.0))
+	top_bar_lbl.text = "Week %d   •   %s (%s)%s%s" % [
+		s.turn.day, s.weather.date_string(), s.weather.current_season().capitalize(), weather_part, held
 	]
 
 # ── Stock readout (rails / trains / bridges / tunnels from cards) ─────────────
@@ -374,11 +410,36 @@ func show_stats(piece):
 		_set_meters(piece.service_meters())
 	lbl_name.tooltip_text = "Click to rename" if piece.team == 1 else ""
 
+	# Order buttons
+	var own = piece.team == 1
+	var adj_city: bool = own and not (piece is City) and s.board._adjacent_friendly_city(piece) != null
+	btn_garrison.visible = own and adj_city and piece.is_combatant() and not piece.is_frozen()
+	btn_deliver.visible = own and adj_city and piece is Engineers and piece.get_resources() > Board.ENGINEER_RESERVE
+	btn_route.visible = own and piece is Engineers
+
 	if piece is City:
 		var role := "Capital" if piece.is_capital else "Town"
 		lbl_act.text = "%s — income %d/wk" % [role, piece.resource_comp.replenish_rate]
+		if piece.cut_off:
+			lbl_act.text += "  •  CUT OFF"
+		var resting: Array = s.board.garrisoned_in(piece)
+		if piece.team == 1 and resting.size() > 0:
+			var names: Array = []
+			for e in resting:
+				if is_instance_valid(e["unit"]):
+					names.append("%s (%d wk)" % [e["unit"].name, e["weeks"]])
+			lbl_act.text += "\nResting: " + ", ".join(names)
+		lbl_act.remove_theme_color_override("font_color")
+	elif piece.get("cut_off"):
+		lbl_act.text = "CUT OFF — no line back to home territory"
+		lbl_act.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35))
+	elif piece is Artillery:
+		var state := "Deployed — ready to fire" if piece.deployed else "Mobile — press D to set up"
+		lbl_act.text = "%s | %s" % [("Used" if piece.is_frozen() else "Ready"), state]
+		lbl_act.remove_theme_color_override("font_color")
 	else:
 		lbl_act.text = "Action: %s" % ("Used" if piece.is_frozen() else "Ready")
+		lbl_act.remove_theme_color_override("font_color")
 
 	var move_comp = piece.get("movement_comp")
 	var path_text = ""
@@ -418,7 +479,7 @@ func on_day_finished():
 
 # ── Game over ─────────────────────────────────────────────────────────────────
 
-func show_game_over(player_lost: bool, day: int):
+func show_game_over(player_lost: bool, day: int, headline: String = ""):
 	var dim = ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.65)
 	dim.process_mode = Node.PROCESS_MODE_ALWAYS   # usable while the tree is paused
@@ -443,7 +504,8 @@ func show_game_over(player_lost: bool, day: int):
 	var held := 0
 	for c in s.board.cities:
 		if is_instance_valid(c) and c.team == 1: held += 1
-	sub.text = "The campaign lasted %d weeks. Cities held: %d." % [day, held]
+	var territory := int(round(s.control.territory_share(1) * 100.0)) if s.control else 0
+	sub.text = "%s\nThe campaign lasted %d weeks. Cities held: %d. Territory: %d%%." % [headline, day, held, territory]
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(sub)
 

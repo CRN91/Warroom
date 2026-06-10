@@ -3,11 +3,27 @@
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="1_1bh05"]
 [ext_resource type="Script" uid="uid://s7jda25me72i" path="res://scripts/infantry.gd" id="1_1qsph"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="2_3dir1"]
-[ext_resource type="Texture2D" uid="uid://drqvnavbykv8d" path="res://assets/troopsg.png" id="3_68dwf"]
+[ext_resource type="Texture2D" uid="uid://bmd22dsllls6b" path="res://assets/infantry.png" id="4_k3xsi"]
+[ext_resource type="Shader" uid="uid://b0hwel0n5b5n3" path="res://shaders/infantry.gdshader" id="4_qdwym"]
 [ext_resource type="Script" uid="uid://edb360op18cc" path="res://scripts/attack_comp.gd" id="5_doxku"]
 [ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="6_q00lq"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_m7mmr"]
+shader = ExtResource("4_qdwym")
+shader_parameter/origin_color = Color(1, 0, 1, 1)
+shader_parameter/new_color = Color(1, 1, 1, 1)
+shader_parameter/tolerance = 0.1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_qdwym"]
+resource_local_to_scene = true
+shader = ExtResource("4_qdwym")
+shader_parameter/origin_color = Color(1, 0, 1, 1)
+shader_parameter/new_color = Color(1, 1, 1, 1)
+shader_parameter/tolerance = 0.1
+
 [node name="Infantry" type="Node2D" unique_id=2061186961]
+material = SubResource("ShaderMaterial_m7mmr")
+scale = Vector2(7, 7)
 script = ExtResource("1_1qsph")
 
 [node name="Movement" type="Node2D" parent="." unique_id=67435972]
@@ -18,11 +34,12 @@ script = ExtResource("2_3dir1")
 deplete_rate = 3
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=194678195]
-texture = ExtResource("3_68dwf")
+material = SubResource("ShaderMaterial_qdwym")
+texture = ExtResource("4_k3xsi")
 
 [node name="Attack" type="Node2D" parent="." unique_id=1796694160]
 script = ExtResource("5_doxku")
-damage = 35
+damage = 20
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1935043933]
 script = ExtResource("6_q00lq")

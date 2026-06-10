@@ -46,6 +46,51 @@ unfreeze → modifiers.tick → weather expiry → scheduled card effects → en
 → resupply → card draw/display → city income/siege → starvation deaths → cull
 → unfreeze → FOW → intent arrows → UI refresh.
 
+## Line of control (the map table)
+
+`ControlMap` (scene node, z under terrain) paints every hex red/green/grey:
+
+- Initial paint = the map generator's territory split. Each week, every COMBAT
+  unit projects control over its hex + 6 neighbours (engineers/trains project
+  nothing); cities project for their owner. Both sides projecting → grey
+  no-man's-land (no debuff — its danger is the guns covering it). Unprojected
+  hexes keep their last owner.
+- **Pockets**: a region of paint containing none of its side's units/cities is
+  absorbed by the other side. **Isolation**: paint with no path to its side's
+  capital flags everything in it `cut_off` (red icon + panel warning).
+- **Sieges**: a cut-off, empty city surrenders to the surrounding side after
+  3 weeks; until then it raids haulers within 2 hexes.
+- Haulers ending the week on enemy paint lose ~20 to partisans (battle log).
+- Top bar shows territory %; tints render map-wide (staff estimate, not FOW).
+
+## Artillery doctrine
+
+Artillery must SET UP to fire: D key (or AI logic) spends the action; moving
+packs it up (`on_moved`). Deployed guns show an emplacement ring, telegraph as
+normal, and provide withdrawal fire; mobile guns are blind. Infantry pushes
+the line (damage 20); deployed artillery breaks attacks (damage 30, range 3).
+
+## Rotation (12 weeks on, 6 off)
+
+Combat units carry a deployment clock (4th panel meter). Past 12 weeks
+fatigue ramps: attack ×0.9 / ×0.8 / ×0.7 at 13/17/21 weeks (modifiers, scope
+unit). The **Garrison** button rests a division inside an adjacent friendly
+city for 6 weeks — off the board, clock and fatigue reset, refilled from the
+city's actual stores on redeploy. **If the city falls while they rest, they
+are lost.** Max fatigue fires the deserters card (`unit_exhausted` trigger).
+The enemy fatigues too but never rests — long wars grind both sides down.
+
+## Endgame: two victories
+
+- **Take the enemy capital** (lose yours = defeat), or
+- **Destroy the coalition expedition**: warnings at weeks 16/30/44, landfall
+  week 52 (`coalition_landfall` script) — orange team-3 units (allied with the
+  enemy via `Sides`; orange = red sprites tinted) led by the Land Dreadnought
+  'Sovereign' (400 supplies, attack 50) with escorts over 3 waves. Wipe the
+  expedition and the enemy sues for peace.
+Game-over screens carry a headline + run stats. Teams resolve through
+`Sides.side_of/hostile` everywhere (targeting, movement, sieges, withdrawal).
+
 ## Map generation
 
 - The river is the meandering border between two territories grown outward
@@ -135,9 +180,12 @@ in hover tooltips. The frozen-unit dim was removed.
 | Click selected unit | cancel its orders (click again to deselect) |
 | Right click / Esc | deselect (Esc also cancels a rail plan) |
 | M / F | clear movement / clear attack target |
+| D | artillery: set up (costs the action) / pack up (free) |
 | R / T | plan rail on hovered hex (needs Engineers nearby) / commit or extend line |
+| Esc | also cancels a Set Route pick in progress |
 | F3 | debug overlay (modifiers, weather, deck size) |
 | Click rail hex with train selected | drive train manually |
+| Panel buttons | **Garrison** (rest in adjacent city), **Deliver** (engineers unload into city), **Set Route** (engineers: click source city, then destination — standing supply run; manual move orders cancel it) |
 
 ## Combat & movement rules
 

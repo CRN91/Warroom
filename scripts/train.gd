@@ -26,6 +26,7 @@ func setup_route(new_route: Array, id: int, p_grid: Node, p_rail_network: Node, 
 	grid.set_piece(start, self)
 	grid.disable_hex(start)
 	movement_comp.force_hex(start, grid)
+	update_ui()
 
 	if has_node("Sprite2D"):
 		$Sprite2D.flip_h = false
@@ -89,12 +90,16 @@ func process_movement():
 		_exchange_supplies()
 
 		if not manual_override:
-			# Loaded at A? Head out. Unloaded at B? Head home. Otherwise wait.
-			var ready_to_leave := false
-			if facing_terminus_a:
-				ready_to_leave = get_resources() >= get_max_resources()
-			else:
-				ready_to_leave = get_resources() < get_max_resources()
+			# At a capital: wait until loaded. At a town: wait until delivered
+			# (or the town is full). Anywhere else: keep rolling.
+			var stop_city := _adjacent_city()
+			var ready_to_leave := true
+			if stop_city != null:
+				if stop_city.is_capital:
+					ready_to_leave = get_resources() >= get_max_resources()
+				else:
+					ready_to_leave = get_resources() <= 1 \
+						or stop_city.get_resources() >= stop_city.get_max_resources()
 
 			if ready_to_leave:
 				direction = -direction
@@ -128,10 +133,22 @@ func _face_direction():
 	if has_node("Sprite2D"):
 		$Sprite2D.flip_h = (direction == -1)
 
-func _exchange_supplies():
+func _adjacent_city() -> City:
 	var current_hex = get_hex()
-	var current_idx = route.find(current_hex)
-	if current_idx == -1: return
+	if current_hex == null: return null
+	for hex in [current_hex] + HEX.axial_neighbours(current_hex):
+		if not grid.Grid.has(hex): continue
+		var p = grid.get_piece(hex)
+		if p is City and p.team == team:
+			return p
+	return null
+
+func _exchange_supplies():
+	## The automation that makes rail worth building: LOAD at any capital stop,
+	## DELIVER at any town stop. A capital→town line keeps the forward depot
+	## topped up with no orders at all.
+	var current_hex = get_hex()
+	if current_hex == null: return
 
 	for hex in [current_hex] + HEX.axial_neighbours(current_hex):
 		if not grid.Grid.has(hex): continue
@@ -139,10 +156,11 @@ func _exchange_supplies():
 		if city == null or not (city is City): continue
 		if city.team != team: continue
 
-		if current_idx == 0:
-			receive_from(city)   # load up at terminus A
+		if city.is_capital:
+			receive_from(city)   # load up
 		else:
-			var drop_off = min(get_resources(), city.get_max_resources() - city.get_resources())
+			# Keep 1 aboard — a hauler at exactly 0 reads as destroyed.
+			var drop_off = min(get_resources() - 1, city.get_max_resources() - city.get_resources())
 			if drop_off > 0:
 				city.replenish(drop_off)
 				deplete(drop_off)

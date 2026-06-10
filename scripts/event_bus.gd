@@ -19,9 +19,12 @@ signal rail_repaired(hex: Vector2i)
 # ── Weather / story ───────────────────────────────────────────────────────────
 signal weather_changed(weather_name: String)
 
+# ── Units ─────────────────────────────────────────────────────────────────────
+signal unit_exhausted(unit: Node2D)      # a division hit maximum fatigue
+
 # ── Flow control ──────────────────────────────────────────────────────────────
 signal decision_pending(pending: bool)   # true while a decision card blocks End Turn
-signal game_over(player_lost: bool)
+signal game_over(player_lost: bool, headline: String)
 
 # ── UI feedback ───────────────────────────────────────────────────────────────
 signal toast(message: String)            # transient on-screen message

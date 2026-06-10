@@ -31,6 +31,36 @@ func run(fn: String, ctx: Dictionary) -> void:
 		return
 	call(fn, ctx)
 
+# ── Endgame ───────────────────────────────────────────────────────────────────
+
+func coalition_landfall(_ctx: Dictionary) -> void:
+	## Week 52: the coalition expedition lands at the enemy capital — a boss
+	## unit and the first escorts, with two more waves following. Destroying
+	## the whole expedition is the second victory condition.
+	s.board.state["coalition_landed"] = true
+
+	s.board.spawn_unit({
+		"unit": "infantry", "team": 3, "near": "enemy_capital",
+		"unit_type": "dreadnought", "name": "Land Dreadnought 'Sovereign'",
+		"max_resources": 400, "fill": true, "tags": ["coalition", "boss"],
+		"modifiers": [ { "stat": "attack", "op": "set", "value": 50 } ],
+	})
+	for i in range(2):
+		s.board.spawn_unit({ "unit": "infantry", "team": 3, "near": "enemy_capital",
+			"fill": true, "tags": ["coalition"] })
+
+	# Follow-on waves
+	s.card_manager.schedule_effect({ "type": "spawn_unit", "unit": "artillery",
+		"team": 3, "near": "enemy_capital", "fill": true, "tags": ["coalition"] }, 1)
+	s.card_manager.schedule_effect({ "type": "spawn_unit", "unit": "infantry",
+		"team": 3, "near": "enemy_capital", "fill": true, "tags": ["coalition"] }, 1)
+	s.card_manager.schedule_effect({ "type": "spawn_unit", "unit": "infantry",
+		"team": 3, "near": "enemy_capital", "fill": true, "tags": ["coalition"] }, 2)
+	s.card_manager.schedule_effect({ "type": "spawn_unit", "unit": "artillery",
+		"team": 3, "near": "enemy_capital", "fill": true, "tags": ["coalition"] }, 2)
+
+	Events.notify("THE COALITION HAS LANDED. Destroy the expedition, or take the capital.")
+
 # ── Weather ───────────────────────────────────────────────────────────────────
 
 func harsh_winter(ctx: Dictionary) -> void:

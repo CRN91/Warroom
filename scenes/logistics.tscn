@@ -1,16 +1,25 @@
 [gd_scene format=3 uid="uid://d10yh5e8r0a5x"]
 
 [ext_resource type="Script" uid="uid://bvih3nw1r3q3u" path="res://scripts/Logistics.gd" id="1_bkvxd"]
-[ext_resource type="Texture2D" uid="uid://d2m1su2ir26rq" path="res://assets/logig.png" id="2_q4uiy"]
+[ext_resource type="Texture2D" uid="uid://b52ysnc2li60c" path="res://assets/engineer.png" id="2_guwx5"]
+[ext_resource type="Shader" uid="uid://b0hwel0n5b5n3" path="res://shaders/infantry.gdshader" id="2_vs128"]
 [ext_resource type="Script" uid="uid://cdd4aj1bpxjab" path="res://scripts/resources_comp.gd" id="3_o0ibc"]
 [ext_resource type="Script" uid="uid://xeiu1kn70dig" path="res://scripts/movement_comp.gd" id="4_omayn"]
 [ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="5_4cr84"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_5pgsg"]
+shader = ExtResource("2_vs128")
+shader_parameter/origin_color = Color(1, 0, 1, 1)
+shader_parameter/new_color = Color(1, 1, 1, 1)
+shader_parameter/tolerance = 0.1
+
 [node name="Engineers" type="Node2D" unique_id=398531126]
+scale = Vector2(7, 7)
 script = ExtResource("1_bkvxd")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=564354777]
-texture = ExtResource("2_q4uiy")
+material = SubResource("ShaderMaterial_5pgsg")
+texture = ExtResource("2_guwx5")
 
 [node name="Resources" type="Node2D" parent="." unique_id=1245480962]
 script = ExtResource("3_o0ibc")
@@ -27,6 +36,6 @@ supplier_reserve = 20
 
 [node name="ResourceBar" type="ProgressBar" parent="." unique_id=70061592]
 offset_top = -200.0
-offset_right = 300.0
-offset_bottom = -115.0
+offset_right = 30.0
+offset_bottom = -191.0
 show_percentage = false

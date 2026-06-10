@@ -49,9 +49,17 @@ const NAME_CORPS := {
 
 var s: GameServices
 
+# city -> Array of { "unit": Node2D, "weeks": int } resting inside it
+var garrisons: Dictionary = {}
+const REST_WEEKS := 6
+const ENGINEER_RESERVE := 20
+const HARASSMENT := 20          # weekly partisan toll on haulers in hostile paint
+const SURRENDER_WEEKS := 3      # cut off + empty for this long -> the city yields
+
 func setup(services: GameServices) -> void:
 	s = services
 	s.rail_network.train_created.connect(_on_train_created)
+	Events.city_captured.connect(_on_city_changed_hands)
 
 # ── Registration / dependency injection ───────────────────────────────────────
 
@@ -79,13 +87,16 @@ func add_unit(type: String, hex: Vector2i, team: int = 1) -> Node2D:
 	unit.name = generate_unit_name(type)
 	match team:
 		2: unit.set_enemy()
+		3: unit.set_coalition()
 		0: unit.set_neutral()
+		_: unit.set_player()   # every unit gets shaded from the same constants
 	unit.move_to(hex)
 	if unit.get_hex() == null:
 		# Placement failed (hex occupied/invalid) — don't leave a ghost piece.
 		units.erase(unit)
 		unit.queue_free()
 		return null
+	unit.update_ui()   # bar gets sized/styled now that the unit knows the board scale
 	return unit
 
 func add_city(city_name: String, hex: Vector2i, team: int, capital: bool = false) -> Node2D:
@@ -96,16 +107,16 @@ func add_city(city_name: String, hex: Vector2i, team: int, capital: bool = false
 	city.name = city_name
 	city.is_capital = capital
 
-	# Capitals are the win/loss condition but NOT the whole economy: their
-	# income alone barely sustains a small army. Captured towns are where real
-	# spending power comes from — the map is the economy.
+	# Hub-and-spoke economy: the CAPITAL is the engine. Towns trickle — they're
+	# forward tanks that only matter when stock is HAULED to them (engineers
+	# delivering, trains automating the run).
 	if capital:
-		city.resource_comp.replenish_rate = 50
+		city.resource_comp.replenish_rate = 80
 		city.scale = Vector2(1.2, 1.2)
 	else:
 		city.resource_comp.set_max_resources(400)
-		city.resource_comp.replenish_rate = 40
-		city.resource_comp.resources = 400
+		city.resource_comp.replenish_rate = 5
+		city.resource_comp.resources = 120
 		city.scale = Vector2(0.85, 0.85)
 
 	match team:
@@ -242,7 +253,8 @@ func _resolve_spawn_hex(near):
 	return _free_hex_near(center)
 
 func _free_hex_near(center: Vector2i):
-	for adj in HEX.axial_neighbours(center):
+	# axial_radius is ordered nearest-first, so adjacent hexes are preferred
+	for adj in HEX.axial_radius(center, 2):
 		if not s.grid.Grid.has(adj): continue
 		if get_piece(adj) != null: continue
 		if s.rail_network.rail_hexes.has(adj): continue
@@ -250,6 +262,161 @@ func _free_hex_near(center: Vector2i):
 		if s.terrain.is_mountain(adj): continue
 		return adj
 	return null
+
+# ── Garrison rest (rotation) ──────────────────────────────────────────────────
+
+func garrison_unit(unit: Node2D) -> bool:
+	## Sends a worn division into an adjacent friendly city to rest for
+	## REST_WEEKS. Off the board, safe — unless the city falls, then it's lost.
+	var city := _adjacent_friendly_city(unit)
+	if city == null:
+		Events.notify("No adjacent friendly city to rest in.")
+		return false
+
+	var hex = unit.get_hex()
+	if hex != null and s.grid.Grid.has(hex):
+		s.grid.set_piece(hex, null)
+		s.grid.enable_hex(hex)
+	unit.movement_comp.hex = null
+	unit.clear_movement()
+	unit.set_attack_target(null)
+	unit.visible = false
+	units.erase(unit)
+
+	if not garrisons.has(city):
+		garrisons[city] = []
+	garrisons[city].append({ "unit": unit, "weeks": REST_WEEKS })
+	Events.notify("%s stands down in %s (%d weeks)." % [unit.name, city.name, REST_WEEKS])
+	s.fow.update_fow()
+	return true
+
+func tick_garrisons() -> void:
+	for city in garrisons.keys():
+		if not is_instance_valid(city):
+			garrisons.erase(city)
+			continue
+		var entries: Array = garrisons[city]
+		for i in range(entries.size() - 1, -1, -1):
+			entries[i]["weeks"] -= 1
+			if entries[i]["weeks"] <= 0:
+				if _redeploy(entries[i]["unit"], city):
+					entries.remove_at(i)
+				else:
+					entries[i]["weeks"] = 1   # no room yet — try again next week
+		if entries.is_empty():
+			garrisons.erase(city)
+
+func _redeploy(unit: Node2D, city: Node2D) -> bool:
+	var hex = _free_hex_near(city.get_hex())
+	if hex == null or not is_instance_valid(unit):
+		return hex != null
+	units.append(unit)
+	unit.visible = true
+	unit.move_to(hex)
+	unit.reset_deployment()
+	unit.unfreeze()
+	# Refit from the city's actual stores — rest costs the economy
+	var need: int = unit.get_max_resources() - unit.get_resources()
+	var take: int = mini(need, city.get_resources())
+	if take > 0:
+		city.deplete(take)
+		unit.replenish(take)
+		unit.mark_resupplied()
+	if unit.team == 1:
+		Events.notify("%s returns to the field, rested." % unit.name)
+	s.fow.update_fow()
+	return true
+
+func garrisoned_in(city: Node2D) -> Array:
+	return garrisons.get(city, [])
+
+func _on_city_changed_hands(city: Node2D, _by_team: int, _prev: int) -> void:
+	_lose_garrison(city, "fall")
+
+func _lose_garrison(city: Node2D, _why: String) -> void:
+	if not garrisons.has(city):
+		return
+	for entry in garrisons[city]:
+		var u = entry["unit"]
+		if is_instance_valid(u):
+			Events.report("%s was lost in the fall of %s." % [u.name, city.name])
+			u.queue_free()
+	garrisons.erase(city)
+
+func _adjacent_friendly_city(unit: Node2D) -> Node2D:
+	var hex = unit.get_hex()
+	if hex == null: return null
+	for adj in HEX.axial_neighbours(hex):
+		if not s.grid.Grid.has(adj): continue
+		var p = s.grid.get_piece(adj)
+		if p is City and p.team == unit.team:
+			return p
+	return null
+
+# ── Hauling & harassment ──────────────────────────────────────────────────────
+
+func deliver_cargo(unit: Node2D) -> void:
+	## Engineers unload everything above their reserve into an adjacent
+	## friendly city. The explicit half of the supply line (trains automate it).
+	var city := _adjacent_friendly_city(unit)
+	if city == null:
+		Events.notify("No adjacent friendly city to deliver to.")
+		return
+	var deposit: int = mini(unit.get_resources() - ENGINEER_RESERVE,
+		city.get_max_resources() - city.get_resources())
+	if deposit <= 0:
+		Events.notify("Nothing to deliver (or %s is full)." % city.name)
+		return
+	unit.deplete(deposit)
+	city.replenish(deposit)
+	Events.notify("%s delivered %d supplies to %s." % [unit.name, deposit, city.name])
+
+func harass_haulers() -> void:
+	## Partisans bleed supply convoys that end the week on hostile paint, or
+	## near a holdout enemy city behind the line. Friendly paint is safe;
+	## no-man's-land is clean — its danger is the guns pointing at it.
+	for unit in units:
+		if not is_instance_valid(unit): continue
+		var sup = unit.get_node_or_null("Resupply")
+		if sup == null or sup.supplier_rank < 2: continue   # only haulers
+		var hex = unit.get_hex()
+		if hex == null: continue
+
+		var hostile_ground: bool = s.control.is_hostile_ground(hex, unit.team)
+		if not hostile_ground and not _near_holdout_city(hex, unit.team):
+			continue
+		var loss: int = mini(HARASSMENT, unit.get_resources() - 1)
+		if loss > 0:
+			unit.deplete(loss)
+			if unit.team == 1:
+				Events.report("Partisans harassed %s — %d supplies lost." % [unit.name, loss])
+
+func _near_holdout_city(hex, team: int) -> bool:
+	for c in cities:
+		if not is_instance_valid(c): continue
+		if not Sides.hostile(team, c.team): continue
+		if not c.cut_off: continue
+		if HEX.axial_distance(hex, c.get_hex()) <= 2:
+			return true
+	return false
+
+# ── Sieges ────────────────────────────────────────────────────────────────────
+
+func check_sieges() -> void:
+	## A city cut off from its capital and starved empty eventually yields to
+	## whoever surrounds it — sieges end without a final assault.
+	for city in cities.duplicate():
+		if not is_instance_valid(city) or city.is_capital: continue
+		if city.cut_off and city.get_resources() <= 0:
+			city.surrender_weeks += 1
+			if city.surrender_weeks == 1 and Sides.side_of(city.team) == 2:
+				Events.notify("%s is starving under siege." % city.name)
+			if city.surrender_weeks >= SURRENDER_WEEKS:
+				var captor: int = 1 if Sides.side_of(city.team) == 2 else 2
+				Events.report("%s surrendered after a %d-week siege." % [city.name, SURRENDER_WEEKS])
+				city.capture(captor)
+		else:
+			city.surrender_weeks = 0
 
 # ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -308,11 +475,13 @@ func kill(dead_piece: Node2D) -> void:
 
 	if dead_piece in cities:
 		cities.erase(dead_piece)
+		_lose_garrison(dead_piece, "destruction")
 		if dead_piece.is_capital:
-			Events.game_over.emit(dead_piece.team == 1)
+			Events.game_over.emit(dead_piece.team == 1, "%s has fallen. The war is over." % dead_piece.name)
 	else:
 		units.erase(dead_piece)
 		trains.erase(dead_piece)
 
+	s.modifiers.remove_modifier("fatigue_%d" % dead_piece.get_instance_id())
 	Events.unit_died.emit(dead_piece)
 	dead_piece.queue_free()

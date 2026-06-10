@@ -54,6 +54,8 @@ func move_to(new_hex, grid) -> bool:
 	grid.disable_hex(new_hex)
 	set_hex(new_hex, grid)
 	piece.freeze()
+	if piece.has_method("on_moved"):
+		piece.on_moved()   # artillery packs up, etc.
 	_withdrawal_fire(old_hex, new_hex, grid)
 	return true
 
@@ -63,8 +65,9 @@ func _withdrawal_fire(old_hex, new_hex, grid) -> void:
 	for adj in HEX.axial_neighbours(old_hex):
 		if not grid.Grid.has(adj): continue
 		var e = grid.get_piece(adj)
-		if e == null or e.team == piece.team: continue
+		if e == null or not Sides.hostile(piece.team, e.team): continue
 		if not (e.has_method("is_combatant") and e.is_combatant()): continue
+		if not e.can_fire(): continue                               # packed-up guns can't snipe
 		if HEX.axial_distance(e.get_hex(), new_hex) <= 1: continue  # still in contact — no shot
 
 		var dmg = int(round(e.get_damage() * 0.5))
@@ -130,10 +133,10 @@ func _auto_pathing(grid):
 			move_to(next_hex, grid)
 		elif piece_in_way is City:
 			clear_movement()   # arrived next to the target city, or blocked by one
-		elif piece_in_way.team != piece.team:
+		elif Sides.hostile(piece.team, piece_in_way.team):
 			clear_movement()   # enemy in the way: stop and let the player decide
-		# Friendly unit in the way: hold this turn; a later movement pass (or
-		# tomorrow) will find the hex free or route around it.
+		# Friendly/allied unit in the way: hold this turn; a later movement
+		# pass (or tomorrow) will find the hex free or route around it.
 
 func _manual_pathing(grid):
 	var next_hex = path[0]
@@ -144,6 +147,6 @@ func _manual_pathing(grid):
 			path.pop_front()
 	elif piece_in_way is City:
 		clear_movement()
-	elif piece_in_way.team != piece.team:
+	elif Sides.hostile(piece.team, piece_in_way.team):
 		clear_movement()
 	# Friendly unit in the way: hold position this turn, try again tomorrow.

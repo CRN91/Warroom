@@ -14,9 +14,33 @@ var s: GameServices
 var path_line: Line2D
 var selected_unit: Node2D = null
 
+# Shuttle-route picking: set by the panel's "Set Route" button
+var shuttle_engineer: Node2D = null
+var shuttle_src: Node2D = null
+
 func setup(services: GameServices, p_path_line: Line2D) -> void:
 	s = services
 	path_line = p_path_line
+	path_line.width = _board_metric() * 0.04   # scale the preview line to the board
+
+func _board_metric() -> float:
+	## Distance between adjacent hex centres — the board's one true scale.
+	for hex in s.grid.Grid:
+		for nb in HEX.axial_neighbours(hex):
+			if s.grid.Grid.has(nb):
+				return s.grid.get_hex_pos(hex).distance_to(s.grid.get_hex_pos(nb))
+	return 500.0
+
+func begin_shuttle_pick(engineer: Node2D) -> void:
+	shuttle_engineer = engineer
+	shuttle_src = null
+	Events.notify("Supply run: click the SOURCE city (Esc to cancel).")
+
+func _cancel_shuttle_pick() -> void:
+	if shuttle_engineer != null:
+		Events.notify("Supply run cancelled.")
+	shuttle_engineer = null
+	shuttle_src = null
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +66,20 @@ func _on_select(hex: Vector2i) -> void:
 		return
 	s.grid.select_hex(HEX.axial_to_oddr(hex))
 	var clicked_piece = s.board.get_piece(hex)
+
+	# Mid shuttle-route pick: the next two city clicks define the run
+	if shuttle_engineer != null:
+		if is_instance_valid(shuttle_engineer) and clicked_piece is City and clicked_piece.team == 1:
+			if shuttle_src == null:
+				shuttle_src = clicked_piece
+				Events.notify("Source: %s. Now click the DESTINATION city." % clicked_piece.name)
+			elif clicked_piece != shuttle_src:
+				shuttle_engineer.set_shuttle(shuttle_src, clicked_piece)
+				shuttle_engineer = null
+				shuttle_src = null
+		else:
+			_cancel_shuttle_pick()
+		return
 
 	if selected_unit != null and not is_instance_valid(selected_unit):
 		selected_unit = null
@@ -93,6 +131,14 @@ func _on_key(keycode: int, hex: Vector2i) -> void:
 			if selected_unit and is_instance_valid(selected_unit) and selected_unit.is_combatant():
 				selected_unit.clear_attack_target()
 				s.ui.show_stats(selected_unit)
+		KEY_D:
+			if selected_unit and is_instance_valid(selected_unit) and selected_unit is Artillery:
+				if selected_unit.deployed:
+					selected_unit.pack_up()
+					Events.notify("%s limbers up — mobile, cannot fire." % selected_unit.name)
+				else:
+					selected_unit.try_deploy()
+				s.ui.show_stats(selected_unit)
 		KEY_R:
 			if s.grid.Grid.has(hex):
 				s.rail_network.toggle_rail(hex)
@@ -101,7 +147,9 @@ func _on_key(keycode: int, hex: Vector2i) -> void:
 		KEY_F3:
 			s.ui.toggle_debug()
 		KEY_ESCAPE:
-			if not s.rail_network.building_route.is_empty():
+			if shuttle_engineer != null:
+				_cancel_shuttle_pick()
+			elif not s.rail_network.building_route.is_empty():
 				s.rail_network.cancel_rail_build()
 			else:
 				deselect()
@@ -158,9 +206,11 @@ func _play_selected(hex: Vector2i) -> void:
 
 	var dist: int = HEX.axial_distance(active_hex, hex)
 
-	if active_unit.team != clicked.team:
+	if Sides.hostile(active_unit.team, clicked.team):
 		if active_unit.is_combatant() and dist <= active_unit.get_attack_range():
-			if dist > 1 and s.terrain.blocks_line_of_fire(active_hex, hex):
+			if not active_unit.can_fire():
+				Events.notify("%s must set up first (D)." % active_unit.name)
+			elif dist > 1 and s.terrain.blocks_line_of_fire(active_hex, hex):
 				Events.notify("Line of fire blocked by a mountain.")
 			else:
 				active_unit.set_attack_target(clicked)
@@ -218,6 +268,8 @@ func _handle_movement_command(unit: Node2D, target_hex: Vector2i) -> void:
 		if probe.size() < 2 and unit.get_hex() != target_hex:
 			Events.notify("No route to that hex.")
 			return
+		if unit is Engineers and unit.has_shuttle():
+			unit.clear_shuttle()   # manual orders override the standing run
 		unit.clear_movement()
 		unit.set_destination(target_hex)
 		return
