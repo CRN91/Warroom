@@ -14,7 +14,7 @@ func process_resupply(grid) -> void:
 	if not can_receive:
 		return
 	var hex = _piece.get_hex()
-	if not hex:
+	if hex == null:   # NOT `if not hex` — Vector2i(0,0) is falsy!
 		return
 
 	var best_donor: Node2D = null

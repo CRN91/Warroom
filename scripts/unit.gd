@@ -67,7 +67,9 @@ func on_moved():
 	pass
 
 func process_movement():
-	if not get_hex() or is_frozen(): return
+	# Explicit null check: Vector2i(0,0) is FALSY in GDScript, so `if not
+	# get_hex()` permanently paralysed any unit standing on the centre hex.
+	if get_hex() == null or is_frozen(): return
 	movement_comp.process_movement(grid)
 
 func set_destination(hex):

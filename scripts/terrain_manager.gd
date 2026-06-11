@@ -65,24 +65,19 @@ func generate(opts: Dictionary) -> void:
 	if opts.has("seed"):
 		seed(int(opts["seed"]))
 
-	_generate_river(capital_hexes, city_hexes, bridges)
-	# Mountains must never bury a bridge's endpoints.
-	_generate_mountains(capital_hexes, city_hexes, occupied + _bridge_endpoint_hexes(), mfraction)
+	# Order matters: river first, mountains second, and the starting bridge(s)
+	# LAST — so bridge placement can verify both banks are actually reachable
+	# (a city or mountain wall on the approach used to seal the only crossing).
+	_generate_river(capital_hexes)
+	_generate_mountains(capital_hexes, city_hexes, occupied, mfraction)
+	_place_starting_bridges(bridges, capital_hexes, city_hexes)
 	queue_redraw()
 
-func _bridge_endpoint_hexes() -> Array:
-	var out: Array = []
-	for k in river.keys():
-		var e: Dictionary = river[k]
-		if e["bridge"]:
-			out.append(e["a"])
-			out.append(e["b"])
-	return out
-
-func _generate_river(capital_hexes: Array, city_hexes: Array, bridges: int) -> void:
+func _generate_river(capital_hexes: Array) -> void:
 	## The river is the meandering border between two territories, grown
 	## outward from each capital with random expansion order. Every run gets a
 	## different course; cities land on a random side of it.
+	## ALL crossings start cut — bridges are placed in a later, validated pass.
 	var side: Dictionary = _grow_territories(capital_hexes)
 	territory = side
 
@@ -95,28 +90,66 @@ func _generate_river(capital_hexes: Array, city_hexes: Array, bridges: int) -> v
 			seen[k] = true
 			if side.get(hex, 0) != side.get(nb, 0):
 				river[k] = { "a": hex, "b": nb, "bridge": false, "broken": false }
+				grid.disconnect_hexes(hex, nb)
 
-	if bridges > 0 and river.size() > 0:
-		# Pre-built starting bridge(s): never on a city hex, placed at the
-		# crossing closest to a city so both sides can reach the contested middle.
-		var candidate_edges = []
-		for k in river.keys():
-			var e = river[k]
-			if not e["a"] in city_hexes and not e["b"] in city_hexes:
-				candidate_edges.append(k)
+func _place_starting_bridges(count: int, capital_hexes: Array, city_hexes: Array) -> void:
+	## Picks crossing(s) AFTER mountains and city sites exist, and only where
+	## both banks are genuinely reachable — never again a bridge whose only
+	## approach runs through a city hex or a mountain wall.
+	if count <= 0 or river.is_empty():
+		return
 
-		candidate_edges.sort_custom(func(x, y): return _edge_city_dist(river[x], city_hexes) < _edge_city_dist(river[y], city_hexes))
+	var blocked: Array = capital_hexes + city_hexes   # pieces will stand here
+	var reach: Dictionary = {}
+	for cap in capital_hexes:
+		var r := _reachable_from(cap, blocked)
+		for h in r:
+			reach[h] = true
 
-		for i in range(min(bridges, candidate_edges.size())):
-			var k = candidate_edges[i]
-			river[k]["bridge"] = true
-			river[k]["broken"] = false
-
-	# Apply the cut to astar so pathfinding (and the AI) respects it.
+	var candidates: Array = []
 	for k in river.keys():
 		var e: Dictionary = river[k]
-		if not e["bridge"]:
-			grid.disconnect_hexes(e["a"], e["b"])
+		if e["a"] in blocked or e["b"] in blocked: continue
+		if is_mountain(e["a"]) or is_mountain(e["b"]): continue
+		if not (reach.has(e["a"]) and reach.has(e["b"])): continue
+		candidates.append(k)
+
+	# Prefer crossings near the contested middle (closest to a city)
+	candidates.sort_custom(func(x, y): return _edge_city_dist(river[x], city_hexes) < _edge_city_dist(river[y], city_hexes))
+
+	if candidates.is_empty():
+		# Degenerate map: fall back to any non-city, non-mountain edge so a
+		# crossing always exists.
+		for k in river.keys():
+			var e: Dictionary = river[k]
+			if e["a"] in blocked or e["b"] in blocked: continue
+			if is_mountain(e["a"]) or is_mountain(e["b"]): continue
+			candidates.append(k)
+
+	for i in range(mini(count, candidates.size())):
+		var k: String = candidates[i]
+		river[k]["bridge"] = true
+		river[k]["broken"] = false
+		grid.connect_hexes(river[k]["a"], river[k]["b"])
+
+func _reachable_from(start: Vector2i, blocked: Array) -> Dictionary:
+	## Hexes a ground unit could actually walk to from `start`: respects
+	## mountains, uncrossable river edges, and treats city sites as walls
+	## (pieces can never pass through them). `start` itself may be a city —
+	## flood expands outward from it regardless.
+	var seen: Dictionary = { start: true }
+	var stack: Array = [start]
+	while stack.size() > 0:
+		var cur: Vector2i = stack.pop_back()
+		for nb in HEX.axial_neighbours(cur):
+			if seen.has(nb): continue
+			if not grid.Grid.has(nb): continue
+			if nb in blocked: continue
+			if not is_passable(nb): continue
+			if not is_crossable(cur, nb): continue
+			seen[nb] = true
+			stack.append(nb)
+	return seen
 
 func _grow_territories(capital_hexes: Array) -> Dictionary:
 	## Multi-source random flood fill: each capital claims hexes outward in a
