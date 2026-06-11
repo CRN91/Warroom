@@ -293,13 +293,15 @@ func garrison_unit(unit: Node2D) -> bool:
 		Events.notify("No adjacent friendly city to rest in.")
 		return false
 
+	# Clear orders FIRST — these refresh intent arrows, which need a valid
+	# hex. Only then take the unit off the board.
+	unit.clear_movement()
+	unit.set_attack_target(null)
 	var hex = unit.get_hex()
 	if hex != null and s.grid.Grid.has(hex):
 		s.grid.set_piece(hex, null)
 		s.grid.enable_hex(hex)
 	unit.movement_comp.hex = null
-	unit.clear_movement()
-	unit.set_attack_target(null)
 	unit.visible = false
 	units.erase(unit)
 

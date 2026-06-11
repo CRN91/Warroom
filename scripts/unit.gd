@@ -407,6 +407,11 @@ func refresh_intent():
 	_target_piece = null
 	_resupply_piece = null
 
+	# Off the board (garrisoned, mid-spawn): no hex, no intents to draw.
+	if get_hex() == null or not is_instance_valid(grid):
+		queue_redraw()
+		return
+
 	# 1. Movement intent — mirror _auto_pathing exactly (route around units
 	# first, only path through traffic when boxed in) so the arrow is honest.
 	if movement_comp and movement_comp.path.size() > 0:
