@@ -83,10 +83,12 @@ func _withdrawal_fire(old_hex, new_hex, grid) -> void:
 
 var goal = null              # auto-goal: re-routes around traffic each day
 var path: Array = []         # manual path: strict list of hexes to walk
+var _held_turns: int = 0     # consecutive weeks stuck behind friendly traffic
 
 func set_goal(target_hex):
 	path.clear()
 	goal = target_hex
+	_held_turns = 0
 
 func add_waypoint(target_hex):
 	goal = null
@@ -95,6 +97,7 @@ func add_waypoint(target_hex):
 func clear_movement():
 	goal = null
 	path.clear()
+	_held_turns = 0
 
 func process_movement(grid):
 	"""Walks one step along the manual path, or one step toward the auto-goal."""
@@ -130,13 +133,24 @@ func _auto_pathing(grid):
 		var piece_in_way = grid.get_piece(next_hex)
 
 		if piece_in_way == null:
-			move_to(next_hex, grid)
+			if move_to(next_hex, grid):
+				_held_turns = 0
 		elif piece_in_way is City:
 			clear_movement()   # arrived next to the target city, or blocked by one
 		elif Sides.hostile(piece.team, piece_in_way.team):
 			clear_movement()   # enemy in the way: stop and let the player decide
-		# Friendly/allied unit in the way: hold this turn; a later movement
-		# pass (or tomorrow) will find the hex free or route around it.
+		else:
+			# Friendly/allied unit in the way: hold, but never silently forever
+			_held_turns += 1
+			if _held_turns == 3 and piece.team == 1:
+				Events.notify("%s is held up — friendly units are blocking its route." % piece.name)
+	else:
+		# NO route exists, even through traffic — rivers without a bridge,
+		# mountain walls. Silence here looked like the unit being "stuck";
+		# say it plainly and clear the order so the player re-decides.
+		if piece.team == 1:
+			Events.notify("%s: no route to its destination (river or mountains in the way?). Orders cleared." % piece.name)
+		clear_movement()
 
 func _manual_pathing(grid):
 	var next_hex = path[0]
@@ -145,8 +159,25 @@ func _manual_pathing(grid):
 	if piece_in_way == null:
 		if move_to(next_hex, grid):
 			path.pop_front()
+			_held_turns = 0
 	elif piece_in_way is City:
 		clear_movement()
 	elif Sides.hostile(piece.team, piece_in_way.team):
 		clear_movement()
-	# Friendly unit in the way: hold position this turn, try again tomorrow.
+	else:
+		# Friendly unit parked on the path. Hold once, then try to REROUTE
+		# around it to the path's destination — a manual path must never
+		# strand a unit forever behind a friend who isn't moving.
+		_held_turns += 1
+		if _held_turns >= 2:
+			var dest = path.back()
+			grid.sync_pathing([get_hex(), dest])
+			var detour = grid.get_map_path(get_hex(), dest)
+			grid.sync_pathing()
+			if detour.size() > 1:
+				path = detour.slice(1)
+				_held_turns = 0
+				if piece.team == 1:
+					Events.notify("%s is rerouting around friendly traffic." % piece.name)
+			elif _held_turns == 2 and piece.team == 1:
+				Events.notify("%s is held up — friendly units are blocking its route." % piece.name)

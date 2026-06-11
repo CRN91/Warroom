@@ -3,10 +3,18 @@
 [ext_resource type="Script" uid="uid://fkunv0fex18c" path="res://scripts/City.gd" id="1_0r7ut"]
 [ext_resource type="PackedScene" uid="uid://dagna7awd0a82" path="res://scenes/movement_comp.tscn" id="2_ykowy"]
 [ext_resource type="PackedScene" uid="uid://byma8yx68e66i" path="res://scenes/resources_comp.tscn" id="3_5aspk"]
-[ext_resource type="Texture2D" uid="uid://x3g5djhymwp1" path="res://assets/cityg.png" id="4_v51tb"]
+[ext_resource type="Shader" uid="uid://b0hwel0n5b5n3" path="res://shaders/infantry.gdshader" id="4_2jj31"]
+[ext_resource type="Texture2D" uid="uid://fnjb62jbtnrb" path="res://assets/city.png" id="5_drx7m"]
 [ext_resource type="Script" uid="uid://bsdagsecf6mc4" path="res://scripts/resupply_comp.gd" id="5_oacpt"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_8uhr2"]
+shader = ExtResource("4_2jj31")
+shader_parameter/origin_color = Color(1, 0, 1, 1)
+shader_parameter/new_color = Color(1, 1, 1, 1)
+shader_parameter/tolerance = 0.1
+
 [node name="City" type="Node2D" unique_id=765985161]
+scale = Vector2(1.5, 1.5)
 script = ExtResource("1_0r7ut")
 hex_tile = Vector2i(-2, 4)
 
@@ -17,7 +25,8 @@ MAX_RESC = 1000
 replenish_rate = 100
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=446907683]
-texture = ExtResource("4_v51tb")
+material = SubResource("ShaderMaterial_8uhr2")
+texture = ExtResource("5_drx7m")
 
 [node name="Resupply" type="Node2D" parent="." unique_id=1884097120]
 script = ExtResource("5_oacpt")

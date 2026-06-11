@@ -143,11 +143,9 @@ func _spawn_starting_forces():
 		var t_side: int = int(terrain_manager.territory.get(town_hexes[i], 0))
 		board.add_city(names[i], town_hexes[i], 1 if t_side == 0 else 2)
 
-	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_a"], 1)
-	board.add_unit("infantry", STARTING_UNIT_HEXES["player_infantry_b"], 1)
-	board.add_unit("artillery", STARTING_UNIT_HEXES["player_artillery"], 1)
-	board.add_unit("logistics", STARTING_UNIT_HEXES["player_engineers"], 1)
-
+	# The player's army arrives via the DOCTRINE choice (first card of the
+	# run, shown by TurnManager.prepare_first_turn) — pick your loadout,
+	# FTL-style. The enemy fields a standard corps.
 	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_a"], 2)
 	board.add_unit("infantry", STARTING_UNIT_HEXES["enemy_infantry_b"], 2)
 	board.add_unit("artillery", STARTING_UNIT_HEXES["enemy_artillery"], 2)

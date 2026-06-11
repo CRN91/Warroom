@@ -28,10 +28,14 @@ func process_resupply(grid) -> void:
 			continue
 		if candidate.team != _piece.team:
 			continue
-		# Haulers (engineers/trains) auto-load only at the CAPITAL — otherwise
-		# a truck parked by a town would siphon back its own deliveries.
-		if supplier_rank >= 2 and candidate is City and not candidate.is_capital:
-			continue
+		# Haulers may auto-load from any friendly city EXCEPT one they've
+		# delivered to (no siphoning back their own deliveries). Trains keep
+		# the stricter capital-only rule — their loop is load-at-capital.
+		if supplier_rank >= 2 and candidate is City:
+			if _piece is Train and not candidate.is_capital:
+				continue
+			if candidate == _piece.get("recent_deposit"):
+				continue
 		var donor_supply = candidate.get_node_or_null("Resupply")
 		if donor_supply == null:
 			continue

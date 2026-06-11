@@ -186,16 +186,27 @@ const COLOR_ENEMY := Color(1.00, 0.74, 0.72)    # clear red cast on theirs
 const COLOR_NML := Color(0.88, 0.88, 0.88)      # slightly dimmed no-man's-land
 const LOC_LINE := Color(0.45, 0.45, 0.45)       # multiplies to a firm dark line
 
+# Display modes (C key): 0 = tints + line, 1 = front line only, 2 = hidden
+var display_mode: int = 0
+
+func cycle_display() -> void:
+	display_mode = (display_mode + 1) % 3
+	queue_redraw()
+	Events.notify(["Territory: tints + front line", "Territory: front line only",
+		"Territory: hidden"][display_mode])
+
 func _draw() -> void:
 	if s == null: return
+	if display_mode == 2: return
 
-	for hex in owner_map:
-		var color: Color
-		match owner_map[hex]:
-			1: color = COLOR_PLAYER
-			2: color = COLOR_ENEMY
-			_: color = COLOR_NML
-		draw_colored_polygon(_hex_corners(hex), color)
+	if display_mode == 0:
+		for hex in owner_map:
+			var color: Color
+			match owner_map[hex]:
+				1: color = COLOR_PLAYER
+				2: color = COLOR_ENEMY
+				_: color = COLOR_NML
+			draw_colored_polygon(_hex_corners(hex), color)
 
 	# The front line: heavier stroke wherever differing paint meets
 	var drawn: Dictionary = {}

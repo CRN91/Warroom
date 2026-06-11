@@ -16,6 +16,7 @@ var HEX = HEXGRID.new()
 var grid: Node
 var modifiers: ModifierManager = null
 var terrain: TerrainManager = null
+var recent_deposit: Node2D = null   # last city this hauler delivered to (no auto-pull from it)
 
 func setup(p_grid: Node):
 	grid = p_grid
@@ -424,9 +425,11 @@ func refresh_intent():
 		if apath.size() > 1:
 			_next_move_hex = apath[1]
 
-	# 2. If not moving: attack intent
+	# 2. If not moving: attack intent — only ever drawn at a HOSTILE target,
+	# so a stale lock (e.g. a city that changed hands) can't render an arrow
 	if _next_move_hex == null and attack_comp:
-		_target_piece = attack_comp.target if is_instance_valid(attack_comp.target) else null
+		var t = attack_comp.target
+		_target_piece = t if (is_instance_valid(t) and Sides.hostile(team, t.team)) else null
 
 	# 3. If not moving or attacking: resupply tether
 	if _next_move_hex == null and _target_piece == null and resupply_comp and resupply_comp.can_receive:

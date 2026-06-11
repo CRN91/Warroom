@@ -29,6 +29,7 @@ func advance_day() -> void:
 	Events.day_advanced.emit(day)
 
 	s.fow.clear_flashes()
+	s.board.scrub_grid()
 	_unfreeze_all()
 	s.modifiers.tick(day)
 	s.weather.on_day_tick()
@@ -111,11 +112,16 @@ func _max_city_funds() -> int:
 	return funds
 
 func prepare_first_turn() -> void:
-	## Called once after setup so intent arrows are correct before turn 1.
+	## Called once after setup: telegraphs + intents, then the run's first
+	## decision — which army high command hands you (the doctrine pick).
 	_telegraph_attacks()
 	for unit in s.board.units:
 		if is_instance_valid(unit) and unit.has_method("refresh_intent"):
 			unit.refresh_intent()
+
+	var doctrine = s.card_manager.doctrine_offer()
+	s.ui.card_ui.display_card(doctrine, -1)
+	Events.decision_pending.emit(true)
 
 func _telegraph_attacks() -> void:
 	## Every combatant locks in the target it would shoot next turn, so the

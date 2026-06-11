@@ -23,11 +23,14 @@ func has_shuttle() -> bool:
 func set_shuttle(src: Node2D, dst: Node2D) -> void:
 	shuttle_src = src
 	shuttle_dst = dst
+	if team != 1:
+		_heading_out = get_resources() > get_max_resources() / 2
+		return   # the enemy doesn't announce its supply runs
 	_heading_out = get_resources() > get_max_resources() / 2
 	Events.notify("%s: supply run %s → %s established." % [name, src.name, dst.name])
 
 func clear_shuttle(quiet: bool = false) -> void:
-	if has_shuttle() and not quiet:
+	if has_shuttle() and not quiet and team == 1:
 		Events.notify("%s: supply run cancelled." % name)
 	shuttle_src = null
 	shuttle_dst = null

@@ -331,6 +331,45 @@ func _chain_active(set_name: String) -> bool:
 				return true
 	return false
 
+func doctrine_offer() -> Dictionary:
+	## The first decision of every run: which army did high command give you?
+	## Different tools force different strategies — same war, new run.
+	var near := "player_capital"
+	return {
+		"id": "doctrine_choice",
+		"type": "decision",
+		"text": "High command confirms your appointment. Three corps stand ready — the war office will release ONE to your command.",
+		"choice_a": {
+			"label": "Field Army — 2 infantry, artillery, engineers. Flexible.",
+			"effects": [
+				{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "artillery", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "logistics", "team": 1, "near": near },
+			],
+		},
+		"choice_b": {
+			"label": "Iron Rain — 2 artillery, infantry, engineers. The guns decide; screen them and keep them fed.",
+			"effects": [
+				{ "type": "spawn_unit", "unit": "artillery", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "artillery", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "logistics", "team": 1, "near": near },
+			],
+		},
+		"choice_c": {
+			"label": "Railway Corps — infantry, artillery, 2 engineers, a train and 5 rails. Win by logistics.",
+			"effects": [
+				{ "type": "spawn_unit", "unit": "infantry", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "artillery", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "logistics", "team": 1, "near": near },
+				{ "type": "spawn_unit", "unit": "logistics", "team": 1, "near": near },
+				{ "type": "grant_train", "amount": 1 },
+				{ "type": "grant_rails", "amount": 5 },
+			],
+		},
+	}
+
 # ── Shops & offers ────────────────────────────────────────────────────────────
 
 func _is_shop(card) -> bool:

@@ -44,6 +44,7 @@ var btn_route: Button = null
 var top_bar: PanelContainer = null
 var top_bar_lbl: Label = null
 var stock_lbl: Label = null
+var help_overlay: ControlsOverlay = null
 var toast_box: VBoxContainer = null
 var debug_lbl: Label = null
 
@@ -55,6 +56,10 @@ func setup(services: GameServices):
 	_build_debug_overlay()
 	_style_stats_panel()
 	_build_stats_extras()
+	_build_corner_buttons()
+
+	help_overlay = ControlsOverlay.new()
+	add_child(help_overlay)
 	panel.hide()
 	card_ui.hide()
 	nextdaybutton.pressed.connect(func(): next_day_requested.emit())
@@ -87,6 +92,58 @@ func _hud_style(alpha := 0.85) -> StyleBoxFlat:
 
 func _style_stats_panel():
 	panel.add_theme_stylebox_override("panel", _hud_style(0.92))
+
+# ── Corner buttons (help / menu) + version ────────────────────────────────────
+
+func _build_corner_buttons():
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	row.offset_left = -150
+	row.offset_top = 8
+	row.offset_right = -8
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 6)
+
+	var help_btn := Button.new()
+	help_btn.text = "?  Help"
+	help_btn.tooltip_text = "Controls & how to play (H)"
+	help_btn.pressed.connect(toggle_help)
+	row.add_child(help_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.text = "Menu"
+	menu_btn.tooltip_text = "Abandon this run and return to the title screen"
+	menu_btn.pressed.connect(func():
+		# Two-step confirm so one stray click can't torch a 40-week run
+		if menu_btn.text == "Menu":
+			menu_btn.text = "Abandon run?"
+			get_tree().create_timer(2.5).timeout.connect(func():
+				if is_instance_valid(menu_btn): menu_btn.text = "Menu")
+		else:
+			get_tree().paused = false
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	row.add_child(menu_btn)
+	add_child(row)
+
+	var version := Label.new()
+	version.text = Events.VERSION
+	version.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	version.offset_left = -160
+	version.offset_top = -26
+	version.offset_right = -8
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.modulate = Color(1, 1, 1, 0.4)
+	version.add_theme_font_size_override("font_size", 12)
+	version.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(version)
+
+func toggle_help():
+	if help_overlay:
+		help_overlay.toggle()
+
+func help_visible() -> bool:
+	return help_overlay != null and help_overlay.visible
 
 func _build_stats_extras():
 	var vbox = lbl_res.get_parent()
@@ -509,13 +566,26 @@ func show_game_over(player_lost: bool, day: int, headline: String = ""):
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(sub)
 
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 12)
+
 	var btn = Button.new()
 	btn.text = "Play Again"
 	btn.pressed.connect(func():
 		get_tree().paused = false
 		get_tree().reload_current_scene()
 	)
-	vbox.add_child(btn)
+	btn_row.add_child(btn)
+
+	var menu = Button.new()
+	menu.text = "Main Menu"
+	menu.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	btn_row.add_child(menu)
+	vbox.add_child(btn_row)
 
 	add_child(dim)
 

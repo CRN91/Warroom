@@ -13,7 +13,8 @@ const BASE_VISION := 2
 var grid: Node
 var rail_network: Node
 var board: Board
-var _flashed: Array = []   # pieces revealed by firing, until next turn
+var _flashed: Array = []            # pieces revealed by firing, until next turn
+var _revealed_hexes: Dictionary = {} # hexes lifted by cards (photo flights), until next turn
 
 func setup(_grid: Node, _rail_network: Node, _board: Board):
 	grid = _grid
@@ -27,6 +28,13 @@ func flash(piece: Node2D) -> void:
 
 func clear_flashes() -> void:
 	_flashed.clear()
+	_revealed_hexes.clear()
+
+func reveal_hexes(hexes: Array) -> void:
+	## Card-driven fog lift (photography flights): lasts until next turn.
+	for h in hexes:
+		_revealed_hexes[h] = true
+	update_fow()
 
 func update_fow():
 	var visible_hexes = _get_visible_hexes()
@@ -35,6 +43,7 @@ func update_fow():
 		var piece = grid.get_piece(hex)
 		if piece:
 			piece.visible = piece.team == 1 or visible_hexes.has(hex) \
+				or _revealed_hexes.has(hex) \
 				or (piece in _flashed and is_instance_valid(piece))
 
 	for hex in rail_network.rail_hexes:

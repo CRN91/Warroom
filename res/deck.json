@@ -252,6 +252,29 @@
 		  }
 		},
 		{
+		  "id": "decision_recon_flight",
+		  "type": "decision",
+		  "text": "The squadron has one photography aircraft fuelled and a clear sky over the enemy rear. The pilot waits on your word.",
+		  "protected": false,
+		  "weight": 1.5,
+		  "choice_a": {
+			"label": "Fly the mission",
+			"cost": 50,
+			"pay_from": "pick_city",
+			"effects": [
+			  {
+				"type": "reveal_area",
+				"near": "enemy_capital",
+				"radius": 3
+			  }
+			]
+		  },
+		  "choice_b": {
+			"label": "Too risky in this weather",
+			"effects": []
+		  }
+		},
+		{
 		  "id": "decision_artillery_barrage",
 		  "type": "decision",
 		  "text": "The gunners have shells stockpiled for a coordinated barrage. It would shake the enemy's whole line — and burn through supplies.",
@@ -1192,12 +1215,12 @@
 	  "startable": true,
 	  "cards": [
 		{
-		  "id": "shop_field_requisition",
+		  "id": "shop_offer_infantry",
 		  "type": "decision",
 		  "protected": false,
-		  "text": "A requisition officer can release units to a city's garrison — for a price. Which, if any?",
+		  "text": "A reserve infantry company is available for release to the front — this week only. The requisition officer is already checking his watch.",
 		  "choice_a": {
-			"label": "Infantry (600)",
+			"label": "Take them (600)",
 			"cost": 600,
 			"pay_from": "pick_city",
 			"effects": [
@@ -1210,7 +1233,17 @@
 			]
 		  },
 		  "choice_b": {
-			"label": "Artillery (900)",
+			"label": "We can't spare it",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_offer_artillery",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A battery of guns sits crated at the depot, promised to another front. The paperwork could be... redirected. Once.",
+		  "choice_a": {
+			"label": "Take the guns (900)",
 			"cost": 900,
 			"pay_from": "pick_city",
 			"effects": [
@@ -1222,8 +1255,18 @@
 			  }
 			]
 		  },
-		  "choice_c": {
-			"label": "Engineers (500)",
+		  "choice_b": {
+			"label": "Let them go",
+			"effects": []
+		  }
+		},
+		{
+		  "id": "shop_offer_engineers",
+		  "type": "decision",
+		  "protected": false,
+		  "text": "A company of engineers has finished their bridge downriver. They could be yours before high command reassigns them.",
+		  "choice_a": {
+			"label": "Take them (500)",
 			"cost": 500,
 			"pay_from": "pick_city",
 			"effects": [
@@ -1235,8 +1278,8 @@
 			  }
 			]
 		  },
-		  "choice_d": {
-			"label": "Nothing this time",
+		  "choice_b": {
+			"label": "Pass",
 			"effects": []
 		  }
 		},

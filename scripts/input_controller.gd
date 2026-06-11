@@ -121,6 +121,12 @@ func _on_mouse_moved(hex: Vector2i) -> void:
 		path_line.clear_points()
 
 func _on_key(keycode: int, hex: Vector2i) -> void:
+	# While the field manual is open it owns the keyboard
+	if s.ui.help_visible():
+		if keycode == KEY_H or keycode == KEY_ESCAPE:
+			s.ui.toggle_help()
+		return
+
 	match keycode:
 		KEY_M:
 			if selected_unit and is_instance_valid(selected_unit):
@@ -144,6 +150,10 @@ func _on_key(keycode: int, hex: Vector2i) -> void:
 				s.rail_network.toggle_rail(hex)
 		KEY_T:
 			s.rail_network.commit_rail_route()
+		KEY_C:
+			s.control.cycle_display()
+		KEY_H:
+			s.ui.toggle_help()
 		KEY_F3:
 			s.ui.toggle_debug()
 		KEY_ESCAPE:

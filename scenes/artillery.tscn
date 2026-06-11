@@ -17,7 +17,6 @@ shader_parameter/tolerance = 0.1
 [node name="Artillery" type="Node2D" unique_id=2061186961]
 scale = Vector2(7, 7)
 script = ExtResource("1_for5n")
-unit_type = null
 
 [node name="Movement" type="Node2D" parent="." unique_id=67435972]
 script = ExtResource("1_1bh05")

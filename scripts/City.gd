@@ -7,8 +7,7 @@ var original_texture: Texture2D
 var surrender_weeks: int = 0   # consecutive weeks cut off at zero stores
 
 func _ready():
-	if has_node("Sprite2D"):
-		original_texture = $Sprite2D.texture
+	_apply_team_shade()
 	update_ui()
 
 func next_day() -> bool:
@@ -46,12 +45,6 @@ func set_hex(hex):
 	return movement_comp.set_hex(hex, grid)
 
 # ── Team ──────────────────────────────────────────────────────────────────────
-
-func set_enemy():
-	if has_node("Sprite2D"):
-		$Sprite2D.texture = load("res://assets/cityr.png")
-	modulate = Color(1, 1, 1)
-	team = 2
 
 func set_neutral():
 	team = 0

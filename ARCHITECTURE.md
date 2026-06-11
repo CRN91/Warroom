@@ -80,6 +80,26 @@ city's actual stores on redeploy. **If the city falls while they rest, they
 are lost.** Max fatigue fires the deserters card (`unit_exhausted` trigger).
 The enemy fatigues too but never rests — long wars grind both sides down.
 
+## Run variance (FTL-style)
+
+- **Doctrine pick**: the first card of every run offers ONE of three corps —
+  Field Army (2 inf/arty/eng), Iron Rain (2 arty/inf/eng), Railway Corps
+  (inf/arty/2 eng + train + 5 rails). `CardManager.doctrine_offer`, shown by
+  `TurnManager.prepare_first_turn`. Enemy always fields a standard corps.
+- **Shops are single take-it-or-leave-it offers** (one unit type per card,
+  random which arrives, no-repeat, pity ≤10 weeks): risk it now or wait.
+- `reveal_area` effect type = photography flights: lifts fog around a point
+  until next turn (`decision_recon_flight` card pays 50 to photograph the
+  enemy capital). Use in cards: { "type": "reveal_area", "near": ..., "radius": N }.
+
+## Enemy AI behaviours
+
+Beyond charge-at-nearest: engineers run standing capital→neediest-town supply
+shuttles (same automation as the player's Set Route); divisions at fatigue
+stage 2+ rotate home and garrison (same rules, same risk); artillery packs up
+and falls back when enemies reach the muzzle. Posture-level AI (attack/hold/
+raid) is the next planned layer.
+
 ## Endgame: two victories
 
 - **Take the enemy capital** (lose yours = defeat), or
@@ -183,6 +203,8 @@ in hover tooltips. The frozen-unit dim was removed.
 | D | artillery: set up (costs the action) / pack up (free) |
 | R / T | plan rail on hovered hex (needs Engineers nearby) / commit or extend line |
 | Esc | also cancels a Set Route pick in progress |
+| C | cycle territory overlay: tints + line / line only / hidden |
+| H | field manual (how to play + controls) — also via the ? Help button |
 | F3 | debug overlay (modifiers, weather, deck size) |
 | Click rail hex with train selected | drive train manually |
 | Panel buttons | **Garrison** (rest in adjacent city), **Deliver** (engineers unload into city), **Set Route** (engineers: click source city, then destination — standing supply run; manual move orders cancel it) |

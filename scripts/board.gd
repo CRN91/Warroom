@@ -73,6 +73,7 @@ func register_city(city: Node2D) -> void:
 
 func _on_train_created(train: Node2D) -> void:
 	train.inject(s.grid, s.modifiers, s.terrain)
+	train._apply_team_shade()   # trains bypass add_unit, so shade them here
 	trains.append(train)
 	units.append(train)
 
@@ -112,12 +113,11 @@ func add_city(city_name: String, hex: Vector2i, team: int, capital: bool = false
 	# delivering, trains automating the run).
 	if capital:
 		city.resource_comp.replenish_rate = 80
-		city.scale = Vector2(1.2, 1.2)
 	else:
 		city.resource_comp.set_max_resources(400)
 		city.resource_comp.replenish_rate = 5
 		city.resource_comp.resources = 120
-		city.scale = Vector2(0.85, 0.85)
+	_fit_city_scale(city, capital)
 
 	match team:
 		2: city.set_enemy()
@@ -211,6 +211,20 @@ func generate_unit_name(type: String) -> String:
 		n = "%s %s %s" % [bits[0], NAME_REGIONS[randi() % NAME_REGIONS.size()], bits[1]]
 	return n
 
+# City art can be any resolution (32px pixel art, old 370px renders, anything):
+# the sprite is scaled so the city spans a consistent share of the hex.
+const CAPITAL_HEX_SHARE := 0.88   # capitals dominate their hex
+const TOWN_HEX_SHARE := 0.64      # towns sit smaller
+const HEX_WIDTH := 500.0          # world width of one hex cell
+
+func _fit_city_scale(city: Node2D, capital: bool) -> void:
+	var spr = city.get_node_or_null("Sprite2D")
+	if spr == null or spr.texture == null:
+		return
+	var art_w: float = maxf(1.0, spr.texture.get_width())
+	var target: float = HEX_WIDTH * (CAPITAL_HEX_SHARE if capital else TOWN_HEX_SHARE)
+	city.scale = Vector2.ONE * (target / art_w)
+
 func _grant_attack(piece: Node2D, spec: Dictionary) -> void:
 	## Gives a non-combat piece a real Attack component (e.g. the armoured
 	## train). Pair with add_tags: ["combatant"] so is_combatant() flips too.
@@ -227,27 +241,33 @@ func _grant_attack(piece: Node2D, spec: Dictionary) -> void:
 
 # ── Spawn-location helpers ────────────────────────────────────────────────────
 
-func _resolve_spawn_hex(near):
-	var center = null
+func resolve_center(near):
+	## Turns a card's "near" value into a hex: [q, r], "player_capital",
+	## "enemy_capital", "purchased_city", or a city name.
 	if near is Array and near.size() == 2:
-		center = Vector2i(int(near[0]), int(near[1]))
-		if s.grid.Grid.has(center) and get_piece(center) == null:
-			return center
-	elif near == "player_capital":
+		var hex := Vector2i(int(near[0]), int(near[1]))
+		return hex if s.grid.Grid.has(hex) else null
+	if near == "player_capital":
 		var capital := player_capital()
-		center = capital.get_hex() if capital else null
-	elif near == "enemy_capital":
+		return capital.get_hex() if capital else null
+	if near == "enemy_capital":
 		var capital := enemy_capital()
-		center = capital.get_hex() if capital else null
-	elif near == "purchased_city":
+		return capital.get_hex() if capital else null
+	if near == "purchased_city":
 		if purchase_city:
-			center = purchase_city.get_hex()
-		else:
-			var capital := player_capital()
-			center = capital.get_hex() if capital else null
-	else:
-		var c := find_city_by_name(str(near))
-		center = c.get_hex() if c else null
+			return purchase_city.get_hex()
+		var capital := player_capital()
+		return capital.get_hex() if capital else null
+	var c := find_city_by_name(str(near))
+	return c.get_hex() if c else null
+
+func _resolve_spawn_hex(near):
+	# Exact coordinates spawn on the spot when free
+	if near is Array and near.size() == 2:
+		var hex := Vector2i(int(near[0]), int(near[1]))
+		if s.grid.Grid.has(hex) and get_piece(hex) == null:
+			return hex
+	var center = resolve_center(near)
 	if center == null:
 		return null
 	return _free_hex_near(center)
@@ -286,7 +306,8 @@ func garrison_unit(unit: Node2D) -> bool:
 	if not garrisons.has(city):
 		garrisons[city] = []
 	garrisons[city].append({ "unit": unit, "weeks": REST_WEEKS })
-	Events.notify("%s stands down in %s (%d weeks)." % [unit.name, city.name, REST_WEEKS])
+	if unit.team == 1:
+		Events.notify("%s stands down in %s (%d weeks)." % [unit.name, city.name, REST_WEEKS])
 	s.fow.update_fow()
 	return true
 
@@ -332,6 +353,28 @@ func garrisoned_in(city: Node2D) -> Array:
 
 func _on_city_changed_hands(city: Node2D, _by_team: int, _prev: int) -> void:
 	_lose_garrison(city, "fall")
+	# Nobody keeps shelling a city that just joined their side: clear every
+	# stale lock on it the moment it flips (combat cleanup also does this,
+	# but clearing at the source keeps intent arrows honest immediately).
+	for unit in units:
+		if not is_instance_valid(unit): continue
+		var ac = unit.get("attack_comp")
+		if ac == null: continue
+		if (ac.target == city or ac.pending_attack == city) and not Sides.hostile(unit.team, city.team):
+			ac.clear_target()
+			if unit.has_method("refresh_intent"):
+				unit.refresh_intent()
+
+func scrub_grid() -> void:
+	## Safety sweep: if a freed piece ever leaks a reference into a grid cell,
+	## it blocks movement invisibly (freed != null) while drawing nothing.
+	## Clear any such ghosts each turn.
+	for hex in s.grid.Grid:
+		var p = s.grid.Grid[hex]["Piece"]
+		if p != null and not is_instance_valid(p):
+			s.grid.Grid[hex]["Piece"] = null
+			s.grid.enable_hex(hex)
+			push_warning("Board: cleared ghost piece at %s" % str(hex))
 
 func _lose_garrison(city: Node2D, _why: String) -> void:
 	if not garrisons.has(city):
@@ -369,7 +412,9 @@ func deliver_cargo(unit: Node2D) -> void:
 		return
 	unit.deplete(deposit)
 	city.replenish(deposit)
-	Events.notify("%s delivered %d supplies to %s." % [unit.name, deposit, city.name])
+	unit.recent_deposit = city   # don't auto-pull this delivery straight back out
+	if unit.team == 1:
+		Events.notify("%s delivered %d supplies to %s." % [unit.name, deposit, city.name])
 
 func harass_haulers() -> void:
 	## Partisans bleed supply convoys that end the week on hostile paint, or

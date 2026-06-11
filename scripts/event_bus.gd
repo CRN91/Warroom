@@ -1,6 +1,9 @@
 extends Node
 
 ## Global signal bus (autoloaded as `Events`).
+
+# One version string for the whole game (menu, HUD, feedback reports)
+const VERSION := "v0.1 — playtest"
 ##
 ## Systems emit facts about the world here; anything that cares subscribes.
 ## This is what lets e.g. City announce a capture without holding a reference

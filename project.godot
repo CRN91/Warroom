@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Warroom"
-run/main_scene="res://scenes/game.tscn"
+run/main_scene="res://scenes/main_menu.tscn"
 config/use_hidden_project_data_directory=false
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"

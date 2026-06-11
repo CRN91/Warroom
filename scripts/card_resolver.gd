@@ -82,6 +82,16 @@ func _resolve_one(effect: Dictionary) -> void:
 				effect["after_days"]
 			)
 
+		# ── Reconnaissance ───────────────────────────────────────────────────
+		"reveal_area":
+			# Lifts fog around a point until next turn (photography flights).
+			# { "type": "reveal_area", "near": "enemy_capital", "radius": 3 }
+			var center = s.board.resolve_center(effect.get("near", "enemy_capital"))
+			if center != null:
+				var hexes: Array = s.board.HEX.axial_radius(center, int(effect.get("radius", 2)))
+				hexes.append(center)
+				s.fow.reveal_hexes(hexes)
+
 		# ── Board changes ────────────────────────────────────────────────────
 		"spawn_unit":
 			s.board.spawn_unit(effect)
